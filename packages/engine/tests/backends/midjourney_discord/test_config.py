@@ -20,7 +20,6 @@ import pytest
 from cascade_img.backends.midjourney_discord.bridge import Config, MissingEnvError
 from cascade_img.instrumentation.runtime import clear, snapshot
 
-
 VALID_ENV = {
     "DISCORD_USER_TOKEN": "MTU.fake.token",
     "MJ_CHANNEL_ID": "123456789012345678",

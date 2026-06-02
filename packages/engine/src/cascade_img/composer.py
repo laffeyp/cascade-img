@@ -14,7 +14,6 @@ a per-backend ``compose_for(backend)`` path.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from cascade_img.instrumentation.runtime import emit
 
@@ -44,9 +43,9 @@ class StyleStack:
       default opinion injection; True for cascade-img's locked-style use case.
     """
 
-    moodboard: Optional[str] = None
-    sref: Optional[str] = None
-    stylize: Optional[int] = None
+    moodboard: str | None = None
+    sref: str | None = None
+    stylize: int | None = None
     style_raw: bool = True
 
 
@@ -58,7 +57,7 @@ class IdentityStack:
     match; 1000 is maximum — the Sprint 4.7 progression on the wing-frame work.
     """
 
-    oref: Optional[str] = None
+    oref: str | None = None
     ow: int = 100
 
 
@@ -72,8 +71,8 @@ class PromptComposer:
     def compose(
         self,
         subject: Subject,
-        style: Optional[StyleStack] = None,
-        identity: Optional[IdentityStack] = None,
+        style: StyleStack | None = None,
+        identity: IdentityStack | None = None,
         aspect_ratio: str = "1:1",
     ) -> str:
         """Return a Midjourney v7 prompt string."""

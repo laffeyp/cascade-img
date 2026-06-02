@@ -4,23 +4,48 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cascade-img"
-version = "0.1.0a1"
+version = "0.1.0"
 description = "LLM-operable image-generation pipeline. Midjourney via Discord at v0.1, pluggable backends after."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 authors = [
-    { name = "Green Rose Systems", email = "info@greenrosesystems.com" }
+    { name = "Green Rose Systems", email = "info@greenrosesystems.com" },
 ]
-keywords = ["midjourney", "image-generation", "mcp", "agent", "llm"]
+maintainers = [
+    { name = "Green Rose Systems", email = "info@greenrosesystems.com" },
+]
+keywords = [
+    "midjourney",
+    "image-generation",
+    "mcp",
+    "model-context-protocol",
+    "agent",
+    "llm",
+    "claude",
+    "cursor",
+    "cline",
+    "discord",
+    "sprite-art",
+    "v7",
+]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
 ]
 dependencies = [
     "discord.py-self>=2.0.0",
@@ -35,11 +60,10 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.23",
+    "pytest-cov>=4.1",
     "ruff>=0.4.0",
+    "mypy>=1.8",
 ]
-
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
 
 [project.scripts]
 cascade-mj-bridge = "cascade_img.backends.midjourney_discord.bridge:main"
@@ -49,9 +73,124 @@ cascade-mj = "cascade_img.cli.mj:main"
 [project.urls]
 Homepage = "https://greenrosesystems.com"
 Repository = "https://github.com/greenrosesystems/cascade-img"
+Documentation = "https://github.com/greenrosesystems/cascade-img#readme"
+Changelog = "https://github.com/greenrosesystems/cascade-img/blob/main/CHANGELOG.md"
+Issues = "https://github.com/greenrosesystems/cascade-img/issues"
+
+# ---------------------------------------------------------------------------
+# Build (Hatchling)
+# ---------------------------------------------------------------------------
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cascade_img"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "src/cascade_img/signals/versions/0.1.json" = "cascade_img/signals/versions/0.1.json"
+"src/cascade_img/py.typed" = "cascade_img/py.typed"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/",
+    "tests/",
+    "tools/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+]
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+filterwarnings = [
+    "error",
+    # PyNaCl voice-support warning fires unconditionally inside discord.py-self.
+    "ignore::UserWarning:discord",
+    # mcp's pydantic schema emits a deprecation warning we can't fix downstream.
+    "ignore::DeprecationWarning:mcp",
+    "ignore::DeprecationWarning:pydantic",
+]
+
+# ---------------------------------------------------------------------------
+# Coverage
+# ---------------------------------------------------------------------------
+
+[tool.coverage.run]
+source = ["cascade_img"]
+branch = true
+omit = [
+    "src/cascade_img/_source/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+show_missing = true
+precision = 1
+
+# ---------------------------------------------------------------------------
+# Ruff (lint + format)
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["_source", "build", "dist"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",  # line too long — formatter handles wrap; long URLs / docstrings exempted
+    "B008",  # function call in default argument (Pillow / requests idioms)
+    "SIM108", # ternary readability is judgment, not a lint
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]  # assert False in tests is sometimes intentional
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+ignore_missing_imports = true
+files = ["src/cascade_img"]
+
+[[tool.mypy.overrides]]
+module = ["discord.*", "mcp.*", "PIL.*"]
+ignore_missing_imports = true

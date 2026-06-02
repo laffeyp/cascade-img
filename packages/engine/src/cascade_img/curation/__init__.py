@@ -20,9 +20,9 @@ from cascade_img.curation.crop_grid import QUADRANT_OFFSETS, crop_quadrant
 from cascade_img.curation.promote import promote
 
 __all__ = [
-    "crop_quadrant",
+    "DEFAULT_TOLERANCE",
     "QUADRANT_OFFSETS",
     "alpha_key_corners",
-    "DEFAULT_TOLERANCE",
+    "crop_quadrant",
     "promote",
 ]

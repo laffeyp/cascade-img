@@ -12,20 +12,17 @@ from __future__ import annotations
 import threading
 import time
 
-import pytest
-
 from cascade_img.backends.midjourney_discord import bridge
 from cascade_img.backends.midjourney_discord.bridge import (
+    JOBS,
+    LOCK,
+    TERMINAL_CV,
     Job,
     Status,
     _emit_shutdown,
     _evict_if_needed,
     _match_grid,
     _token_needle,
-    JOBS,
-    LOCK,
-    MAX_JOBS,
-    TERMINAL_CV,
 )
 from cascade_img.instrumentation.runtime import clear, snapshot
 

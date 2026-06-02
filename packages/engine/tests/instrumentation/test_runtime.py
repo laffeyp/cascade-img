@@ -53,6 +53,6 @@ def test_flush_to_file_writes_jsonl(tmp_path: Path):
     assert n == 2
     lines = out.read_text().strip().split("\n")
     assert len(lines) == 2
-    parsed = [json.loads(l) for l in lines]
+    parsed = [json.loads(line) for line in lines]
     assert parsed[0]["tag"] == "CASCADE_INIT"
     assert parsed[1]["tag"] == "CONFIG_VALIDATED"

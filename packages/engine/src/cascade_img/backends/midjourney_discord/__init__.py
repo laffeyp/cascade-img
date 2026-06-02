@@ -19,8 +19,8 @@ from cascade_img.backends.midjourney_discord.backend import (
 from cascade_img.backends.midjourney_discord.bridge import Config, MissingEnvError
 
 __all__ = [
-    "MidjourneyDiscordBackend",
     "MIDJOURNEY_DISCORD_CAPABILITIES",
     "Config",
+    "MidjourneyDiscordBackend",
     "MissingEnvError",
 ]

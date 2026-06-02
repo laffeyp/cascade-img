@@ -29,7 +29,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from cascade_img.backends.midjourney_discord import MidjourneyDiscordBackend
 from cascade_img.cli.registry import AssetEntry, load_registry
@@ -60,7 +60,7 @@ def _compose(entry: AssetEntry) -> str:
 async def run(
     asset_id: str,
     registry_path: Path,
-    upscale: Optional[str],
+    upscale: str | None,
     bridge_url: str,
     log_path: Path,
     dry_run: bool,

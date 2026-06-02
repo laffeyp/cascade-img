@@ -11,13 +11,11 @@ import pytest
 
 from cascade_img.instrumentation.runtime import (
     SignalEmitter,
-    SignalVocabulary,
     assert_no_signal,
     assert_signal,
     clear,
     emit,
     format_for_ai,
-    snapshot,
     vocabulary,
 )
 

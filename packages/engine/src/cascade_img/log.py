@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from threading import Lock
-from typing import Any, Optional, Union
+from typing import Any
 
 from cascade_img.instrumentation.runtime import emit
 
@@ -53,7 +53,7 @@ class AgentDecision(str, Enum):
 class PromptLog:
     """Append-only JSONL log of every roll. Thread-safe."""
 
-    def __init__(self, path: Union[str, Path]) -> None:
+    def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = Lock()
@@ -63,12 +63,12 @@ class PromptLog:
         asset_id: str,
         prompt: str,
         backend: str,
-        job_id: Optional[str] = None,
-        upscale: Optional[str] = None,
-        outputs: Optional[dict[str, Any]] = None,
-        error: Optional[str] = None,
-        agent_decision: Union[AgentDecision, str, None] = None,
-        agent_reason: Optional[str] = None,
+        job_id: str | None = None,
+        upscale: str | None = None,
+        outputs: dict[str, Any] | None = None,
+        error: str | None = None,
+        agent_decision: AgentDecision | str | None = None,
+        agent_reason: str | None = None,
     ) -> dict[str, Any]:
         """Append one record. Returns the record dict.
 
@@ -100,9 +100,8 @@ class PromptLog:
             "agent_reason": agent_reason,
         }
         line = json.dumps(record, ensure_ascii=False)
-        with self._lock:
-            with self.path.open("a", encoding="utf-8") as f:
-                f.write(line + "\n")
+        with self._lock, self.path.open("a", encoding="utf-8") as f:
+            f.write(line + "\n")
         emit(
             "PROMPT_LOGGED",
             asset_id=asset_id,
@@ -112,7 +111,7 @@ class PromptLog:
         )
         return record
 
-    def read(self, n: Optional[int] = None) -> list[dict[str, Any]]:
+    def read(self, n: int | None = None) -> list[dict[str, Any]]:
         """Read records back as structured dicts.
 
         Args:
@@ -127,7 +126,7 @@ class PromptLog:
                 lines = self.path.read_text(encoding="utf-8").splitlines()
             except FileNotFoundError:
                 return []
-        records = [json.loads(l) for l in lines if l.strip()]
+        records = [json.loads(line) for line in lines if line.strip()]
         if n is not None:
             return records[-n:]
         return records

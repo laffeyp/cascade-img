@@ -20,7 +20,6 @@ from cascade_img.cli.mj import run
 from cascade_img.cli.registry import AssetEntry, load_registry
 from cascade_img.instrumentation.runtime import clear, snapshot
 
-
 REGISTRY_BIRD = {
     "bird": {
         "subject": "pixel-art sprite of a small finch, side view",

@@ -10,11 +10,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Make the tools/ module importable
+# tools/ lives at the engine package root; surface it before importing the
+# parity checker. `noqa: E402` because the path-insert must precede the import.
 PKG_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PKG_ROOT / "tools"))
 
-import check_vocabulary_parity  # type: ignore
+import check_vocabulary_parity  # type: ignore  # noqa: E402
 
 
 def test_parity_clean():

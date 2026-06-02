@@ -19,10 +19,8 @@ import pytest
 from cascade_img.instrumentation.runtime import (
     capture,
     emit,
-    format_for_ai,
     snapshot,
 )
-
 
 # --------------- capture() ---------------
 
@@ -42,7 +40,7 @@ def test_capture_clears_at_enter():
 def test_capture_leaves_buffer_intact_at_exit():
     """Per docstring (corrected 2026-06-02): buffer is NOT cleared at exit so
     the caller can inspect/format/assert after the block."""
-    with capture() as emitter:
+    with capture():
         emit("CASCADE_INIT", package_version="x", backend="x")
     # After block: records still readable.
     records = snapshot()
@@ -78,7 +76,8 @@ def test_root_and_package_vocab_files_are_identical():
     is the kit-conformant canonical and must not silently diverge.
     """
     # Walk up from this test file to the repo root.
-    pkg_root = Path(__file__).resolve().parents[1]            # packages/engine/
+    # tests/instrumentation/<this> -> tests/ -> packages/engine/
+    pkg_root = Path(__file__).resolve().parents[2]            # packages/engine/
     repo_root = pkg_root.parents[1]                           # cascade-img/
     root_vocab = repo_root / "signals" / "0.1.json"
     pkg_vocab = pkg_root / "src" / "cascade_img" / "signals" / "versions" / "0.1.json"
