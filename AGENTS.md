@@ -43,13 +43,34 @@ Available via the `cascade-mcp` MCP server. Each returns `{ok: bool, result: ...
 | `wait(job_id, timeout)` | Block until `done` or `failed` |
 | `status(job_id)` | Non-blocking status read |
 | `bridge_health()` | Is the daemon running? Is Discord connected? |
+| `mj_action(job_id, action)` | Press a response-message button on a completed job's **upscaled** image (see below). Needs an upscaled image first. |
 | `crop_grid(src, quadrant, dest)` | Pull one quadrant from a 2x2 grid (0 = whole) |
-| `alpha_key(src, dest, tolerance, method)` | Corner-anchored alpha-key. `method="flood"` (default; correct for sprite-on-uniform-bg) or `method="threshold"`. Returns `keyed_ratio` so you can detect failure. |
+| `score_grid(src)` | Rank a grid's four quadrants on sharpness/contrast/edge-density so you pick on evidence before reading with vision |
+| `contact_sheet(src, dest, labels)` | Composite a 2x2 grid into one labelled sheet — a better single input for vision selection than four separate reads |
+| `alpha_key(src, dest, tolerance, method)` | Corner-anchored alpha-key. `method="flood"` (default; correct for sprite-on-uniform-bg), `"threshold"`, or `"rembg"` (ML; needs the `[ml]` extra). Returns `keyed_ratio` so you can detect failure. |
+| `auto_trim(src, dest, mode, tolerance)` | Crop to the content bounding box (`mode="alpha"` after alpha_key, or `"color"`) |
+| `palette_quantize(src, dest, n_colors, method)` | Reduce to a fixed palette for the limited-palette look |
+| `sprite_sheet(srcs, dest, layout, padding)` | Pack several curated sprites into one atlas + a `.frames.json` map |
 | `promote(src, dest)` | Copy curated asset to project tree |
 | `log_append(asset_id, prompt, backend, job_id, upscale, outputs, error, agent_decision, agent_reason)` | Append a record to the working-memory log |
 | `read_prompt_log(n)` | Read structured log entries (defaults to all) |
 
 Output paths from `imagine` + `wait` are deterministic: `{output_dir}/{asset_id}.{png,webp}` for the grid, `_u1..u4.png` for upscales. You can compute the path before the call returns.
+
+## Driving the response-message buttons
+
+A finished upscale carries the buttons a human would otherwise click in Discord. `mj_action(job_id, action)` presses them for you — no human, no clicking. It requires the job to have an **upscaled** image (run `imagine` with `upscale=1-4` or `"all"` first); on a grid-only job it returns `error.code == "NO_UPSCALED_IMAGE"`.
+
+`action` is one of:
+
+- **Re-upscale**: `upscale_subtle`, `upscale_creative`
+- **Vary**: `vary_subtle`, `vary_strong`
+- **Zoom out**: `zoom_out_2x`, `zoom_out_1_5x`
+- **Pan**: `pan_left`, `pan_right`, `pan_up`, `pan_down`
+- **Animate** (image → video): `animate_high`, `animate_low`
+- **Favorite**: `favorite`
+
+The pressed action's result — a new grid for vary/zoom/pan, a short video for `animate_*` — lands back in the Discord channel as a fresh Midjourney message. At v0.1 the bridge does not route that derived result to a new tracked job, so read it from the channel/output directory directly; child-job routing is the Wave F receive-side deliverable.
 
 ## V7 facets
 
@@ -98,6 +119,8 @@ Every error returned to you carries a stable `code`. The codes that matter for t
 | `MJ_UUID_MISSING` | grid arrived without U1-U4 buttons | re-roll once; if reproducible, escalate |
 | `GRID_DOWNLOAD_FAILED` / `UPSCALE_DOWNLOAD_FAILED` | network blip during PNG fetch | re-roll automatically |
 | `UPSCALE_BUTTON_FAILED` / `UPSCALE_ALL_BUTTONS_FAILED` | transient Discord interaction error on the U-button press | re-roll the imagine |
+| `NO_UPSCALED_IMAGE` (HTTP 409) | `mj_action` on a job with no upscaled image | upscale a quadrant first, then retry the action |
+| `BUTTON_NOT_FOUND` (HTTP 404) | the requested action's button isn't on this image | MJ may not offer it for this image/version — pick another action or skip |
 
 A `/imagine` that returns HTTP 202 with `status: "submitted_unconfirmed"` is NOT a failure — the Discord interaction took longer than 35s but MJ may have processed it. Poll `/wait` for the actual outcome. DO NOT re-fire `/imagine` for the same asset before `/wait` resolves; that would double-bill if MJ processed the original.
 
