@@ -58,6 +58,43 @@ def test_undeclared_payload_field_raises():
         )
 
 
+def test_out_of_enum_value_raises():
+    """A field with an evidence-constraint enum must carry a declared value;
+    an out-of-contract value (here a bad action_kind) raises at emit. Without
+    this the evidence constraints were a dead letter — shape was checked, values
+    were not."""
+    clear()
+    with pytest.raises(ValueError, match="outside its locked enum"):
+        emit(
+            "MJ_DERIVED_RECEIVED",
+            asset_id="a",
+            job_id="j",
+            parent_message_id=1,
+            action_kind="teleport",  # not in [variation, zoom, pan, upscale, animation]
+            mj_uuid="u",
+            path="/p",
+            bytes=1,
+            content_type="image/webp",
+        )
+
+
+def test_in_enum_value_passes():
+    """The same tag with a declared action_kind emits cleanly."""
+    clear()
+    emit(
+        "MJ_DERIVED_RECEIVED",
+        asset_id="a",
+        job_id="j",
+        parent_message_id=1,
+        action_kind="animation",
+        mj_uuid="u",
+        path="/p",
+        bytes=1,
+        content_type="image/webp",
+    )
+    assert assert_signal("MJ_DERIVED_RECEIVED")["payload"]["action_kind"] == "animation"
+
+
 def test_assert_signal_returns_matching_record():
     clear()
     emit("CASCADE_INIT", package_version="0.1.0a1", backend="midjourney_discord")

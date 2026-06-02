@@ -45,6 +45,23 @@ class Vocabulary:
         self.locked: bool = bool(schema.get("locked", False))
         self.categories: list[str] = list(schema.get("categories", []))
         self._tag_index: dict[str, dict[str, Any]] = {t["name"]: t for t in schema.get("tags", [])}
+        # Index the evidence-constraint enums for emit-time enforcement:
+        # (tag, field) -> frozenset(allowed values). ``target_tag`` may be a
+        # "A|B|C" alternation, so one constraint can cover several tags that
+        # share the field. Lets validate() reject an out-of-contract value (a
+        # typo'd action_kind, an unlisted error_code) that the shape checks pass.
+        self._enum_index: dict[tuple[str, str], frozenset[str]] = {}
+        constraints = (schema.get("evidence_constraints") or {}).get("constraints") or []
+        for c in constraints:
+            target_field = c.get("target_field")
+            values = c.get("enum")
+            if not target_field or not values:
+                continue
+            allowed = frozenset(values)
+            for t in str(c.get("target_tag", "")).split("|"):
+                t = t.strip()
+                if t:
+                    self._enum_index[(t, target_field)] = allowed
 
     @classmethod
     def from_package_data(cls) -> Vocabulary:
@@ -89,6 +106,18 @@ class Vocabulary:
                 f"Add them to vocabulary/versions/{self.version}.json or "
                 f"drop them from the emit call."
             )
+        # Enum enforcement: a field that declares an evidence-constraint enum
+        # must carry one of its values. Without this, an out-of-contract value
+        # (a typo'd action_kind, an error_code outside the locked set) lands in
+        # the buffer silently — the evidence constraints would be a dead letter.
+        for f, value in payload.items():
+            enum = self._enum_index.get((tag, f))
+            if enum is not None and value not in enum:
+                raise ValueError(
+                    f"Event {tag!r} field {f!r}={value!r} is outside its locked "
+                    f"enum {sorted(enum)}. Use a declared value or extend the "
+                    f"evidence-constraint enum in vocabulary/versions/{self.version}.json."
+                )
 
     def category_of(self, tag: str) -> str:
         return self._tag_index[tag]["category"]

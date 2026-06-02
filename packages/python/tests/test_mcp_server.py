@@ -162,7 +162,7 @@ async def test_run_tool_envelopes_exception_with_remediation():
     def failing():
         raise TestError("the thing broke")
 
-    result = await _run_tool("fictional_tool", failing)
+    result = await _run_tool("promote", failing)
     assert result["ok"] is False
     assert result["error"]["code"] == "TEST_ERROR"
     assert result["error"]["message"] == "the thing broke"
@@ -182,7 +182,7 @@ async def test_run_tool_envelopes_bare_exception_without_remediation():
     def failing():
         raise ValueError("bad input")
 
-    result = await _run_tool("fictional_tool", failing)
+    result = await _run_tool("promote", failing)
     assert result["ok"] is False
     assert result["error"]["code"] == "ValueError"
     assert result["error"]["message"] == "bad input"

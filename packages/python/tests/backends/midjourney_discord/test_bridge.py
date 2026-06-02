@@ -206,7 +206,7 @@ def test_terminal_cv_wakes_waiter_on_fail():
     t = threading.Thread(target=waiter)
     t.start()
     time.sleep(0.05)
-    j._fail("TEST_FAILED", "synthetic failure for test")
+    j._fail("SUBMIT_FAILED", "synthetic failure for test")
     t.join(timeout=2.0)
     assert woke.is_set()
 
