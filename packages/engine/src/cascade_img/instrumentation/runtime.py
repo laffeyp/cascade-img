@@ -281,14 +281,18 @@ def vocabulary() -> SignalVocabulary:
 def capture(context: str = "") -> Iterator["SignalEmitter"]:
     """Context manager for a bounded signal session.
 
-    Clears the buffer at enter and exit so the captured slice is scoped to
-    the with-block. Yields the emitter so callers can format/assert against
-    it without referencing the module-level singleton.
+    Clears the buffer **at enter only** (so the captured slice begins at the
+    with-block start). The buffer is intentionally left intact at exit so the
+    caller can inspect, assert against, or `format_for_ai()` the captured
+    records after the block. Re-entering :func:`capture` clears the prior
+    capture's records.
+
+    Yields the module-level emitter so callers can format/assert against it
+    without referencing the singleton directly.
     """
     clear()
     try:
         yield _EMITTER
     finally:
-        # Intentionally NOT clearing on exit — the caller may want to inspect
-        # the buffer after the block. Re-enter clears again.
+        # Buffer left intact at exit — see docstring.
         pass

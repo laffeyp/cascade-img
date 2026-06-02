@@ -230,10 +230,11 @@ def _cfg() -> Config:
     return cfg
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
+# Module-level logger only. ``logging.basicConfig`` is NOT called here — that
+# would clobber configuration done by embedding callers (a host that imports
+# this module to drive the bridge in-process should own its logging config).
+# The ``cascade-mj-bridge`` CLI's ``main()`` calls basicConfig when it owns
+# the process; everywhere else, the logger inherits the consumer's config.
 log = logging.getLogger("cascade_img.bridge")
 
 
@@ -933,6 +934,14 @@ def main() -> None:
     """
     import json as _json
     import sys
+
+    # The CLI owns the process — configure root logging here, not at module
+    # import time (which would clobber embedding callers' logging config).
+    if not logging.getLogger().handlers:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s [%(levelname)s] %(message)s",
+        )
 
     parser = argparse.ArgumentParser(prog="cascade-mj-bridge")
     grp = parser.add_mutually_exclusive_group()
