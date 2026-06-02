@@ -38,9 +38,11 @@ from cascade_img.curation import (
     alpha_key_corners,
     crop_quadrant,
 )
-from cascade_img.curation import (
-    promote as curation_promote,
-)
+from cascade_img.curation import auto_trim as curation_auto_trim
+from cascade_img.curation import contact_sheet as curation_contact_sheet
+from cascade_img.curation import palette_quantize as curation_palette_quantize
+from cascade_img.curation import promote as curation_promote
+from cascade_img.curation import sprite_sheet as curation_sprite_sheet
 from cascade_img.log import PromptLog
 from cascade_img.vocabulary import emit
 
@@ -245,8 +247,10 @@ async def alpha_key(
 
     ``method`` is ``"flood"`` (default — 4-connected flood-fill from each
     corner; correct for sprite-on-uniform-bg cases where the subject has a
-    darker outline) or ``"threshold"`` (per-pixel distance from corner-average;
-    faster but eats subject pixels whose color is close to the background).
+    darker outline), ``"threshold"`` (per-pixel distance from corner-average;
+    faster but eats subject pixels whose color is close to the background), or
+    ``"rembg"`` (ML background removal for gradient/vignette/textured
+    backgrounds; needs the optional ``[ml]`` extra).
 
     The returned ``keyed_ratio`` is the fraction of pixels keyed transparent
     (0.0-1.0). The agent can use it to detect failure: typical sprite outputs
@@ -283,13 +287,80 @@ async def alpha_key(
 
 @mcp.tool()
 async def promote(src: str, dest: str) -> dict[str, Any]:
-    """Move a curated asset from staging into the consumer's asset tree."""
+    """Copy a curated asset from staging into the consumer's asset tree."""
 
     def go():
         out = curation_promote(src, dest)
         return {"dest": str(out)}
 
     return await _run_tool("promote", go)
+
+
+@mcp.tool()
+async def contact_sheet(src: str, dest: str, labels: bool = True) -> dict[str, Any]:
+    """Composite a 2x2 grid into one labelled contact sheet for vision-model
+    selection. ``src`` is the grid; the 1-4 index badge is drawn on each panel
+    unless ``labels`` is false. Returns ``{ok, result: {dest}}``."""
+
+    def go():
+        out = curation_contact_sheet(src, dest, labels=labels)
+        return {"dest": str(out)}
+
+    return await _run_tool("contact_sheet", go)
+
+
+@mcp.tool()
+async def auto_trim(
+    src: str,
+    dest: str,
+    mode: str = "alpha",
+    tolerance: int = 10,
+) -> dict[str, Any]:
+    """Crop an image to its content bounding box. ``mode`` is ``"alpha"``
+    (non-transparent extent — the step after alpha_key) or ``"color"``
+    (distance from the corner-average background)."""
+
+    def go():
+        out = curation_auto_trim(src, dest, mode=mode, tolerance=tolerance)
+        return {"dest": str(out)}
+
+    return await _run_tool("auto_trim", go)
+
+
+@mcp.tool()
+async def palette_quantize(
+    src: str,
+    dest: str,
+    n_colors: int = 16,
+    method: str = "median_cut",
+) -> dict[str, Any]:
+    """Reduce an image to a fixed palette (the limited-palette look). ``method``
+    is ``"median_cut"``, ``"maximum_coverage"``, or ``"octree"``; ``n_colors``
+    is 2-256. Transparency is preserved."""
+
+    def go():
+        out = curation_palette_quantize(src, dest, n_colors=n_colors, method=method)
+        return {"dest": str(out)}
+
+    return await _run_tool("palette_quantize", go)
+
+
+@mcp.tool()
+async def sprite_sheet(
+    srcs: list[str],
+    dest: str,
+    layout: str = "grid",
+    padding: int = 0,
+) -> dict[str, Any]:
+    """Pack several sprites into one atlas plus a ``.frames.json`` map written
+    next to it. ``layout`` is ``"grid"``, ``"row"``, or ``"column"``. Returns
+    the atlas ``dest``."""
+
+    def go():
+        out = curation_sprite_sheet(srcs, dest, layout=layout, padding=padding)
+        return {"dest": str(out)}
+
+    return await _run_tool("sprite_sheet", go)
 
 
 @mcp.tool()

@@ -24,8 +24,12 @@ from cascade_img.curation import (
     DEFAULT_TOLERANCE,
     QUADRANT_OFFSETS,
     alpha_key_corners,
+    auto_trim,
+    contact_sheet,
     crop_quadrant,
+    palette_quantize,
     promote,
+    sprite_sheet,
 )
 from cascade_img.log import AgentDecision, PromptLog
 from cascade_img.vocabulary import (
@@ -63,6 +67,10 @@ __all__ = [  # noqa: RUF022 — order is by concern, not alphabetical
     "crop_quadrant",
     "alpha_key_corners",
     "promote",
+    "contact_sheet",
+    "auto_trim",
+    "palette_quantize",
+    "sprite_sheet",
     "QUADRANT_OFFSETS",
     "DEFAULT_TOLERANCE",
     # log

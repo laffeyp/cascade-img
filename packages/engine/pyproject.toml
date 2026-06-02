@@ -63,6 +63,10 @@ dev = [
     "ruff>=0.4.0",
     "mypy>=1.8",
 ]
+ml = [
+    # Optional ML curation. rembg (background removal) pulls onnxruntime (~150 MB).
+    "rembg>=2.0",
+]
 
 [project.scripts]
 cascade-mj-bridge = "cascade_img.backends.midjourney_discord.bridge:main"
