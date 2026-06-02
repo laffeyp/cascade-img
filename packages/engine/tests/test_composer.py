@@ -183,6 +183,20 @@ def test_image_weight_requires_image_prompts_and_range():
         Subject(text="x", image_prompts=["https://cdn/a.png"], image_weight=4.0)
 
 
+def test_stylize_and_ow_validated_at_construction():
+    """StyleStack.stylize and IdentityStack.ow advertise 0-1000 validation;
+    prove the boundary raises and the endpoints are accepted."""
+    for bad in (-1, 1001):
+        with pytest.raises(ValueError, match="--s range"):
+            StyleStack(stylize=bad)
+        with pytest.raises(ValueError, match="--ow range"):
+            IdentityStack(ow=bad)
+    StyleStack(stylize=0)
+    StyleStack(stylize=1000)
+    IdentityStack(ow=0)
+    IdentityStack(ow=1000)
+
+
 def test_multi_part_prompt_keeps_no_clause_last():
     clear()
     p = PromptComposer().compose(

@@ -88,6 +88,29 @@ def test_read_handles_concurrent_deletion(tmp_path: Path):
     assert log.read() == []
 
 
+def test_concurrent_appends_are_all_recorded(tmp_path: Path):
+    """PromptLog advertises thread-safety; exercise the lock under 8 threads.
+    All 200 appends must land as valid JSONL with none lost or torn."""
+    import threading
+
+    log = PromptLog(tmp_path / "log.jsonl")
+
+    def worker(n: int) -> None:
+        for i in range(25):
+            log.append(asset_id=f"t{n}_{i}", prompt="p", backend="midjourney_discord")
+
+    threads = [threading.Thread(target=worker, args=(n,)) for n in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    records = log.read()
+    assert len(records) == 8 * 25  # none dropped
+    assert all(r.get("asset_id") for r in records)  # no torn/interleaved lines
+    assert len({r["asset_id"] for r in records}) == 8 * 25  # all distinct, none clobbered
+
+
 def test_render_markdown_contains_prompts(tmp_path: Path):
     log = PromptLog(tmp_path / "log.jsonl")
     log.append(

@@ -14,13 +14,41 @@ from pathlib import Path
 import pytest
 
 from cascade_img.mcp_server import (
+    alpha_key,
+    bridge_health,
     compose_prompt,
     crop_grid,
+    imagine,
     log_append,
     promote,
     read_prompt_log,
+    status,
+    wait,
 )
 from cascade_img.vocabulary import clear, snapshot
+
+
+class _FakeBackend:
+    """Sync stub matching the real backend's contract (methods are sync at
+    v0.1; _run_tool dispatches them via asyncio.to_thread). Lets the
+    bridge-facing tools be exercised with no live daemon."""
+
+    def imagine(self, prompt: str, asset_id: str, upscale=None) -> dict:
+        return {"job_id": "job-1", "asset_id": asset_id, "status": "submitted", "upscale": upscale}
+
+    def wait(self, job_id: str, timeout: int = 180) -> dict:
+        return {
+            "job_id": job_id,
+            "status": "done",
+            "grid_path": "/tmp/g.webp",
+            "image_path": "/tmp/g.webp",
+        }
+
+    def status(self, job_id: str) -> dict:
+        return {"job_id": job_id, "status": "progress"}
+
+    def health(self) -> dict:
+        return {"discord_ready": True, "pending_grid": 0, "total_jobs": 0}
 
 
 def _tags() -> list[str]:
@@ -148,6 +176,53 @@ async def test_run_tool_envelopes_bare_exception_without_remediation():
     assert result["error"]["code"] == "ValueError"
     assert result["error"]["message"] == "bad input"
     assert "remediation" not in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_imagine_tool_envelope_and_signals(monkeypatch):
+    """imagine() is the tool an agent fires generations with — exercise it
+    against a stubbed sync backend (it was previously never called)."""
+    from cascade_img import mcp_server
+
+    clear()
+    monkeypatch.setattr(mcp_server, "_backend", _FakeBackend())
+    r = await imagine(prompt="a finch --v 7", asset_id="bird", upscale=None)
+    assert r["ok"] is True
+    assert r["result"]["job_id"] == "job-1"
+    tags = _tags()
+    assert "MCP_TOOL_CALLED" in tags
+    assert "MCP_TOOL_COMPLETED" in tags
+
+
+@pytest.mark.asyncio
+async def test_wait_status_health_tools(monkeypatch):
+    from cascade_img import mcp_server
+
+    monkeypatch.setattr(mcp_server, "_backend", _FakeBackend())
+    rw = await wait(job_id="job-1", timeout=5)
+    assert rw["ok"] is True and rw["result"]["status"] == "done"
+    rs = await status(job_id="job-1")
+    assert rs["ok"] is True and rs["result"]["status"] == "progress"
+    rh = await bridge_health()
+    assert rh["ok"] is True and rh["result"]["discord_ready"] is True
+
+
+@pytest.mark.asyncio
+async def test_alpha_key_tool_keys_and_reports_ratio(tmp_path: Path):
+    """alpha_key ships a load-bearing keyed_ratio the agent branches on; feed
+    a synthetic image and assert the envelope + ratio band + signal."""
+    clear()
+    from PIL import Image
+
+    src = tmp_path / "k.png"
+    Image.new("RGBA", (64, 64), (255, 255, 255, 255)).save(src)
+    dest = tmp_path / "k_out.png"
+    r = await alpha_key(src=str(src), dest=str(dest), tolerance=40, method="flood")
+    assert r["ok"] is True
+    assert dest.exists()
+    assert r["result"]["method"] == "flood"
+    assert 0.0 <= r["result"]["keyed_ratio"] <= 1.0
+    assert "MCP_TOOL_COMPLETED" in _tags()
 
 
 @pytest.mark.asyncio

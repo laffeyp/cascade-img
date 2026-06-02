@@ -38,3 +38,14 @@ def test_creates_parent_directories(tmp_path: Path):
 def test_missing_src_raises(tmp_path: Path):
     with pytest.raises(FileNotFoundError):
         promote(tmp_path / "nope.png", tmp_path / "dest.png")
+
+
+def test_overwrites_existing_destination(tmp_path: Path):
+    """The docstring promises re-roll replacement: a promote over an existing
+    file must leave the new bytes, not the old."""
+    dest = tmp_path / "asset.png"
+    dest.write_bytes(b"OLD-PROMOTION")
+    src = tmp_path / "new.png"
+    src.write_bytes(b"NEW-PROMOTION-BYTES")
+    promote(src, dest)
+    assert dest.read_bytes() == b"NEW-PROMOTION-BYTES"
