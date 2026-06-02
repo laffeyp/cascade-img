@@ -28,6 +28,21 @@ MIDJOURNEY_DISCORD_CAPABILITIES = BackendCapabilities(
 )
 
 
+class BridgeActionError(Exception):
+    """A ``POST /action`` call returned a structured failure. Carries the bridge's
+    stable ``code`` (NO_UPSCALED_IMAGE, BUTTON_NOT_FOUND, DISCORD_NOT_READY,
+    UNKNOWN_JOB, UNKNOWN_ACTION, HTTP_<status>) and ``remediation`` so the MCP
+    ``_run_tool`` envelope surfaces them as ``error.code`` / ``error.remediation``
+    — the same shape every other tool failure takes."""
+
+    def __init__(self, code: str, message: str, remediation: str | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        if remediation:
+            self.remediation = remediation
+
+
 class MidjourneyDiscordBackend(ImageGenerationBackend):
     capabilities = MIDJOURNEY_DISCORD_CAPABILITIES
 
@@ -73,14 +88,28 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
 
     def action(self, job_id: str, action: str) -> dict:
         """Press a response-message button on a completed job's upscaled image
-        (vary / zoom / pan / upscale-variant / animate / favorite). Returns the
-        bridge's ``{ok, result | error}`` envelope unchanged — including the 4xx
-        bodies (no upscaled image yet, button absent), which carry a stable
-        ``code`` the caller branches on rather than a raised exception."""
+        (vary / zoom / pan / upscale-variant / animate / favorite).
+
+        The bridge's ``/action`` endpoint already speaks the ``{ok, result |
+        error}`` envelope. This **unwraps** it: on success it returns the bare
+        ``result`` dict (so the MCP ``_run_tool`` layer wraps it exactly once,
+        single-level like every other tool); on failure it raises
+        :class:`BridgeActionError` carrying the stable ``code`` (so the failure
+        flows through ``_run_tool``'s ``{ok: false, error}`` path with the right
+        top-level ``ok``, instead of a confusing ``{ok: true, result: {ok: false,
+        ...}}`` double-envelope)."""
         with requests.post(
             f"{self.base_url}/action/{job_id}", json={"action": action}, timeout=40
         ) as r:
             emit(
                 "BACKEND_HTTP_CALLED", method="POST", path=f"/action/{job_id}", status=r.status_code
             )
-            return r.json()
+            body = r.json()
+        if not isinstance(body, dict) or not body.get("ok", False):
+            err = body.get("error", {}) if isinstance(body, dict) else {}
+            raise BridgeActionError(
+                err.get("code") or f"HTTP_{r.status_code}",
+                err.get("message") or "action failed",
+                err.get("remediation"),
+            )
+        return body.get("result", {})

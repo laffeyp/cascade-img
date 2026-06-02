@@ -15,9 +15,14 @@ from cascade_img.backends.midjourney_discord.bridge import (
     _ACTION_MARKERS,
     JOBS,
     LOCK,
+    MJ_BOT_ID,
     Job,
     Status,
+    _classify_derived,
     _find_action_custom_id,
+    _has_result_button,
+    _ingest_message,
+    _job_by_upscale_message_id,
 )
 from cascade_img.vocabulary import clear, snapshot
 
@@ -180,3 +185,216 @@ def test_action_no_upscaled_image_returns_409_and_emits_failure():
     finally:
         bridge._ready.clear()
         _reset_jobs()
+
+
+# ---------------- receive side (derived results) ----------------
+#
+# Fixtures below mirror the verbatim live capture in
+# reviews/wave-f-receive-capture.md (SOLO message id 1511317210822611026, parent
+# uuid bb5d727b...). The routing key under test is message_reference == the SOLO
+# id; nothing here is guessed.
+
+_SOLO_ID = 1511317210822611026
+
+
+class _Att:
+    def __init__(self, filename, content_type="image/webp", width=2048, height=2048, size=1):
+        self.filename = filename
+        self.url = f"https://cdn.discordapp.com/attachments/x/y/{filename}"
+        self.content_type = content_type
+        self.width = width
+        self.height = height
+        self.size = size
+        self.duration = None
+
+
+class _Ref:
+    def __init__(self, message_id):
+        self.message_id = message_id
+
+
+class _DMsg:
+    """A Midjourney message fake carrying the fields the derived-result path
+    reads: author/channel (so _ingest_message accepts it), reference, content,
+    attachments, and flattened button components."""
+
+    def __init__(self, mid, content, ref_id=None, attachments=None, button_cids=None, channel_id=1):
+        self.id = mid
+        self.content = content
+        self.reference = _Ref(ref_id) if ref_id is not None else None
+        self.attachments = attachments or []
+        cids = button_cids or []
+        self.components = [_Row([_Btn(c) for c in cids])] if cids else []
+        self.author = type("A", (), {"id": MJ_BOT_ID})()
+        self.channel = type("C", (), {"id": channel_id})()
+        self.created_at = None
+        self.edited_at = None
+
+
+def _vary_final():
+    # raw-capture line 37
+    return _DMsg(
+        1511317624292769933,
+        "**a small bird ... cscidnocollide781b1185 --raw** - Variations (Strong) by <@1502242966100639815> "
+        "[(Open on website)](<https://midjourney.com/jobs/9a5aa072-26f3-4902-a2e2-f76f2db12270>) (fast)",
+        ref_id=_SOLO_ID,
+        attachments=[_Att("u2233346927_..._9a5aa072-26f3-4902-a2e2-f76f2db12270.webp")],
+        button_cids=["MJ::JOB::upsample::1::9a5aa072-26f3-4902-a2e2-f76f2db12270"],
+    )
+
+
+def _animate_final():
+    # raw-capture line 85 — animated webp, NOT mp4
+    return _DMsg(
+        1511319451277201564,
+        "**a small bird ... --raw --motion high --video 1 --aspect 1:1** - <@1502242966100639815> "
+        "[(Open on website)](<https://midjourney.com/jobs/9bdd338a-3876-4b4b-b175-af661e8a8cab>) (fast)",
+        ref_id=_SOLO_ID,
+        attachments=[
+            _Att("u2233346927_..._9bdd338a-3876-4b4b-b175-af661e8a8cab.webp", width=624, height=624)
+        ],
+        button_cids=["MJ::JOB::video_virtual_upscale::1::9bdd338a-3876-4b4b-b175-af661e8a8cab"],
+    )
+
+
+def _make_parent(monkeypatch, tmp_path):
+    """A DONE parent job with a recorded SOLO message, plus cfg + a stubbed
+    downloader so _ingest_derived runs without a live Discord/CDN."""
+    _reset_jobs()
+    clear()
+    cfg = bridge.Config(
+        discord_token="t",
+        channel_id=1,
+        guild_id=None,
+        mj_imagine_version="v",
+        mj_imagine_command_id="c",
+        output_dir=tmp_path,
+        port=5057,
+    )
+    monkeypatch.setattr(bridge, "cfg", cfg)
+    parent = Job(job_id="p1", asset_id="livebird", prompt="a small bird", status=Status.DONE)
+    parent.upscale_message_id = _SOLO_ID
+    with LOCK:
+        JOBS["p1"] = parent
+    return parent
+
+
+def test_classify_derived_covers_every_family():
+    assert _classify_derived("...--raw** - Variations (Strong) by <@x>") == "variation"
+    assert _classify_derived("...--raw** - Zoom Out by <@x>") == "zoom"
+    assert _classify_derived("...--ar 3:2** - Pan Right by <@x>") == "pan"
+    assert _classify_derived("...--raw** - Upscaled by <@x>") == "upscale"
+    assert (
+        _classify_derived("**a bird --raw --motion high --video 1 --aspect 1:1** - <@x>")
+        == "animation"
+    )
+
+
+def test_has_result_button_distinguishes_final_from_progress():
+    final = _DMsg(1, "x", attachments=[_Att("f.webp")], button_cids=["MJ::JOB::upsample::1::u"])
+    progress = _DMsg(
+        2,
+        "x (35%)",
+        attachments=[_Att("p.webp", width=512, height=512)],
+        button_cids=["MJ::CancelJob::ByJobid::u"],
+    )
+    frame = _DMsg(
+        3, "x", attachments=[_Att("s.jpg", content_type="image/jpeg", width=256, height=256)]
+    )
+    assert _has_result_button(final) is True
+    assert _has_result_button(progress) is False  # Cancel-only is not a result
+    assert _has_result_button(frame) is False  # bare progress frame, no buttons
+
+
+def test_derived_result_routes_to_parent_and_emits(tmp_path, monkeypatch):
+    parent = _make_parent(monkeypatch, tmp_path)
+    monkeypatch.setattr(bridge, "_download_to", lambda url, path: 295714)
+    _ingest_message(_vary_final())
+    assert len(parent.derived) == 1
+    d = parent.derived[0]
+    assert d["action_kind"] == "variation"
+    assert d["mj_uuid"] == "9a5aa072-26f3-4902-a2e2-f76f2db12270"  # the NEW uuid, off the filename
+    assert d["bytes"] == 295714 and d["path"].endswith(".webp")
+    tags = _tags()
+    assert "MJ_DERIVED_RECEIVED" in tags
+
+
+def test_derived_animation_is_classified_and_downloaded(tmp_path, monkeypatch):
+    parent = _make_parent(monkeypatch, tmp_path)
+    monkeypatch.setattr(bridge, "_download_to", lambda url, path: 2496346)
+    _ingest_message(_animate_final())
+    assert len(parent.derived) == 1
+    d = parent.derived[0]
+    assert d["action_kind"] == "animation"
+    assert d["content_type"] == "image/webp"  # observed: animated webp, NOT video/mp4
+    assert d["mj_uuid"] == "9bdd338a-3876-4b4b-b175-af661e8a8cab"
+
+
+def test_derived_claimed_once_across_edits(tmp_path, monkeypatch):
+    parent = _make_parent(monkeypatch, tmp_path)
+    calls = {"n": 0}
+
+    def _count(url, path):
+        calls["n"] += 1
+        return 295714
+
+    monkeypatch.setattr(bridge, "_download_to", _count)
+    msg = _vary_final()
+    _ingest_message(msg)
+    _ingest_message(msg)  # a later edit of the same final re-enters
+    assert calls["n"] == 1
+    assert len(parent.derived) == 1
+
+
+def test_favorite_confirmation_produces_no_artifact(tmp_path, monkeypatch):
+    parent = _make_parent(monkeypatch, tmp_path)
+    monkeypatch.setattr(bridge, "_download_to", lambda url, path: 1)
+    # raw-capture line 86: references the SOLO but has no attachment / no buttons.
+    fav = _DMsg(
+        1511319783969263847,
+        "You have successfully rated [this job](https://discord.com/channels/g/c/1511317210822611026) with the heart-eyes emoji",
+        ref_id=_SOLO_ID,
+    )
+    _ingest_message(fav)
+    assert parent.derived == []
+    assert "MJ_DERIVED_RECEIVED" not in _tags()
+
+
+def test_progress_frame_is_not_downloaded(tmp_path, monkeypatch):
+    parent = _make_parent(monkeypatch, tmp_path)
+    monkeypatch.setattr(bridge, "_download_to", lambda url, path: 1)
+    # raw-capture line 33-style: references SOLO, has a low-res preview, but only
+    # a Cancel button and a "(35%)" marker — must not be taken for the final.
+    progress = _DMsg(
+        1511317524300697661,
+        "**a small bird ... cscidnocollide781b1185 --raw** - Variations (Strong) by <@x> (35%) (fast)",
+        ref_id=_SOLO_ID,
+        attachments=[_Att("9a5aa072_grid_0.webp", width=512, height=512)],
+        button_cids=["MJ::CancelJob::ByJobid::9a5aa072-26f3-4902-a2e2-f76f2db12270"],
+    )
+    _ingest_message(progress)
+    assert parent.derived == []
+
+
+def test_foreign_job_result_is_not_misrouted(tmp_path, monkeypatch):
+    """The capture proved a foreign job interleaved into the channel. Its result
+    references its OWN solo id, not ours — the reference key must exclude it."""
+    parent = _make_parent(monkeypatch, tmp_path)
+    monkeypatch.setattr(bridge, "_download_to", lambda url, path: 12483848)
+    # raw-capture line 45: foreign animate, references the foreign solo 1511317460668780624.
+    foreign = _DMsg(
+        1511318740325346068,
+        "**a classic 2000s mobile game scene --motion high --video 1 --aspect 1:1** - <@x>",
+        ref_id=1511317460668780624,
+        attachments=[_Att("..._564950e3.webp", width=624, height=624)],
+        button_cids=["MJ::JOB::video_virtual_upscale::1::564950e3-461a-45ca-9aac-c9fd4ddd1e50"],
+    )
+    _ingest_message(foreign)
+    assert parent.derived == []
+    assert _job_by_upscale_message_id(1511317460668780624) is None
+
+
+def test_job_by_upscale_message_id_matches_the_solo(tmp_path, monkeypatch):
+    parent = _make_parent(monkeypatch, tmp_path)
+    assert _job_by_upscale_message_id(_SOLO_ID) is parent
+    assert _job_by_upscale_message_id(999) is None
