@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: pytest + parity (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.11', '3.12', '3.13']
+
+    defaults:
+      run:
+        working-directory: packages/engine
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: packages/engine/pyproject.toml
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Build wheel
+        run: python -m build --wheel
+
+      - name: Install package + dev extras
+        run: |
+          WHL=$(ls dist/cascade_img-*.whl | head -1)
+          pip install "${WHL}[dev]"
+
+      - name: Vocabulary parity (every emit tag in vocabulary)
+        run: python3 tools/check_vocabulary_parity.py
+
+      - name: pytest test suite
+        run: pytest tests/ -v
+
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install ruff
+      - run: ruff check src/ tests/ tools/
