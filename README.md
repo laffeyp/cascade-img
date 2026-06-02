@@ -128,7 +128,7 @@ Read the [`packages/engine/tests/`](./packages/engine/tests/) directory to under
 - **[OPERATIONS.md](./OPERATIONS.md)** — install, env capture, the bring-up ladder, every known failure mode with structured-error code + remediation.
 - **[AGENTS.md](./AGENTS.md)** — the LLM operator's guide. Read this when handing cascade-img to an agent.
 - **[TOS.md](./TOS.md)** — the honest self-bot posture and the sanctioned-backend escape path.
-- **[prompts/](./prompts/)** — four bundled system-prompt templates: sprite-set, character-locked variants, region backdrop, refine existing.
+- **[examples/katybird/](./examples/katybird/)** — one consumer project's worked usage of cascade-img (the Katybird sprite-art pipeline). Not generic templates; an example of how a real project structured agent prompts against the tool. Read AGENTS.md before any of these.
 - **[docs/](./docs/)** — canonical product spec, packaging plan, extraction plan.
 
 ## Roadmap

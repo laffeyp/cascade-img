@@ -52,7 +52,8 @@ Initial alpha. Ports the Cascade asset pipeline from Katybird's working code int
   - Parity tool at `tools/check_vocabulary_parity.py` asserts every `emit()` callsite uses a vocabulary tag.
 
 - **Documentation**
-  - `README.md`, `OPERATIONS.md` (generalized runbook), `TOS.md`, `AGENTS.md`, four `prompts/*.md` system-prompt templates.
+  - `README.md`, `OPERATIONS.md` (generalized runbook), `TOS.md`, `AGENTS.md`.
+  - `examples/katybird/prompts/*.md` — the four prompt templates from the originating Katybird project, preserved as a worked example. Not generic; an example consumer's structure, not a recommended pattern.
 
 - **Tests**
   - 48 behavior-contract cases under `packages/engine/tests/` covering Config (negative + positive paths), curation (crop quadrant integrity, alpha-key tolerance, promote), composer (all facet combinations), log (append/read roundtrip, render), MCP server (tool envelope + signals), CLI (registry load, dry-run flow, structured errors), and parity-as-test.
