@@ -277,6 +277,11 @@ class Job:
     image_url: str | None = None
     grid_path: str | None = None
     grid_url: str | None = None
+    # The SOLO upscaled-image message. MJ posts a fresh message per U-click,
+    # and that message — not the grid — carries the vary / zoom / pan / animate
+    # / favorite buttons. _ingest_message records it when an upscale lands so
+    # POST /action/<job_id> can press those buttons by their live custom_id.
+    upscale_message_id: int | None = None
     upscale_paths: dict[int, str] = field(default_factory=dict)
     upscale_pending: list[int] = field(default_factory=list)
     # Per-slot button-press failures (slot -> error message). During
@@ -637,6 +642,48 @@ def _extract_mj_uuid(components) -> str | None:
     return None
 
 
+# Action -> stable substring of the live custom_id MJ assigns the button on a
+# SOLO upscaled-image message (captured 2026-06-02; see
+# reviews/wave-f-button-capture.md). The full custom_id embeds the job uuid and
+# is read off the live component at press time — these markers only *locate* the
+# right button, they are never sent as-is. Distinct pairs (subtle/creative,
+# low/high variation, Outpaint::50/::75) keep each lookup unambiguous.
+_ACTION_MARKERS: dict[str, str] = {
+    "upscale_subtle": "upsample_v7_2x_subtle",
+    "upscale_creative": "upsample_v7_2x_creative",
+    "vary_subtle": "low_variation",
+    "vary_strong": "high_variation",
+    "zoom_out_2x": "Outpaint::50",
+    "zoom_out_1_5x": "Outpaint::75",
+    "pan_left": "pan_left",
+    "pan_right": "pan_right",
+    "pan_up": "pan_up",
+    "pan_down": "pan_down",
+    "animate_high": "animate_high",
+    "animate_low": "animate_low",
+    "favorite": "BOOKMARK",
+}
+
+
+def _find_action_custom_id(message, action: str) -> str | None:
+    """Return the live ``custom_id`` of ``action``'s button on ``message``, or
+    None if that button isn't present.
+
+    Matches on the captured stable marker substring and returns the full live
+    id (which embeds the slot's job uuid) read straight off the component — the
+    bridge never hardcodes the uuid-bearing id. Buttons differ by MJ version, so
+    a missing button yields None and the caller reports BUTTON_NOT_FOUND rather
+    than pressing the wrong thing.
+    """
+    marker = _ACTION_MARKERS[action]
+    for row in getattr(message, "components", None) or []:
+        for c in getattr(row, "children", []) or []:
+            cid = getattr(c, "custom_id", "") or ""
+            if marker in cid:
+                return cid
+    return None
+
+
 def _ingest_message(message):
     """Update job state from an MJ message (new or edited)."""
     c = _cfg()
@@ -872,6 +919,11 @@ def _ingest_message(message):
 
         with LOCK:
             parent.upscale_paths[idx] = str(out_path)
+            # This SOLO message bears the vary/zoom/pan/animate/favorite
+            # buttons. Record it so /action can drive them. The last upscale to
+            # land wins, which is fine — every SOLO message carries the same
+            # action set, just bound to its own slot's uuid.
+            parent.upscale_message_id = message.id
             if parent.image_path is None:
                 # First upscale to land wins the canonical image slot.
                 parent.image_path = str(out_path)
@@ -1004,6 +1056,18 @@ async def _press_button(message_id: int, custom_id: str, guild_id: str | None) -
     if guild_id:
         payload["guild_id"] = guild_id
     return await _post_interaction(payload)
+
+
+async def _fetch_message(message_id: int):
+    """Fetch a channel message by id so its *current* components can be read.
+
+    Runs on the Discord loop. /action needs the live custom_ids, and a SOLO
+    upscaled-image message may have left the in-memory message cache, so this
+    falls back to a REST fetch of the channel and the message.
+    """
+    c = _cfg()
+    channel = client.get_channel(c.channel_id) or await client.fetch_channel(c.channel_id)
+    return await channel.fetch_message(message_id)
 
 
 # ---------------------------------------------------------------------------
@@ -1198,6 +1262,157 @@ def http_wait(job_id):
 def http_jobs():
     with LOCK:
         return jsonify([asdict(j) for j in JOBS.values()])
+
+
+@app.post("/action/<job_id>")
+def http_action(job_id):
+    """Press a response-message button on a completed job's upscaled image.
+
+    The buttons MJ attaches to a SOLO upscaled image — upscale subtle/creative,
+    vary subtle/strong, zoom-out, pan, animate high/low, favorite — are driven
+    here without a human clicking. The bridge fetches the live message, reads
+    the button's current ``custom_id`` (never hardcoded), and presses it.
+
+    Body: ``{"action": "<name>"}`` where name is one of ``_ACTION_MARKERS``.
+    Returns the ``{ok, result | error}`` envelope. The pressed action's derived
+    result (a new grid for vary/zoom/pan, a video for animate) lands back in the
+    channel as a fresh MJ message; v0.1 does not route it to a child job.
+    """
+    body = request.get_json(silent=True) or {}
+    action = body.get("action")
+    if action not in _ACTION_MARKERS:
+        return jsonify(
+            ok=False,
+            error={
+                "code": "UNKNOWN_ACTION",
+                "message": f"action must be one of {sorted(_ACTION_MARKERS)}; got {action!r}",
+                "remediation": "Pass a supported action name. See RUNBOOK.md.",
+            },
+        ), 400
+
+    if not _ready.is_set():
+        return jsonify(
+            ok=False,
+            error={
+                "code": "DISCORD_NOT_READY",
+                "message": "discord client not ready yet, retry in a few seconds",
+                "remediation": DiscordNotReadyError.remediation,
+            },
+        ), 503
+
+    with LOCK:
+        job = JOBS.get(job_id)
+        if not job:
+            return jsonify(
+                ok=False,
+                error={"code": "UNKNOWN_JOB", "message": "unknown job_id"},
+            ), 404
+        message_id = job.upscale_message_id
+        asset_id = job.asset_id
+
+    if message_id is None:
+        emit(
+            "MJ_ACTION_FAILED",
+            job_id=job_id,
+            action=action,
+            error_code="NO_UPSCALED_IMAGE",
+            error_message="job has no upscaled image; these buttons live on a SOLO upscale",
+        )
+        return jsonify(
+            ok=False,
+            error={
+                "code": "NO_UPSCALED_IMAGE",
+                "message": "this action needs an upscaled image; upscale a quadrant first",
+                "remediation": "Run the job with upscale=1-4 (or 'all'), then retry the action.",
+            },
+        ), 409
+
+    async def _do():
+        message = await _fetch_message(message_id)
+        custom_id = _find_action_custom_id(message, action)
+        if custom_id is None:
+            return None, None
+        guild_id = str(message.guild.id) if message.guild else _cfg().guild_id
+        resp = await _press_button(message_id, custom_id, guild_id)
+        return custom_id, resp
+
+    try:
+        fut = asyncio.run_coroutine_threadsafe(_do(), _running_loop())
+        # 35s budget: a REST message-fetch plus the interaction round-trip
+        # (_post_interaction's 30s requests timeout + slack).
+        custom_id, resp = fut.result(timeout=35)
+    except DiscordNotReadyError as e:
+        emit(
+            "MJ_ACTION_FAILED",
+            job_id=job_id,
+            action=action,
+            error_code="DISCORD_NOT_READY",
+            error_message=str(e),
+        )
+        return jsonify(
+            ok=False,
+            error={"code": "DISCORD_NOT_READY", "message": str(e), "remediation": e.remediation},
+        ), 503
+    except Exception as e:
+        emit(
+            "MJ_ACTION_FAILED",
+            job_id=job_id,
+            action=action,
+            error_code=type(e).__name__,
+            error_message=str(e)[:300],
+        )
+        return jsonify(
+            ok=False,
+            error={"code": type(e).__name__, "message": str(e)},
+        ), 502
+
+    if custom_id is None:
+        emit(
+            "MJ_ACTION_FAILED",
+            job_id=job_id,
+            action=action,
+            error_code="BUTTON_NOT_FOUND",
+            error_message=f"no {action} button on message {message_id}",
+        )
+        return jsonify(
+            ok=False,
+            error={
+                "code": "BUTTON_NOT_FOUND",
+                "message": f"no {action!r} button found on the upscaled image",
+                "remediation": "MJ may not offer this action for this image/version.",
+            },
+        ), 404
+
+    if resp.status_code not in (200, 204):
+        emit(
+            "MJ_ACTION_FAILED",
+            job_id=job_id,
+            action=action,
+            error_code=f"HTTP_{resp.status_code}",
+            error_message=resp.text[:300],
+        )
+        return jsonify(
+            ok=False,
+            error={"code": f"HTTP_{resp.status_code}", "message": resp.text[:300]},
+        ), 502
+
+    emit(
+        "MJ_ACTION_REQUESTED",
+        job_id=job_id,
+        action=action,
+        custom_id=custom_id,
+        message_id=message_id,
+    )
+    log.info(f"[{asset_id}] pressed {action} on message {message_id}")
+    return jsonify(
+        ok=True,
+        result={
+            "job_id": job_id,
+            "action": action,
+            "custom_id": custom_id,
+            "message_id": message_id,
+        },
+    )
 
 
 @app.get("/health")

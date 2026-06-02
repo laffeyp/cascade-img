@@ -70,3 +70,17 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
             emit("BACKEND_HTTP_CALLED", method="GET", path="/health", status=r.status_code)
             r.raise_for_status()
             return r.json()
+
+    def action(self, job_id: str, action: str) -> dict:
+        """Press a response-message button on a completed job's upscaled image
+        (vary / zoom / pan / upscale-variant / animate / favorite). Returns the
+        bridge's ``{ok, result | error}`` envelope unchanged — including the 4xx
+        bodies (no upscaled image yet, button absent), which carry a stable
+        ``code`` the caller branches on rather than a raised exception."""
+        with requests.post(
+            f"{self.base_url}/action/{job_id}", json={"action": action}, timeout=40
+        ) as r:
+            emit(
+                "BACKEND_HTTP_CALLED", method="POST", path=f"/action/{job_id}", status=r.status_code
+            )
+            return r.json()
