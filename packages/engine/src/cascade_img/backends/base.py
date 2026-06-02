@@ -24,14 +24,18 @@ class BackendCapabilities:
 
 
 class ImageGenerationBackend(ABC):
-    """Minimal v0.1 surface: submit a job, await its result."""
+    """Minimal v0.1 surface: submit a job, await its result.
+
+    Methods are **synchronous** at v0.1. Callers needing asyncio responsiveness
+    invoke via ``asyncio.to_thread(backend.imagine, ...)``. Honest API rather
+    than ``async def`` wrapping blocking ``requests`` calls."""
 
     capabilities: BackendCapabilities
 
     @abstractmethod
-    async def imagine(self, prompt: str, asset_id: str, upscale=None):
+    def imagine(self, prompt: str, asset_id: str, upscale=None):
         """Submit a generation. Returns a handle whose ``job_id`` is passed to :meth:`wait`."""
 
     @abstractmethod
-    async def wait(self, job_id: str, timeout: int = 180) -> dict:
+    def wait(self, job_id: str, timeout: int = 180) -> dict:
         """Block until the job hits ``done`` or ``failed`` or the timeout fires."""

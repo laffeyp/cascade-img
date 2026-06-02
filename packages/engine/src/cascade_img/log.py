@@ -28,11 +28,26 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from threading import Lock
 from typing import Any, Optional, Union
 
 from cascade_img.instrumentation.runtime import emit
+
+
+class AgentDecision(str, Enum):
+    """The closed set of decisions an LLM operator may record on a roll.
+
+    Enforced at append time so the prompt log doesn't accumulate freeform
+    nonsense an operator can't grep for. Operators that need a state outside
+    these four should escalate to the human or surface a vocabulary proposal.
+    """
+
+    PROMOTE = "promote"
+    REROLL = "reroll"
+    ESCALATE = "escalate"
+    DRY_RUN = "dry_run"
 
 
 class PromptLog:
@@ -52,10 +67,26 @@ class PromptLog:
         upscale: Optional[str] = None,
         outputs: Optional[dict[str, Any]] = None,
         error: Optional[str] = None,
-        agent_decision: Optional[str] = None,
+        agent_decision: Union[AgentDecision, str, None] = None,
         agent_reason: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Append one record. Returns the record dict."""
+        """Append one record. Returns the record dict.
+
+        ``agent_decision`` is validated against :class:`AgentDecision`. Strings
+        are accepted and coerced; values not in the enum raise ``ValueError``
+        with the allowed set named in the message.
+        """
+        if agent_decision is not None and not isinstance(agent_decision, AgentDecision):
+            try:
+                agent_decision = AgentDecision(agent_decision)
+            except ValueError as e:
+                allowed = [d.value for d in AgentDecision]
+                raise ValueError(
+                    f"agent_decision must be one of {allowed}, got "
+                    f"{agent_decision!r}"
+                ) from e
+        decision_value = agent_decision.value if isinstance(agent_decision, AgentDecision) else None
+
         record: dict[str, Any] = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "asset_id": asset_id,
@@ -65,7 +96,7 @@ class PromptLog:
             "upscale": upscale,
             "outputs": outputs or {},
             "error": error,
-            "agent_decision": agent_decision,
+            "agent_decision": decision_value,
             "agent_reason": agent_reason,
         }
         line = json.dumps(record, ensure_ascii=False)
@@ -77,7 +108,7 @@ class PromptLog:
             asset_id=asset_id,
             has_job_id=bool(job_id),
             has_error=bool(error),
-            agent_decision=agent_decision or "",
+            agent_decision=decision_value or "",
         )
         return record
 

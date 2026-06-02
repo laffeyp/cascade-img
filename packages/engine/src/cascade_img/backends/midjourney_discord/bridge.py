@@ -52,12 +52,15 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import atexit
 import logging
 import os
 import re
+import signal
 import threading
 import time
 import uuid
+from collections import OrderedDict
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -69,6 +72,12 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 
 from cascade_img.instrumentation.runtime import emit
+
+
+# Eviction configuration. Overridable via env at startup so deployments can
+# tune for their own job-rate / memory profile.
+MAX_JOBS = int(os.environ.get("CASCADE_MAX_JOBS", "1000"))
+TERMINAL_AGE_SECONDS = float(os.environ.get("CASCADE_TERMINAL_AGE_SECONDS", "3600"))
 
 
 PACKAGE_VERSION = "0.1.0a1"  # bumped in lock-step with pyproject.toml
@@ -191,11 +200,13 @@ class Config:
 
         try:
             port = int(os.environ.get("PORT", "5000"))
+            if not (1 <= port <= 65535):
+                raise ValueError(f"port must be 1-65535, got {port}")
         except ValueError as e:
             raise MissingEnvError(
                 "INVALID_PORT",
-                f"PORT is not a valid integer: {os.environ.get('PORT')!r}",
-                "PORT defaults to 5000. Set a positive integer or leave unset.",
+                f"PORT must be a valid integer 1-65535: {os.environ.get('PORT')!r}",
+                "PORT defaults to 5000. Set a positive integer 1-65535 or leave unset.",
             ) from e
 
         emit(
@@ -257,6 +268,12 @@ class Job:
     job_id: str
     asset_id: str
     prompt: str
+    # Per-job collision-free request token. Embedded into the prompt sent to
+    # MJ as ``--no cscidnocollide{token}`` (a negative-prompt clause MJ
+    # echoes verbatim without affecting rendering). _match_grid uses the
+    # token instead of substring matching to avoid two-prompts-with-same-
+    # prefix mis-routing.
+    request_token: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
     upscale: Optional[str] = None              # None | "1".."4" | "all"
     status: Status = Status.QUEUED
     progress: str = ""
@@ -266,48 +283,111 @@ class Job:
     image_url: Optional[str] = None
     grid_path: Optional[str] = None
     grid_url: Optional[str] = None
-    upscale_paths: dict = field(default_factory=dict)   # {1: "/path/_u1.png", ...}
-    upscale_pending: list = field(default_factory=list) # [1, 2, 3, 4] requested but not yet downloaded
+    upscale_paths: dict = field(default_factory=dict)
+    upscale_pending: list = field(default_factory=list)
     error: Optional[str] = None
-    error_code: Optional[str] = None           # stable code string for JOB_FAILED.error_code
+    error_code: Optional[str] = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     # project-specific: which path _match_grid took ("pending" first-touch vs
     # "progress_fallback" — the the default V7 patch path).
     match_path: Optional[str] = None
 
+    def tagged_prompt(self) -> str:
+        """Return the prompt with the unique collision-resistant token
+        appended as ``--no cscidnocollide{token}`` so MJ echoes it back."""
+        return f"{self.prompt} --no cscidnocollide{self.request_token}"
+
     def touch(self):
         self.updated_at = time.time()
 
     def _fail(self, code: str, message: str) -> None:
-        self.status = Status.FAILED
-        self.error_code = code
-        self.error = message
-        self.touch()
-        emit(
-            "JOB_FAILED",
-            asset_id=self.asset_id,
-            job_id=self.job_id,
-            error_code=code,
-            error_message=message,
-        )
+        # Acquire LOCK (RLock — safe even when caller already holds it) and
+        # notify TERMINAL_CV so any /wait blocked on this job wakes immediately.
+        with TERMINAL_CV:
+            self.status = Status.FAILED
+            self.error_code = code
+            self.error = message
+            self.touch()
+            emit(
+                "JOB_FAILED",
+                asset_id=self.asset_id,
+                job_id=self.job_id,
+                error_code=code,
+                error_message=message,
+            )
+            TERMINAL_CV.notify_all()
 
     def _complete(self) -> None:
-        self.status = Status.DONE
-        self.progress = "100%"
-        self.touch()
-        emit(
-            "JOB_COMPLETED",
-            asset_id=self.asset_id,
-            job_id=self.job_id,
-            duration_ms=int((self.updated_at - self.created_at) * 1000),
-            upscales_completed=len(self.upscale_paths),
-        )
+        with TERMINAL_CV:
+            self.status = Status.DONE
+            self.progress = "100%"
+            self.touch()
+            emit(
+                "JOB_COMPLETED",
+                asset_id=self.asset_id,
+                job_id=self.job_id,
+                duration_ms=int((self.updated_at - self.created_at) * 1000),
+                upscales_completed=len(self.upscale_paths),
+            )
+            TERMINAL_CV.notify_all()
 
 
-JOBS: dict[str, Job] = {}
+# OrderedDict so the LRU eviction can drop the oldest job on overflow.
+JOBS: "OrderedDict[str, Job]" = OrderedDict()
 PENDING_GRID: list[str] = []  # job_ids awaiting grid message match, FIFO
-LOCK = threading.Lock()
+# RLock + Condition so /wait can sleep on a job-terminal notification rather
+# than polling the dict, AND so the inner mutation helpers (job._complete /
+# job._fail) can acquire the lock even when a caller already holds it.
+LOCK = threading.RLock()
+TERMINAL_CV = threading.Condition(LOCK)
+
+
+def _evict_if_needed() -> None:
+    """Run LRU + TTL eviction under LOCK. Called on every JOBS insertion and
+    on each /wait wake-up. Emits :data:`JOB_EVICTED` for every dropped job.
+    """
+    now = time.time()
+    # TTL: drop terminal jobs older than TERMINAL_AGE_SECONDS.
+    to_drop_ttl = [
+        jid for jid, j in list(JOBS.items())
+        if j.status in (Status.DONE, Status.FAILED)
+        and (now - j.updated_at) > TERMINAL_AGE_SECONDS
+    ]
+    for jid in to_drop_ttl:
+        j = JOBS.pop(jid, None)
+        if j is not None:
+            emit(
+                "JOB_EVICTED",
+                asset_id=j.asset_id,
+                job_id=j.job_id,
+                reason="terminal_age_ttl",
+                age_seconds=int(now - j.created_at),
+                total_jobs_after=len(JOBS),
+            )
+
+    # LRU: evict oldest (in insertion order) while above capacity, but never
+    # drop a non-terminal job (would orphan its waiter / its in-flight MJ
+    # callback). If everyone's in-flight, the dict grows past cap — that's a
+    # production signal (operator should slow submissions or raise MAX_JOBS).
+    while len(JOBS) > MAX_JOBS:
+        evicted_one = False
+        for jid in list(JOBS.keys()):
+            j = JOBS[jid]
+            if j.status in (Status.DONE, Status.FAILED):
+                JOBS.pop(jid, None)
+                emit(
+                    "JOB_EVICTED",
+                    asset_id=j.asset_id,
+                    job_id=j.job_id,
+                    reason="lru_capacity",
+                    age_seconds=int(now - j.created_at),
+                    total_jobs_after=len(JOBS),
+                )
+                evicted_one = True
+                break
+        if not evicted_one:
+            break  # all over-cap jobs are in-flight; let it grow this round
 
 UPSAMPLE_BTN_RE = re.compile(r"MJ::JOB::upsample::(\d+)::([0-9a-f-]+)")
 IMAGE_TAG_RE = re.compile(r"Image #(\d+)")
@@ -332,13 +412,19 @@ async def on_ready():
     _ready.set()
 
 
-def _prompt_needle(prompt: str) -> str:
-    """The leading non-flag chunk of a prompt, used for substring matching."""
-    return prompt.split("--")[0].strip()[:80]
+def _token_needle(token: str) -> str:
+    """The substring _match_grid looks for in MJ's echoed content.
+
+    Per-job request tokens are appended to the outbound prompt as
+    ``--no cscidnocollide{token}``; MJ's progress and grid messages echo
+    the prompt verbatim, so finding ``cscidnocollide{token}`` in the
+    content is a collision-free routing key.
+    """
+    return f"cscidnocollide{token}"
 
 
 def _match_grid(content: str) -> Optional[Job]:
-    """Find oldest pending grid job whose prompt appears in MJ's message.
+    """Find the pending grid job whose request token appears in MJ's message.
 
     Two paths:
     1) Job still in PENDING_GRID — first-touch match (typically MJ's initial
@@ -347,17 +433,18 @@ def _match_grid(content: str) -> Optional[Job]:
        SEPARATE new message (different ID) rather than editing the original.
        Without this fallback the final grid is ignored and the job stalls at
        PROGRESS forever. This is one of the two Sprint-4.0 production patches.
-       Sets ``job.match_path = "progress_fallback"`` so the GRID_MATCHED signal
-       surfaces which path fired — useful for grading whether the patch was
-       exercised.
+       Sets ``job.match_path = "progress_fallback"``.
+
+    The collision-resistant request_token (added Sprint 008) replaces the
+    earlier prompt-prefix-substring approach, which could mis-route between
+    jobs sharing a common prefix.
     """
     with LOCK:
         for job_id in list(PENDING_GRID):
             job = JOBS.get(job_id)
             if not job:
                 continue
-            needle = _prompt_needle(job.prompt)
-            if needle and needle in content and "Image #" not in content:
+            if _token_needle(job.request_token) in content and "Image #" not in content:
                 PENDING_GRID.remove(job_id)
                 job.match_path = "pending"
                 return job
@@ -366,8 +453,7 @@ def _match_grid(content: str) -> Optional[Job]:
                 continue
             if job.grid_path is not None:
                 continue  # already saved; don't re-match
-            needle = _prompt_needle(job.prompt)
-            if needle and needle in content and "Image #" not in content:
+            if _token_needle(job.request_token) in content and "Image #" not in content:
                 job.match_path = "progress_fallback"
                 return job
     return None
@@ -387,7 +473,9 @@ def _match_upscale(content: str) -> Optional[tuple[Job, int]]:
                 continue
             if idx not in job.upscale_pending:
                 continue
-            if _prompt_needle(job.prompt) in content:
+            # Token-based match (added Sprint 008) — same collision avoidance
+            # as _match_grid.
+            if _token_needle(job.request_token) in content:
                 return job, idx
     return None
 
@@ -582,12 +670,17 @@ def _ingest_message(message):
 
 @client.event
 async def on_message(message):
-    _ingest_message(message)
+    # _ingest_message does blocking I/O (downloads PNGs, button-press HTTP).
+    # Dispatch it to the default thread pool so it doesn't stall the Discord
+    # event loop while a 30s grid download runs.
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _ingest_message, message)
 
 
 @client.event
 async def on_message_edit(before, after):
-    _ingest_message(after)
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _ingest_message, after)
 
 
 async def _post_interaction(payload: dict) -> requests.Response:
@@ -714,8 +807,13 @@ def http_imagine():
     with LOCK:
         JOBS[job.job_id] = job
         PENDING_GRID.append(job.job_id)
+        _evict_if_needed()
 
-    fut = asyncio.run_coroutine_threadsafe(_send_imagine(prompt), _loop_holder["loop"])
+    # Send the TAGGED prompt to MJ (includes the per-job request_token via
+    # --no cscidnocollide{token}). _match_grid will look for the same token
+    # in MJ's echoed content. The original prompt is preserved in job.prompt
+    # for the log/audit trail.
+    fut = asyncio.run_coroutine_threadsafe(_send_imagine(job.tagged_prompt()), _loop_holder["loop"])
     try:
         resp = fut.result(timeout=20)
     except Exception as e:
@@ -771,19 +869,31 @@ def http_status(job_id):
 
 @app.get("/wait/<job_id>")
 def http_wait(job_id):
+    """Block on TERMINAL_CV until the job hits done/failed or the timeout
+    fires. No per-request polling thread tied up sleeping — the Flask thread
+    parks on the condition and is woken by job._complete / job._fail.
+    """
     timeout = float(request.args.get("timeout", "120"))
     deadline = time.time() + timeout
-    while time.time() < deadline:
+    with TERMINAL_CV:
         job = JOBS.get(job_id)
         if not job:
             return jsonify(error="unknown job_id"), 404
+        while job.status not in (Status.DONE, Status.FAILED):
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                break
+            TERMINAL_CV.wait(timeout=remaining)
+            job = JOBS.get(job_id)
+            if not job:
+                # Could be evicted during the wait (unlikely; LRU avoids
+                # in-flight). Treat as 410 Gone.
+                return jsonify(error="job evicted during wait"), 410
         if job.status in (Status.DONE, Status.FAILED):
             return jsonify(asdict(job))
-        time.sleep(2)
-    job = JOBS.get(job_id)
-    payload = asdict(job) if job else {"error": "unknown job_id"}
-    payload["timed_out"] = True
-    return jsonify(payload), 504
+        payload = asdict(job)
+        payload["timed_out"] = True
+        return jsonify(payload), 504
 
 
 @app.get("/jobs")
@@ -937,6 +1047,28 @@ def doctor() -> dict:
     return {"ok": ok, "checks": checks}
 
 
+_shutdown_emitted = False
+
+
+def _emit_shutdown(reason: str) -> None:
+    """Idempotent BRIDGE_SHUTDOWN emit. atexit + signal handlers both call
+    this; whichever runs first wins."""
+    global _shutdown_emitted
+    if _shutdown_emitted:
+        return
+    _shutdown_emitted = True
+    try:
+        emit("BRIDGE_SHUTDOWN", reason=reason)
+    except Exception:
+        pass  # never raise out of a shutdown hook
+
+
+def _signal_handler(signum, _frame):
+    name = signal.Signals(signum).name if isinstance(signum, int) else str(signum)
+    _emit_shutdown(f"signal:{name}")
+    raise SystemExit(0)
+
+
 def main() -> None:
     """Entrypoint for the ``cascade-mj-bridge`` console script.
 
@@ -955,6 +1087,17 @@ def main() -> None:
             level=logging.INFO,
             format="%(asctime)s [%(levelname)s] %(message)s",
         )
+
+    # BRIDGE_SHUTDOWN: register both atexit and signal handlers so the signal
+    # fires reliably on SIGINT/SIGTERM and atexit catches the rare normal-exit
+    # path.
+    atexit.register(_emit_shutdown, "atexit")
+    try:
+        signal.signal(signal.SIGINT, _signal_handler)
+        signal.signal(signal.SIGTERM, _signal_handler)
+    except (ValueError, OSError):
+        # Non-main-thread or platform without signal support — atexit catches it.
+        pass
 
     parser = argparse.ArgumentParser(prog="cascade-mj-bridge")
     grp = parser.add_mutually_exclusive_group()

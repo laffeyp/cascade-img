@@ -87,6 +87,30 @@ def test_invalid_channel_id_raises_structured(monkeypatch, tmp_path):
     assert exc.value.code == "INVALID_CHANNEL_ID"
 
 
+def test_port_too_low_raises_invalid_port(monkeypatch, tmp_path):
+    clear()
+    _scrub_env(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    for k, v in VALID_ENV.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.setenv("PORT", "0")
+    with pytest.raises(MissingEnvError) as exc:
+        Config.from_env()
+    assert exc.value.code == "INVALID_PORT"
+
+
+def test_port_too_high_raises_invalid_port(monkeypatch, tmp_path):
+    clear()
+    _scrub_env(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    for k, v in VALID_ENV.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.setenv("PORT", "99999")
+    with pytest.raises(MissingEnvError) as exc:
+        Config.from_env()
+    assert exc.value.code == "INVALID_PORT"
+
+
 def test_missing_imagine_version_raises_structured(monkeypatch, tmp_path):
     clear()
     _scrub_env(monkeypatch)

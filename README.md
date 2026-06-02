@@ -34,6 +34,10 @@ cp $(python -c "import cascade_img; print(cascade_img.__path__[0])")/backends/mi
 
 cascade-mj-bridge --check-env --pretty       # validate config
 cascade-mj-bridge                            # start the daemon (long-running)
+
+# Recommended: run the test suite from a clone before relying on a release.
+# 85/85 green confirms the daemon's vocabulary contract holds end-to-end.
+pytest packages/engine/tests/ -v
 ```
 
 Then in another shell:
