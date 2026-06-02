@@ -11,6 +11,7 @@ All notable changes to cascade-img are recorded here. Format follows [Keep a Cha
 - **`load_dotenv` cwd fix.** Bare `load_dotenv()` walked to the installed package dir under the `cascade-mj-bridge` console-script entry point instead of the working directory, so a valid `.env` read as missing. Now `load_dotenv(find_dotenv(usecwd=True))` with a `CASCADE_DOTENV` explicit-path override for launchd/systemd/Docker hosts.
 - **`mj_action` envelope.** `backend.action` unwraps the bridge's `{ok, result | error}` so the MCP tool returns single-level `{ok, result}` like every other tool (raising `BridgeActionError` with the stable code on failure) instead of a double-nested envelope.
 - **Raw-capture hook.** `CASCADE_CAPTURE_RAW=<path>` makes the bridge append every watched MJ message verbatim (structure only) — observation instrumentation, OFF by default.
+- **Clean single-signal shutdown.** The daemon now serves via an explicit `werkzeug.serving.make_server` on a worker thread and blocks the main thread on the shutdown event, calling `srv.shutdown()` on SIGINT/SIGTERM. `app.run()` did not reliably unblock on the signal handler's `SystemExit`, so the dev server could linger bound to the port and need a second signal (surfaced during live verification).
 - New vocabulary tags: `MJ_ACTION_REQUESTED`, `MJ_ACTION_FAILED`, `MJ_DERIVED_RECEIVED`, `MJ_DERIVED_FAILED`; `mj_action` added to the MCP tool enum; `action` and `action_kind` enums constrained.
 
 ### Bridge resilience

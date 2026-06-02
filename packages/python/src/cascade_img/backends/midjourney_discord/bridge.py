@@ -2191,8 +2191,27 @@ def main() -> None:
         if time.time() > deadline:
             raise RuntimeError("Discord event loop failed to initialize within 10s")
         time.sleep(0.05)
+
+    # Serve via an explicit make_server in a daemon thread and block the main
+    # thread on _shutdown_event, instead of app.run() (which does not reliably
+    # unblock on the signal handler's SystemExit — the dev server could linger
+    # bound to the port, needing a second signal). On shutdown we call
+    # srv.shutdown() from the MAIN thread (never the serve thread, which would
+    # deadlock), closing the listening socket cleanly on the first SIGINT/SIGTERM.
+    from werkzeug.serving import make_server
+
+    srv = make_server("127.0.0.1", cfg.port, app, threaded=True)
+    server_thread = threading.Thread(target=srv.serve_forever, name="flask-serve", daemon=True)
+    server_thread.start()
     log.info(f"HTTP bridge listening on http://127.0.0.1:{cfg.port}")
-    app.run(host="127.0.0.1", port=cfg.port, threaded=True)
+    try:
+        # _shutdown_event is set by the signal handler / atexit; the 1s re-check
+        # is belt-and-suspenders in case a signal doesn't interrupt the wait.
+        while not _shutdown_event.wait(timeout=1.0):
+            pass
+    finally:
+        with contextlib.suppress(Exception):
+            srv.shutdown()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,70 @@
+2026-06-02 05:18:14,557 [INFO] Logging in using static token.
+2026-06-02 05:18:14,609 [INFO] HTTP bridge listening on http://127.0.0.1:5057
+ * Serving Flask app 'cascade_img.backends.midjourney_discord.bridge'
+ * Debug mode: off
+2026-06-02 05:18:14,616 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5057
+2026-06-02 05:18:14,616 [INFO] [33mPress CTRL+C to quit[0m
+2026-06-02 05:18:15,011 [INFO] Found user agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36", build number 554341.
+2026-06-02 05:18:15,011 [INFO] Found TLS fingerprint target "chrome146".
+2026-06-02 05:18:15,619 [INFO] Connected to Gateway (session ID: 842f1884c960526e34c1950155910aa2).
+2026-06-02 05:18:15,723 [INFO] Discord connected as funtaclularbunnicala6767 (id=1502242966100639815)
+2026-06-02 05:18:15,724 [INFO] Watching channel 1502243953687265485
+2026-06-02 05:18:21,704 [INFO] 127.0.0.1 - - [02/Jun/2026 05:18:21] "GET /health HTTP/1.1" 200 -
+2026-06-02 05:18:43,623 [INFO] [verifybird] submitted: upscale=all prompt=a small bird pixel-art sprite, transparent background, 8-bit retro game sprite, 
+2026-06-02 05:18:43,624 [INFO] 127.0.0.1 - - [02/Jun/2026 05:18:43] "POST /imagine HTTP/1.1" 200 -
+2026-06-02 05:18:44,486 [WARNING] INTERACTION_SUCCESS referencing an unknown interaction ID: 1511343305940664412. Discarding.
+2026-06-02 05:18:44,488 [INFO] [verifybird] matched grid message 1511343309153501294 via pending
+2026-06-02 05:19:12,760 [INFO] [verifybird] matched grid message 1511343427445329920 via progress_fallback
+2026-06-02 05:19:13,009 [INFO] [verifybird] grid done, requesting upscale slots=[1, 2, 3, 4] mj_uuid=66b0b13a...
+2026-06-02 05:19:13,736 [WARNING] INTERACTION_SUCCESS referencing an unknown interaction ID: 1511343430419222558. Discarding.
+2026-06-02 05:19:13,850 [WARNING] INTERACTION_SUCCESS referencing an unknown interaction ID: 1511343430578733267. Discarding.
+2026-06-02 05:19:13,905 [WARNING] INTERACTION_SUCCESS referencing an unknown interaction ID: 1511343430549377216. Discarding.
+2026-06-02 05:19:14,178 [WARNING] INTERACTION_SUCCESS referencing an unknown interaction ID: 1511343431857995939. Discarding.
+2026-06-02 05:19:14,466 [INFO] [verifybird] saved upscale U3 -> /private/tmp/cascade-live-verify/verifybird_u3.png
+2026-06-02 05:19:14,946 [INFO] [verifybird] saved upscale U2 -> /private/tmp/cascade-live-verify/verifybird_u2.png
+2026-06-02 05:19:17,723 [INFO] [verifybird] saved upscale U4 -> /private/tmp/cascade-live-verify/verifybird_u4.png
+2026-06-02 05:19:17,736 [INFO] [verifybird] saved upscale U1 -> /private/tmp/cascade-live-verify/verifybird_u1.png
+2026-06-02 05:19:17,736 [INFO] [verifybird] all upscales complete
+2026-06-02 05:19:17,737 [INFO] 127.0.0.1 - - [02/Jun/2026 05:19:17] "GET /wait/ed6c39d32af34cdc8b4a11ef06048ad6?timeout=600 HTTP/1.1" 200 -
+2026-06-02 05:19:48,665 [INFO] [verifybird] pressed vary_strong on message 1511343434122657903
+2026-06-02 05:19:48,667 [INFO] 127.0.0.1 - - [02/Jun/2026 05:19:48] "POST /action/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:19:49,206 [WARNING] INTERACTION_SUCCESS referencing an unknown interaction ID: 1511343578645790760. Discarding.
+2026-06-02 05:19:59,389 [INFO] 127.0.0.1 - - [02/Jun/2026 05:19:59] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:20:06,650 [INFO] 127.0.0.1 - - [02/Jun/2026 05:20:06] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:20:09,699 [INFO] 127.0.0.1 - - [02/Jun/2026 05:20:09] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:20:12,758 [INFO] 127.0.0.1 - - [02/Jun/2026 05:20:12] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:20:15,812 [INFO] 127.0.0.1 - - [02/Jun/2026 05:20:15] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:20:18,020 [INFO] [verifybird] saved derived variation -> /private/tmp/cascade-live-verify/verifybird_variation_fad7ead8.webp
+2026-06-02 05:20:18,866 [INFO] 127.0.0.1 - - [02/Jun/2026 05:20:18] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:20:38,460 [INFO] [verifybird] pressed animate_high on message 1511343434122657903
+2026-06-02 05:20:38,461 [INFO] 127.0.0.1 - - [02/Jun/2026 05:20:38] "POST /action/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:20:40,692 [WARNING] INTERACTION_SUCCESS referencing an unknown interaction ID: 1511343786788130947. Discarding.
+2026-06-02 05:20:47,630 [INFO] 127.0.0.1 - - [02/Jun/2026 05:20:47] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:20:51,695 [INFO] 127.0.0.1 - - [02/Jun/2026 05:20:51] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:20:55,769 [INFO] 127.0.0.1 - - [02/Jun/2026 05:20:55] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:20:59,833 [INFO] 127.0.0.1 - - [02/Jun/2026 05:20:59] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:21:03,902 [INFO] 127.0.0.1 - - [02/Jun/2026 05:21:03] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:21:07,969 [INFO] 127.0.0.1 - - [02/Jun/2026 05:21:07] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:21:12,036 [INFO] 127.0.0.1 - - [02/Jun/2026 05:21:12] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:21:16,109 [INFO] 127.0.0.1 - - [02/Jun/2026 05:21:16] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:21:20,177 [INFO] 127.0.0.1 - - [02/Jun/2026 05:21:20] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:21:24,242 [INFO] 127.0.0.1 - - [02/Jun/2026 05:21:24] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:21:28,308 [INFO] 127.0.0.1 - - [02/Jun/2026 05:21:28] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:21:32,374 [INFO] 127.0.0.1 - - [02/Jun/2026 05:21:32] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:21:35,158 [INFO] [verifybird] saved derived animation -> /private/tmp/cascade-live-verify/verifybird_animation_a14ec42c.webp
+2026-06-02 05:21:36,443 [INFO] 127.0.0.1 - - [02/Jun/2026 05:21:36] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:21:58,075 [INFO] 127.0.0.1 - - [02/Jun/2026 05:21:58] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:21:59,358 [INFO] [verifybird] pressed vary_strong on message 1511343435930533969
+2026-06-02 05:21:59,362 [INFO] 127.0.0.1 - - [02/Jun/2026 05:21:59] "POST /action/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:22:00,278 [WARNING] INTERACTION_SUCCESS referencing an unknown interaction ID: 1511344126656778351. Discarding.
+2026-06-02 05:22:10,667 [INFO] 127.0.0.1 - - [02/Jun/2026 05:22:10] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:22:13,721 [INFO] 127.0.0.1 - - [02/Jun/2026 05:22:13] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:22:16,780 [INFO] 127.0.0.1 - - [02/Jun/2026 05:22:16] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:22:19,845 [INFO] 127.0.0.1 - - [02/Jun/2026 05:22:19] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:22:22,923 [INFO] 127.0.0.1 - - [02/Jun/2026 05:22:22] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:22:25,989 [INFO] 127.0.0.1 - - [02/Jun/2026 05:22:25] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:22:27,007 [INFO] [verifybird] saved derived variation -> /private/tmp/cascade-live-verify/verifybird_variation_ef1713ff.webp
+2026-06-02 05:22:29,054 [INFO] 127.0.0.1 - - [02/Jun/2026 05:22:29] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
+2026-06-02 05:22:39,451 [INFO] 127.0.0.1 - - [02/Jun/2026 05:22:39] "GET /health HTTP/1.1" 200 -
+2026-06-02 05:22:52,043 [INFO] 127.0.0.1 - - [02/Jun/2026 05:22:52] "GET /status/ed6c39d32af34cdc8b4a11ef06048ad6 HTTP/1.1" 200 -
