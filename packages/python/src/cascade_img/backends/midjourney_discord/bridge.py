@@ -36,6 +36,7 @@ import threading
 import time
 import uuid
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -546,6 +547,17 @@ PCT_RE = re.compile(r"\((\d+)%\)")
 client = discord.Client()
 _loop_holder: dict[str, asyncio.AbstractEventLoop | None] = {"loop": None}
 _ready = threading.Event()
+
+# Dedicated executors, created in _run_discord. Message ingestion blocks on real
+# I/O (the grid/upscale/derived downloads) and, in the upscale path, waits up to
+# 35s on the button presses it scheduled. If ingestion and those presses shared
+# the loop's single default executor, ingest threads could occupy every worker
+# while blocked waiting for presses that can't get a worker — a pool-exhaustion
+# deadlock — and long downloads would starve progress-edit ingestion. So ingest
+# and outbound HTTP get separate pools. None until _run_discord sets them; a
+# None value means run_in_executor falls back to the loop default (the path
+# unit tests that call _ingest_message directly take).
+_POOLS: dict[str, ThreadPoolExecutor | None] = {"ingest": None, "http": None}
 
 
 @client.event
@@ -1299,7 +1311,7 @@ def _running_loop() -> asyncio.AbstractEventLoop:
 @client.event
 async def on_message(message):
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, _ingest_message, message)
+    await loop.run_in_executor(_POOLS["ingest"], _ingest_message, message)
 
 
 @client.event
@@ -1308,15 +1320,17 @@ async def on_message_edit(before, after):
     # Pass event="edit" so the Wave F raw capture distinguishes MJ's in-place
     # progress edits from fresh messages. discord.Message is __slots__-based,
     # so the tag rides as a call argument, not an attribute.
-    await loop.run_in_executor(None, _ingest_message, after, "edit")
+    await loop.run_in_executor(_POOLS["ingest"], _ingest_message, after, "edit")
 
 
 async def _post_interaction(payload: dict) -> requests.Response:
     c = _cfg()
     headers = {"Authorization": c.discord_token, "Content-Type": "application/json"}
     loop = asyncio.get_running_loop()
+    # On the HTTP pool, never the ingest pool: an ingest thread blocked waiting
+    # on this very call must not be competing with it for a worker.
     return await loop.run_in_executor(
-        None,
+        _POOLS["http"],
         lambda: requests.post(
             "https://discord.com/api/v9/interactions",
             json=payload,
@@ -1849,6 +1863,13 @@ def _run_discord() -> None:
     asyncio.set_event_loop(loop)
     _loop_holder["loop"] = loop
 
+    # Separate pools (see _POOLS). Ingest is wide because each worker can sit on
+    # a download or a 35s press-gather; HTTP is small — it only does the short
+    # interaction round-trips that ingest waits on, so it must never be the pool
+    # ingest is also competing for.
+    _POOLS["ingest"] = ThreadPoolExecutor(max_workers=64, thread_name_prefix="mj-ingest")
+    _POOLS["http"] = ThreadPoolExecutor(max_workers=16, thread_name_prefix="mj-http")
+
     attempt = 0
     try:
         while not _shutdown_event.is_set():
@@ -1919,6 +1940,14 @@ def _run_discord() -> None:
         with contextlib.suppress(Exception):
             if not loop.is_closed():
                 loop.close()
+        # Drop the worker pools so their threads don't outlive the loop. Don't
+        # block on in-flight downloads (they carry their own 30s timeouts).
+        for key in ("ingest", "http"):
+            pool = _POOLS[key]
+            _POOLS[key] = None
+            if pool is not None:
+                with contextlib.suppress(Exception):
+                    pool.shutdown(wait=False, cancel_futures=True)
 
 
 # ---------------------------------------------------------------------------
