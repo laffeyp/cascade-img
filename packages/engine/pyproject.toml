@@ -118,6 +118,12 @@ filterwarnings = [
     # mcp's pydantic schema emits a deprecation warning we can't fix downstream.
     "ignore::DeprecationWarning:mcp",
     "ignore::DeprecationWarning:pydantic",
+    # discord.py-self hard-imports the stdlib audioop module at import time
+    # (PEP 594: deprecated in 3.11/3.12, removed in 3.13). pytest attributes
+    # the warning to the audioop import frame, not the discord package, so a
+    # module-anchored "ignore::DeprecationWarning:discord" misses it and the
+    # whole suite fails to collect. Match by message instead.
+    "ignore:'audioop' is deprecated:DeprecationWarning",
 ]
 
 # ---------------------------------------------------------------------------
