@@ -32,6 +32,8 @@
 
 *Agent appends one entry per sprint close, newest-at-top.*
 
+- **2026-06-02** — **Sprint 005 (release scope clarification).** Updated README roadmap to mark v0.1 as Python-only with the TypeScript wrapper as a v0.2 deliverable; added a release-checklist section covering PyPI Trusted Publishing, npm automation token (not v0.1), and one-live-fire-roll verification. Updated CHANGELOG known-limits to surface the v0.2 deferred concurrency/scale items (JOBS unbounded, /wait thread holding, backend async-sync mismatch) so consumers see them at install time, not after the fact. No code changes.
+
 - **2026-06-02** — **Sprint 004 (bug fixes + live smoke).** Live smoke against the production `.env`: bridge started, Discord connected at t=3s, `/imagine` for `smoke_v1` accepted, job reached `done` at t=28s with `match_path: progress_fallback` and a 261986-byte grid at `/tmp/smoke/generated/smoke_v1.webp`. Acted on the second external review's 7 bugs: `_download_to` now closes the `requests.Response` via `with stream=True:`; Path-A and Path-B mutations in `_ingest_message` wrapped under `LOCK`; `PromptLog.read` switched from exists-then-read to try/except FileNotFoundError; `crop_quadrant` closes the path-opened loader in `finally` and materializes a copy for `quadrant=0`; `alpha_key_corners` guards pixel unpacking against 3-channel returns via `_rgba` helper; MCP `alpha_key` tool wraps `Image.open` in `with`. Added 4 tests covering the fixes. Discipline ladder 68/68 green.
 
 - **2026-06-02** — **Sprint 003 (code-review remediation).** Acted on the external review: fixed `test_cli_mj.py` JSONL-as-single-object parse bug; corrected `capture()` docstring to accurately describe enter-only clear; added 5 tests covering `capture()` (had zero) and root-vs-package vocabulary divergence; moved `logging.basicConfig` out of `bridge.py` module-import-time into `main()` with a no-clobber guard for embedding callers; removed the dead `SseServerTransport` import from `mcp_server.py`. Larger v0.2 items (JOBS unbounded, /wait Flask thread holding, backend async-sync mismatch, _ingest_message I/O race) added to ## Deferred. Discipline ladder 64/64 green.
@@ -66,7 +68,9 @@
 
 *Anyone may append.*
 
-- **Does PyPI's account-scoped vs project-scoped distinction matter for trusted publishing?** The release workflow uses Trusted Publishing; verify the project trust is configured at pypi.org before tagging v0.1.0.
+- **PyPI Trusted Publishing configuration.** Release workflow at `.github/workflows/release.yml` assumes Trusted Publishing is configured for the `greenrosesystems/cascade-img` GitHub repo as a trusted publisher against the PyPI `cascade-img` project (workflow filename: `release.yml`; environment: empty). Architect verifies at pypi.org/manage/project/cascade-img/settings/publishing/ before tagging v0.1.0. Documented as a release-checklist item in README.
+
+- **TypeScript wrapper scope.** v0.1 ships Python-only; the `@greenrosesystems/cascade-img` placeholder on npm stays at 0.0.1 through v0.1. v0.2 ships the real wrapper (BridgeClient, PromptComposer, Zod types, Node-native MCP server). Documented in README roadmap + CHANGELOG known-limits.
 
 ---
 

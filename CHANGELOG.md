@@ -61,8 +61,11 @@ Initial alpha. Ports the Cascade asset pipeline from Katybird's working code int
 
 - MJ-only backend; Flux, DALL-E, Imagen scheduled for v0.2+.
 - Bridge tracks jobs in memory; restart drops in-flight state.
+- `JOBS` dict has no eviction or TTL — long-running daemon leaks memory proportional to total jobs run. Acceptable for single-operator sessions; v0.2 adds LRU + TTL + `JOB_EVICTED` signal.
+- `/wait` holds one Flask thread per pending request. Concurrent `cascade-mj --upscale all` calls can exhaust the thread pool. v0.2 switches to SSE long-poll or callback-based wait.
+- `MidjourneyDiscordBackend.imagine/wait/status/health` are `async def` but call `requests` synchronously; concurrent MCP tool calls serialize. v0.2 ports to `httpx.AsyncClient`.
 - macOS and Linux only; Windows bridge is a v0.2 item.
 - No webhook support; clients long-poll `/wait`.
-- TypeScript wrapper `@greenrosesystems/cascade-img` is a 0.0.1 placeholder; full wrapper lands with the v0.1.0 ship.
+- **TypeScript wrapper is a v0.2 deliverable.** The `@greenrosesystems/cascade-img` 0.0.1 placeholder on npm reserves the name. v0.1 is a Python-only ship — Node consumers should wait for v0.2 or call the bridge daemon's HTTP API directly.
 
 [0.1.0a1]: https://github.com/greenrosesystems/cascade-img/releases/tag/v0.1.0a1
