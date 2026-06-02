@@ -2,7 +2,7 @@
   "vocabulary_version": "0.1",
   "locked": false,
   "locked_at": null,
-  "categories": ["session", "config", "bridge", "job", "discord", "backend", "curation", "composer", "log"],
+  "categories": ["session", "config", "bridge", "job", "discord", "backend", "curation", "composer", "log", "mcp"],
   "tags": [
     {
       "name": "CASCADE_INIT",
@@ -147,6 +147,38 @@
       "payload": ["asset_id", "has_job_id", "has_error", "agent_decision"],
       "optional_payload": [],
       "note": "PromptLog.append() wrote a record. agent_decision is one of '', 'promote', 'reroll', 'escalate'. Records read back via PromptLog.read() are the agent's working memory across loop iterations."
+    },
+    {
+      "name": "MCP_SERVER_STARTED",
+      "category": "mcp",
+      "stratum": "event",
+      "payload": ["transport"],
+      "optional_payload": [],
+      "note": "cascade-mj-mcp process started. transport is 'stdio' (default — Claude Desktop / Cursor) or 'http'."
+    },
+    {
+      "name": "MCP_TOOL_CALLED",
+      "category": "mcp",
+      "stratum": "event",
+      "payload": ["tool"],
+      "optional_payload": [],
+      "note": "An MCP tool invocation began. tool is one of: compose_prompt, imagine, wait, status, bridge_health, crop_grid, alpha_key, promote, log_append, read_prompt_log."
+    },
+    {
+      "name": "MCP_TOOL_COMPLETED",
+      "category": "mcp",
+      "stratum": "event",
+      "payload": ["tool", "duration_ms"],
+      "optional_payload": [],
+      "note": "Tool returned successfully; duration_ms is wall-clock from MCP_TOOL_CALLED."
+    },
+    {
+      "name": "MCP_TOOL_FAILED",
+      "category": "mcp",
+      "stratum": "incident",
+      "payload": ["tool", "error_code", "error_message"],
+      "optional_payload": [],
+      "note": "Tool raised. error_code is the exception class name or the structured `code` attribute if the exception carried one."
     }
   ]
 }

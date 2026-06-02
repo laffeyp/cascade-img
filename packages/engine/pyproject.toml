@@ -28,16 +28,22 @@ dependencies = [
     "requests>=2.31.0",
     "python-dotenv>=1.0.0",
     "Pillow>=10.0.0",
+    "mcp>=1.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
+    "pytest-asyncio>=0.23",
     "ruff>=0.4.0",
 ]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
 [project.scripts]
 cascade-mj-bridge = "cascade_img.backends.midjourney_discord.bridge:main"
+cascade-mj-mcp = "cascade_img.mcp_server:main"
 
 [project.urls]
 Homepage = "https://greenrosesystems.com"
