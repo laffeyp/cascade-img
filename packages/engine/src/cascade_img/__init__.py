@@ -15,6 +15,7 @@ from cascade_img.backends.midjourney_discord import (
 )
 from cascade_img.composer import (
     IdentityStack,
+    ParamStack,
     PromptComposer,
     StyleStack,
     Subject,
@@ -57,6 +58,7 @@ __all__ = [  # noqa: RUF022 — order is by concern, not alphabetical
     "Subject",
     "StyleStack",
     "IdentityStack",
+    "ParamStack",
     # curation
     "crop_quadrant",
     "alpha_key_corners",
