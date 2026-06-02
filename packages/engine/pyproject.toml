@@ -43,7 +43,7 @@ asyncio_mode = "auto"
 
 [project.scripts]
 cascade-mj-bridge = "cascade_img.backends.midjourney_discord.bridge:main"
-cascade-mj-mcp = "cascade_img.mcp_server:main"
+cascade-mcp = "cascade_img.mcp_server:main"
 
 [project.urls]
 Homepage = "https://greenrosesystems.com"
