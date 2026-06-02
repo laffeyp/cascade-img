@@ -39,7 +39,7 @@ Vocabulary changes are treated as breaking — minor bump on the package version
 - New backend implementations conforming to `ImageGenerationBackend`.
 - New curation utilities (e.g. better alpha-key heuristics, atlas packing).
 - Documentation improvements that surface operational lessons.
-- New `prompts/` templates.
+- New entries under `examples/<consumer>/` — worked examples of one project's usage, not generic prompt templates. (Package-shipped prompts are not in scope; AGENTS.md is the canonical operator guide.)
 
 ## What's out of scope at v0.1
 
