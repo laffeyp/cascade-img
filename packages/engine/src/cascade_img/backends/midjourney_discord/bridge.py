@@ -45,6 +45,7 @@ import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 
+from cascade_img.backends.midjourney_discord.job_store import JobStore
 from cascade_img.vocabulary import emit
 
 # Eviction configuration. Overridable via env at startup so deployments can
@@ -301,6 +302,7 @@ class Job:
 
     def touch(self) -> None:
         self.updated_at = time.time()
+        _persist(self)
 
     def _fail(self, code: str, message: str) -> None:
         with TERMINAL_CV:
@@ -340,6 +342,31 @@ TERMINAL_CV = threading.Condition(LOCK)
 # Set by the signal/atexit shutdown path. The Discord reconnect loop polls
 # this between attempts so the daemon doesn't hammer Discord on the way out.
 _shutdown_event = threading.Event()
+
+# Durable job store (Wave G). None until main() opens it. The in-memory JOBS
+# map stays authoritative; this is a write-through mirror for restart recovery.
+_store: JobStore | None = None
+
+
+def _persist(job: Job) -> None:
+    """Write-through the job's current state to the durable store. Best-effort:
+    JOBS is authoritative, so a persistence failure is logged, not raised. No-op
+    when no store is configured (unit tests, in-process embedders)."""
+    if _store is None:
+        return
+    try:
+        _store.put(asdict(job))
+    except Exception as e:  # durability is best-effort; never break the live path
+        log.warning(f"job-store persist failed for {job.job_id}: {e}")
+
+
+def _unpersist(job_id: str) -> None:
+    if _store is None:
+        return
+    try:
+        _store.delete(job_id)
+    except Exception as e:
+        log.warning(f"job-store delete failed for {job_id}: {e}")
 
 
 def _safe_output_path(
@@ -389,6 +416,7 @@ def _evict_if_needed() -> None:
     for jid in to_drop_ttl:
         j = JOBS.pop(jid, None)
         if j is not None:
+            _unpersist(jid)
             emit(
                 "JOB_EVICTED",
                 asset_id=j.asset_id,
@@ -408,6 +436,7 @@ def _evict_if_needed() -> None:
             j = JOBS[jid]
             if j.status in (Status.DONE, Status.FAILED):
                 JOBS.pop(jid, None)
+                _unpersist(jid)
                 emit(
                     "JOB_EVICTED",
                     asset_id=j.asset_id,
@@ -420,6 +449,44 @@ def _evict_if_needed() -> None:
                 break
         if not evicted_one:
             break  # all over-cap jobs are in-flight; let it grow this round
+
+
+def _job_from_row(row: dict) -> Job:
+    """Reconstruct a Job from a stored row, coercing the JSON-lossy fields:
+    ``status`` back to the Status enum, and the int-keyed dicts (JSON
+    stringifies dict keys) back to int keys."""
+    row = dict(row)
+    row["status"] = Status(row["status"])
+    row["upscale_paths"] = {int(k): v for k, v in (row.get("upscale_paths") or {}).items()}
+    row["upscale_pending"] = [int(x) for x in (row.get("upscale_pending") or [])]
+    row["upscale_press_failures"] = {
+        int(k): v for k, v in (row.get("upscale_press_failures") or {}).items()
+    }
+    return Job(**row)
+
+
+def _rehydrate_jobs() -> int:
+    """Restore non-terminal jobs from the store into JOBS + PENDING_GRID at
+    startup, so a restart resumes tracking in-flight jobs instead of dropping
+    them. Returns the count restored."""
+    if _store is None:
+        return 0
+    count = 0
+    with LOCK:
+        for row in _store.load_nonterminal():
+            try:
+                job = _job_from_row(row)
+            except Exception as e:
+                log.warning(f"skipping unrehydratable job row: {e}")
+                continue
+            JOBS[job.job_id] = job
+            # Pre-grid jobs rejoin the grid-match FIFO. PROGRESS jobs are still
+            # matchable via _match_grid's progress_fallback scan and UPSCALING
+            # via _match_upscale's scan, so neither needs PENDING_GRID.
+            if job.status in (Status.QUEUED, Status.SUBMITTED, Status.SUBMITTED_UNCONFIRMED):
+                PENDING_GRID.append(job.job_id)
+            count += 1
+    return count
 
 
 UPSAMPLE_BTN_RE = re.compile(r"MJ::JOB::upsample::(\d+)::([0-9a-f-]+)")
@@ -648,6 +715,7 @@ def _ingest_message(message):
             with LOCK:
                 job.grid_url = att.url
                 job.grid_path = str(grid_path)
+                job.touch()
             emit(
                 "GRID_RECEIVED",
                 asset_id=job.asset_id,
@@ -988,6 +1056,7 @@ def http_imagine():
     )
     with LOCK:
         JOBS[job.job_id] = job
+        _persist(job)
         PENDING_GRID.append(job.job_id)
         _evict_if_needed()
 
@@ -1480,6 +1549,15 @@ def main() -> None:
         raise
 
     emit("CASCADE_INIT", package_version=PACKAGE_VERSION, backend=BACKEND_NAME)
+
+    global _store
+    db_path = os.environ.get("CASCADE_JOB_DB") or str(cfg.output_dir / "cascade-jobs.db")
+    _store = JobStore(db_path)
+    emit("JOB_STORE_INITIALIZED", path=db_path, mode=_store.mode)
+    rehydrated = _rehydrate_jobs()
+    emit("JOB_STORE_REHYDRATED", count=rehydrated)
+    if rehydrated:
+        log.info(f"rehydrated {rehydrated} in-flight job(s) from {db_path}")
 
     t = threading.Thread(target=_run_discord, daemon=True)
     t.start()
