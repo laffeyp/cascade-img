@@ -132,7 +132,7 @@ class Config:
         discord_token = _require(
             "DISCORD_USER_TOKEN",
             "MISSING_DISCORD_TOKEN",
-            "Add DISCORD_USER_TOKEN to .env; see OPERATIONS.md §setup §4 for the "
+            "Add DISCORD_USER_TOKEN to .env; see RUNBOOK.md for the "
             "devtools-capture procedure. Treat the value as a password.",
         )
         channel_id_raw = _require(
@@ -148,7 +148,7 @@ class Config:
                 "INVALID_CHANNEL_ID",
                 f"MJ_CHANNEL_ID is not a valid integer: {channel_id_raw!r}",
                 "MJ_CHANNEL_ID must be the 18-19 digit channel ID from Discord. "
-                "Re-capture per OPERATIONS.md §setup §4.",
+                "Re-capture per RUNBOOK.md.",
             ) from e
 
         # Optional: required only when the MJ channel lives in a guild.
@@ -159,7 +159,7 @@ class Config:
             "MISSING_IMAGINE_VERSION",
             "Add MJ_IMAGINE_VERSION to .env. Re-capture from desktop Discord "
             "DevTools whenever MJ updates the slash command (you'll see "
-            "'discord 400: This command is outdated'). See OPERATIONS.md §setup §4.",
+            "'discord 400: This command is outdated'). See RUNBOOK.md.",
         )
         mj_imagine_command_id = os.environ.get(
             "MJ_IMAGINE_COMMAND_ID", "938956540159881230"

@@ -39,7 +39,7 @@ If you find a code path that violates any of the above, please report it through
 If a token is exposed (committed to a repository, posted to a chat, captured in a screenshot):
 
 1. Change the Discord account password. Discord invalidates all existing tokens on password change; the leaked token becomes useless.
-2. Capture a fresh token by the same procedure used initially (see `OPERATIONS.md`).
+2. Capture a fresh token by the same procedure used initially (see `RUNBOOK.md`).
 3. Update `.env` and restart the bridge.
 
 The daemon does not store the token outside the process's memory, so no in-package state needs to be cleared.

@@ -1,0 +1,15 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security / token-handling disclosure
+    url: https://github.com/greenrosesystems/cascade-img/security/advisories/new
+    about: >-
+      cascade-img persists a full-access Discord token. Report security issues
+      privately — do NOT open a public issue. See SECURITY.md.
+  - name: Terms of Service questions
+    url: https://github.com/greenrosesystems/cascade-img/blob/main/TOS.md
+    about: >-
+      Driving a Discord user account against Midjourney violates both services'
+      ToS. That is documented policy, not a code bug.
+  - name: Usage and operations
+    url: https://github.com/greenrosesystems/cascade-img/blob/main/RUNBOOK.md
+    about: Install, credential capture, bring-up, and failure recovery.

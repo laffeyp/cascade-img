@@ -1,0 +1,38 @@
+name: Backend request
+description: Request a new image-generation backend behind the existing interface.
+labels: ["backend", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A backend implements `cascade_img.backends.base.ImageGenerationBackend`
+        and declares a `BackendCapabilities`. See ARCHITECTURE.md ("Adding a
+        backend") before filing.
+  - type: input
+    id: backend
+    attributes:
+      label: Backend name
+      description: e.g. Flux via Fal, OpenAI gpt-image-1, Imagen via Vertex.
+    validations:
+      required: true
+  - type: textarea
+    id: capabilities
+    attributes:
+      label: Capabilities
+      description: >-
+        Which composer prompt parts map onto it (style reference, identity
+        reference, aspect ratios, negative prompt, seed, tiling, …)? What does
+        it NOT support?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why an existing backend does not cover this
+    validations:
+      required: true
+  - type: input
+    id: api
+    attributes:
+      label: API access
+      description: Public REST API? Auth model? Rate limits / cost?

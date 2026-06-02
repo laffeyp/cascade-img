@@ -1,0 +1,58 @@
+name: Bug report
+description: Report a reproducible defect in cascade-img.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security or token-handling issues: do NOT file here — see SECURITY.md.
+        Terms-of-Service questions: see TOS.md. This form is for code defects.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `pip show cascade-img`.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS and `python --version`.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you observed.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: >-
+        A `--dry-run` usually suffices for compose/log issues; live-fire issues
+        need the operational context. Minimal is best.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+    validations:
+      required: true
+  - type: input
+    id: error_code
+    attributes:
+      label: Structured error code (if any)
+      description: The `error.code` from the envelope, e.g. DISCORD_400_UNKNOWN_CHANNEL.
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Daemon diagnostics
+      description: >-
+        Output of `cascade-mj-bridge --doctor`. It reports only token
+        presence/length, never the token — but double-check before pasting.
+      render: shell

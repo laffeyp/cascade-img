@@ -56,7 +56,7 @@ def test_missing_discord_token_raises_structured(monkeypatch, tmp_path):
         Config.from_env()
     assert exc.value.code == "MISSING_DISCORD_TOKEN"
     assert "DISCORD_USER_TOKEN" in exc.value.message
-    assert "OPERATIONS.md" in exc.value.remediation
+    assert "RUNBOOK.md" in exc.value.remediation
     # The CONFIG_VALIDATED tag must NOT have fired.
     assert "CONFIG_VALIDATED" not in _tag_sequence()
 
