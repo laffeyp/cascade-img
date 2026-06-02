@@ -18,13 +18,13 @@ class BackendCapabilities:
     """What a backend declares about itself.
 
     Declarative metadata attached to each :class:`ImageGenerationBackend`
-    subclass. v0.1 records the supported prompt parts (``facets`` — moodboard,
-    sref, oref, ow, etc.) and aspect ratios. Future versions can grow the
-    surface when a consumer demands it (a capability-aware composer or an
-    MCP introspection tool); v0.1 keeps the declaration honest without
-    speculative consumers."""
+    subclass. v0.1 records the supported composable prompt parts (moodboard,
+    sref, oref, ow, style_raw, stylize, etc.) and aspect ratios. Future
+    versions can grow the surface when a consumer demands it (a capability-
+    aware composer or an MCP introspection tool); v0.1 keeps the declaration
+    honest without speculative consumers."""
 
-    facets: list[str] = field(default_factory=list)
+    prompt_parts: list[str] = field(default_factory=list)
     aspect_ratios: list[str] = field(default_factory=list)
 
 

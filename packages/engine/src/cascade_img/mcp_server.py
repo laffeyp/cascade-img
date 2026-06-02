@@ -124,8 +124,8 @@ async def compose_prompt(
     ow: int = 100,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
-    """Compose a Midjourney v7 prompt from structured facets. Returns
-    ``{ok, result: {prompt, facets_used}}``."""
+    """Compose a Midjourney v7 prompt from composable prompt parts. Returns
+    ``{ok, result: {prompt, prompt_parts_used}}``."""
     def go():
         prompt = _composer.compose(
             Subject(text=subject, constraints=constraints or []),

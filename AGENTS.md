@@ -147,8 +147,4 @@ Fields per record:
 
 ## ToS context
 
-cascade-img drives Midjourney through a Discord user account. Both Discord's and Midjourney's Terms of Service prohibit user-account automation; the human operating cascade-img has acknowledged this when they configured the daemon. Don't re-surface the ToS warning in the conversational loop — they've already opted in. Do surface a token-rejected failure (`DISCORD_401` that persists after re-capture, or a `DISCORD_RECONNECT_FAILED(reason=auth)` event) as a structural failure that needs the human to act, since the daemon can't recover on its own.
-
----
-
-*Read the test suite. It is the contract.*
+cascade-img drives Midjourney through a Discord user account. Both Discord's and Midjourney's Terms of Service prohibit user-account automation; the human operating cascade-img has acknowledged this when they configured the daemon. Surface a token-rejected failure (`DISCORD_401` that persists after re-capture, or `DISCORD_RECONNECT_FAILED(reason=auth)`) as a structural failure that needs the human to act — the daemon can't recover on its own.
