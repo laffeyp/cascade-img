@@ -1,7 +1,9 @@
 {
   "vocabulary_version": "0.1",
-  "locked": false,
-  "locked_at": null,
+  "locked": true,
+  "locked_at": "2026-06-02",
+  "locked_by": "Architect (Peter Laffey, Green Rose Systems) via cascade-img v0.1.0a1 ship",
+  "prior_version": null,
   "categories": ["session", "config", "bridge", "job", "discord", "backend", "curation", "composer", "log", "mcp", "cli"],
   "tags": [
     {
