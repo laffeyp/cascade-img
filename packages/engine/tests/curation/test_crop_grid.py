@@ -18,10 +18,10 @@ def _make_quadranted_grid(tmp_path: Path) -> Path:
     img = Image.new("RGB", (100, 100), (0, 0, 0))
     for y in range(50):
         for x in range(50):
-            img.putpixel((x, y), (255, 0, 0))               # TL red
-            img.putpixel((x + 50, y), (0, 255, 0))          # TR green
-            img.putpixel((x, y + 50), (0, 0, 255))          # BL blue
-            img.putpixel((x + 50, y + 50), (255, 255, 255)) # BR white
+            img.putpixel((x, y), (255, 0, 0))  # TL red
+            img.putpixel((x + 50, y), (0, 255, 0))  # TR green
+            img.putpixel((x, y + 50), (0, 0, 255))  # BL blue
+            img.putpixel((x + 50, y + 50), (255, 255, 255))  # BR white
     p = tmp_path / "grid.png"
     img.save(p)
     return p
@@ -43,15 +43,15 @@ def test_returns_correct_quadrants(tmp_path: Path):
     """Each of U1..U4 returns the right corner color — proves the offsets
     aren't swapped (a swap was a real risk since the offsets are a dict literal)."""
     src = _make_quadranted_grid(tmp_path)
-    u1 = crop_quadrant(src, 1)   # top-left
-    u2 = crop_quadrant(src, 2)   # top-right
-    u3 = crop_quadrant(src, 3)   # bottom-left
-    u4 = crop_quadrant(src, 4)   # bottom-right
+    u1 = crop_quadrant(src, 1)  # top-left
+    u2 = crop_quadrant(src, 2)  # top-right
+    u3 = crop_quadrant(src, 3)  # bottom-left
+    u4 = crop_quadrant(src, 4)  # bottom-right
     assert u1.size == (50, 50)
-    assert u1.getpixel((10, 10)) == (255, 0, 0)        # red
-    assert u2.getpixel((10, 10)) == (0, 255, 0)        # green
-    assert u3.getpixel((10, 10)) == (0, 0, 255)        # blue
-    assert u4.getpixel((10, 10)) == (255, 255, 255)    # white
+    assert u1.getpixel((10, 10)) == (255, 0, 0)  # red
+    assert u2.getpixel((10, 10)) == (0, 255, 0)  # green
+    assert u3.getpixel((10, 10)) == (0, 0, 255)  # blue
+    assert u4.getpixel((10, 10)) == (255, 255, 255)  # white
 
 
 def test_rejects_invalid_quadrant(tmp_path: Path):

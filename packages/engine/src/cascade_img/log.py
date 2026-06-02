@@ -82,8 +82,7 @@ class PromptLog:
             except ValueError as e:
                 allowed = [d.value for d in AgentDecision]
                 raise ValueError(
-                    f"agent_decision must be one of {allowed}, got "
-                    f"{agent_decision!r}"
+                    f"agent_decision must be one of {allowed}, got {agent_decision!r}"
                 ) from e
         decision_value = agent_decision.value if isinstance(agent_decision, AgentDecision) else None
 

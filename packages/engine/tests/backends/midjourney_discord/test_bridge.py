@@ -45,8 +45,15 @@ def test_match_grid_routes_by_token_not_substring():
     """Two prompts sharing a prefix must NOT cross-match. The per-job
     request_token disambiguates."""
     _reset_jobs()
-    job_a = Job(job_id="a", asset_id="bird", prompt="pixel-art sprite of a finch", request_token="aaa11111")
-    job_b = Job(job_id="b", asset_id="finch", prompt="pixel-art sprite of a finch in flight", request_token="bbb22222")
+    job_a = Job(
+        job_id="a", asset_id="bird", prompt="pixel-art sprite of a finch", request_token="aaa11111"
+    )
+    job_b = Job(
+        job_id="b",
+        asset_id="finch",
+        prompt="pixel-art sprite of a finch in flight",
+        request_token="bbb22222",
+    )
     with LOCK:
         JOBS["a"] = job_a
         JOBS["b"] = job_b
@@ -54,7 +61,9 @@ def test_match_grid_routes_by_token_not_substring():
         bridge.PENDING_GRID.append("b")
 
     # MJ message for job B — contains the prompt AND token B
-    msg_for_b = "pixel-art sprite of a finch in flight --no cscidnocollidebbb22222 (Waiting to start)"
+    msg_for_b = (
+        "pixel-art sprite of a finch in flight --no cscidnocollidebbb22222 (Waiting to start)"
+    )
     matched = _match_grid(msg_for_b)
     assert matched is not None
     assert matched.job_id == "b"

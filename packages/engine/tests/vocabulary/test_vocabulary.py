@@ -101,7 +101,7 @@ def test_format_for_ai_groups_by_category():
     assert "Context: QA: boot sequence" in out
     assert "Vocabulary: 0.1" in out
     assert "### session" in out  # CASCADE_INIT's category
-    assert "### config" in out   # CONFIG_VALIDATED's category
+    assert "### config" in out  # CONFIG_VALIDATED's category
     assert "CASCADE_INIT" in out
     assert "CONFIG_VALIDATED" in out
 

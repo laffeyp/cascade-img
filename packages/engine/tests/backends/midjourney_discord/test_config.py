@@ -146,7 +146,7 @@ def test_happy_path_emits_config_validated(monkeypatch, tmp_path):
 
 
 def test_happy_path_with_guild_id_emits_has_guild_id_true(monkeypatch, tmp_path):
-    """MJ_GUILD_ID set -> CONFIG_VALIDATED.has_guild_id=True (the the default patch). """
+    """MJ_GUILD_ID set -> CONFIG_VALIDATED.has_guild_id=True (the the default patch)."""
     clear()
     _scrub_env(monkeypatch)
     monkeypatch.chdir(tmp_path)

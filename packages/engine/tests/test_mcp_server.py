@@ -56,6 +56,7 @@ async def test_compose_prompt_envelope_and_signals():
 async def test_crop_grid_writes_dest_and_returns_size(tmp_path: Path):
     clear()
     from PIL import Image
+
     src = tmp_path / "grid.png"
     Image.new("RGB", (200, 200), (100, 100, 100)).save(src)
     dest = tmp_path / "u2.png"
@@ -90,6 +91,7 @@ async def test_log_append_and_read_roundtrip(tmp_path: Path, monkeypatch):
     clear()
     from cascade_img import mcp_server
     from cascade_img.log import PromptLog
+
     monkeypatch.setattr(mcp_server, "_log", PromptLog(tmp_path / "log.jsonl"))
 
     r = await log_append(
@@ -111,6 +113,7 @@ async def test_run_tool_envelopes_exception_with_remediation():
     """An exception whose class carries `.code` and `.remediation` flows
     through `_run_tool` into the structured envelope unchanged."""
     from cascade_img.mcp_server import _run_tool
+
     clear()
 
     class TestError(Exception):
@@ -134,6 +137,7 @@ async def test_run_tool_envelopes_bare_exception_without_remediation():
     """An exception without `.code` or `.remediation` still routes through;
     code is the class name, remediation absent."""
     from cascade_img.mcp_server import _run_tool
+
     clear()
 
     def failing():

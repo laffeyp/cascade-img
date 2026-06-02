@@ -86,9 +86,7 @@ def _alpha_key_threshold(rgba: Image.Image, tolerance: int) -> tuple[Image.Image
     return rgba, keyed
 
 
-def _flood_from_corners_bfs(
-    rgb: Image.Image, tolerance: int
-) -> set[tuple[int, int]]:
+def _flood_from_corners_bfs(rgb: Image.Image, tolerance: int) -> set[tuple[int, int]]:
     """Pure-Python BFS flood-fill from the four corners.
 
     Used as a fallback when PIL's ImageDraw.floodfill collides with the
@@ -106,11 +104,7 @@ def _flood_from_corners_bfs(
     while queue:
         x, y = queue.popleft()
         r, g, b = px[x, y][:3]
-        if (
-            abs(r - bg_r) > tolerance
-            or abs(g - bg_g) > tolerance
-            or abs(b - bg_b) > tolerance
-        ):
+        if abs(r - bg_r) > tolerance or abs(g - bg_g) > tolerance or abs(b - bg_b) > tolerance:
             visited.discard((x, y))
             continue
         for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
@@ -204,8 +198,7 @@ def alpha_key_corners(
         rgba, keyed = _alpha_key_threshold(rgba, tolerance)
     else:
         raise ValueError(
-            f"alpha_key_corners: unknown method {method!r}; "
-            f"expected 'flood' or 'threshold'."
+            f"alpha_key_corners: unknown method {method!r}; expected 'flood' or 'threshold'."
         )
 
     total = w * h

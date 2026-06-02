@@ -49,6 +49,7 @@ Exit codes:
         --wait-timeout
     2   environment misconfiguration (missing .env, MCP package not importable)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -147,8 +148,7 @@ def _wait_for_bridge(bridge_url: str, timeout_seconds: int) -> dict:
             last_error = f"{type(e).__name__}: {e}"
         time.sleep(0.5)
     raise StepFailure(
-        f"bridge did not become ready within {timeout_seconds}s "
-        f"(last status: {last_error})"
+        f"bridge did not become ready within {timeout_seconds}s (last status: {last_error})"
     )
 
 
@@ -269,9 +269,7 @@ async def _walk(args: argparse.Namespace, output_dir: Path) -> Path:
         _banner(f"wait (timeout={args.wait_timeout}s)")
         env_resp = _unwrap(
             "wait",
-            await session.call_tool(
-                "wait", {"job_id": job_id, "timeout": args.wait_timeout}
-            ),
+            await session.call_tool("wait", {"job_id": job_id, "timeout": args.wait_timeout}),
         )
         _print_envelope("wait", env_resp)
         job = env_resp["result"]
@@ -344,9 +342,7 @@ async def _walk(args: argparse.Namespace, output_dir: Path) -> Path:
         promoted = promoted_dir / f"{asset_id}.png"
         env_resp = _unwrap(
             "promote",
-            await session.call_tool(
-                "promote", {"src": str(promote_src), "dest": str(promoted)}
-            ),
+            await session.call_tool("promote", {"src": str(promote_src), "dest": str(promoted)}),
         )
         _print_envelope("promote", env_resp)
 
@@ -362,18 +358,14 @@ async def _walk(args: argparse.Namespace, output_dir: Path) -> Path:
                     "job_id": job_id,
                     "outputs": {"promoted": str(promoted)},
                     "agent_decision": "promote",
-                    "agent_reason": (
-                        "smoke walk; quadrant 3 promoted via alpha-keyed crop"
-                    ),
+                    "agent_reason": ("smoke walk; quadrant 3 promoted via alpha-keyed crop"),
                 },
             ),
         )
         _print_envelope("log_append", env_resp)
 
         _banner("read_prompt_log (n=3)")
-        env_resp = _unwrap(
-            "read_prompt_log", await session.call_tool("read_prompt_log", {"n": 3})
-        )
+        env_resp = _unwrap("read_prompt_log", await session.call_tool("read_prompt_log", {"n": 3}))
         _print_envelope("read_prompt_log", env_resp)
         records = env_resp["result"]["records"]
         # Roundtrip check: the last record we wrote must come back.
@@ -408,8 +400,7 @@ def _ensure_env(env_file: Path | None) -> None:
     missing = [k for k in required if not os.environ.get(k)]
     if missing:
         raise StepFailure(
-            f"missing required env vars: {', '.join(missing)} "
-            f"(pass --env-file or export them)"
+            f"missing required env vars: {', '.join(missing)} (pass --env-file or export them)"
         )
 
 
