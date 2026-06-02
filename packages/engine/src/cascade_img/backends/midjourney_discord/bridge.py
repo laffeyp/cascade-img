@@ -70,7 +70,7 @@ from flask import Flask, jsonify, request
 from cascade_img.instrumentation.sdd import emit
 
 
-PACKAGE_VERSION = "0.0.1"  # bumped in lock-step with pyproject.toml
+PACKAGE_VERSION = "0.1.0a1"  # bumped in lock-step with pyproject.toml
 BACKEND_NAME = "midjourney_discord"
 
 
