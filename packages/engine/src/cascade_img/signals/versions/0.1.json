@@ -2,7 +2,7 @@
   "vocabulary_version": "0.1",
   "locked": false,
   "locked_at": null,
-  "categories": ["session", "config", "bridge", "job", "discord", "backend", "curation", "composer", "log", "mcp"],
+  "categories": ["session", "config", "bridge", "job", "discord", "backend", "curation", "composer", "log", "mcp", "cli"],
   "tags": [
     {
       "name": "CASCADE_INIT",
@@ -195,6 +195,30 @@
       "payload": ["ok", "checks_total", "checks_failed"],
       "optional_payload": [],
       "note": "cascade-mj-bridge --doctor completed. Pre-flight ladder: env + discord reachability + mcp_server import + discord.py-self import."
+    },
+    {
+      "name": "CLI_ROLL_STARTED",
+      "category": "cli",
+      "stratum": "event",
+      "payload": ["asset_id", "dry_run", "upscale"],
+      "optional_payload": [],
+      "note": "cascade-mj CLI accepted an asset_id and began the roll. upscale is 'grid' (default, no upscale), '1'-'4' (single), or 'all'."
+    },
+    {
+      "name": "CLI_ROLL_COMPLETED",
+      "category": "cli",
+      "stratum": "event",
+      "payload": ["asset_id", "dry_run", "status"],
+      "optional_payload": [],
+      "note": "cascade-mj CLI returned. status is 'done', 'failed', 'dry_run', or 'unknown'."
+    },
+    {
+      "name": "CLI_ROLL_FAILED",
+      "category": "cli",
+      "stratum": "incident",
+      "payload": ["asset_id", "error_code", "error_message"],
+      "optional_payload": [],
+      "note": "cascade-mj CLI exited with a structured error. error_code is one of UNKNOWN_ASSET_ID, FileNotFoundError, ValueError (registry malformed), or any backend exception class name."
     }
   ]
 }
