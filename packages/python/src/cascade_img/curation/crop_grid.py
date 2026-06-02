@@ -45,6 +45,7 @@ def crop_quadrant(src: str | Path | Image.Image, quadrant: int) -> Image.Image:
     # closed (or used as a context manager) to release the file descriptor.
     # Review-flagged 2026-06-02 (FD leak on repeated crops).
     opened_here = False
+    img: Image.Image  # Image.open returns the ImageFile subclass; widen the var
     if isinstance(src, (str, Path)):
         img = Image.open(src)
         opened_here = True

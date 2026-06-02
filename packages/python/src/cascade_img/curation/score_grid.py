@@ -59,6 +59,7 @@ def score_grid(
     w = {**_DEFAULT_WEIGHTS, **(weights or {})}
 
     opened_here = False
+    grid: Image.Image  # Image.open returns the ImageFile subclass; widen the var
     if isinstance(src, (str, Path)):
         grid = Image.open(src)
         opened_here = True

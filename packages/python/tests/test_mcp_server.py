@@ -280,3 +280,22 @@ async def test_failure_path_returns_structured_error(tmp_path: Path):
     assert "code" in r["error"]
     assert r["error"]["code"] == "FileNotFoundError"
     assert "MCP_TOOL_FAILED" in _tags()
+
+
+def test_serve_http_sets_host_port_on_settings(monkeypatch):
+    """FastMCP.run_sse_async takes NO host/port args — they go on mcp.settings.
+    Regression guard for the --http transport (the old run_sse_async(host=,
+    port=) call would TypeError at runtime). The fake mirrors the real
+    no-argument signature, so a revert to kwargs fails this test."""
+    from cascade_img import mcp_server
+
+    called = {"ran": False}
+
+    async def _fake_run_sse_async():
+        called["ran"] = True
+
+    monkeypatch.setattr(mcp_server.mcp, "run_sse_async", _fake_run_sse_async)
+    mcp_server._serve_http(8123)
+    assert called["ran"] is True
+    assert mcp_server.mcp.settings.host == "127.0.0.1"
+    assert mcp_server.mcp.settings.port == 8123

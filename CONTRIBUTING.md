@@ -20,11 +20,12 @@ cd cascade-img/packages/python
 pip install -e '.[dev]'      # editable install + ruff + pytest + mypy
 ```
 
-The four gates each commit must pass (run from `packages/python/`):
+The gates each commit must pass (run from `packages/python/`):
 
 ```bash
 ruff check .                                 # lint
 ruff format --check .                        # formatting
+mypy src/cascade_img                         # types (clean; config in pyproject [tool.mypy])
 pytest                                       # fast suite: unit/integration/contract (live e2e skipped)
 python3 tools/check_vocabulary_parity.py     # every emit() uses a declared tag
 diff ../../vocabulary/0.1.json src/cascade_img/vocabulary/versions/0.1.json   # mirror in sync
