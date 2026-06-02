@@ -460,6 +460,25 @@ def _emit_mcp_shutdown(reason: str) -> None:
         emit("MCP_SERVER_STOPPED", reason=reason)
 
 
+def _serve_http(port: int) -> None:
+    """Serve the MCP over SSE/HTTP on 127.0.0.1:``port``.
+
+    FastMCP reads host/port from ``mcp.settings``; ``run_sse_async()`` takes no
+    host/port arguments (passing them raises ``TypeError`` — which is exactly
+    what the previous ``run_sse_async(host=..., port=...)`` call did, silently
+    breaking ``cascade-mcp --http``). Set the settings, then run."""
+    if not hasattr(mcp, "run_sse_async"):
+        raise RuntimeError(
+            "HTTP transport not available in this mcp SDK version; "
+            "use stdio (omit --http) or upgrade mcp."
+        )
+    import asyncio
+
+    mcp.settings.host = "127.0.0.1"
+    mcp.settings.port = port
+    asyncio.run(mcp.run_sse_async())
+
+
 def main() -> None:
     import atexit
     import signal as _signal
@@ -491,15 +510,7 @@ def main() -> None:
 
     try:
         if args.http:
-            if hasattr(mcp, "run_sse_async"):
-                import asyncio
-
-                asyncio.run(mcp.run_sse_async(host="127.0.0.1", port=args.http))
-            else:
-                raise RuntimeError(
-                    "HTTP transport not available in this mcp SDK version; "
-                    "use stdio (omit --http) or upgrade mcp."
-                )
+            _serve_http(args.http)
         else:
             mcp.run()
     except Exception:

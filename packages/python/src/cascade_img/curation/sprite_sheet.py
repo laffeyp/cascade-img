@@ -46,8 +46,8 @@ def sprite_sheet(
 
     loaded: list[tuple[Path, Image.Image]] = []
     for s in src_paths:
-        with Image.open(s) as im:
-            loaded.append((s, im.convert("RGBA").copy()))
+        with Image.open(s) as fh:
+            loaded.append((s, fh.convert("RGBA").copy()))
 
     cell_w = max(im.size[0] for _, im in loaded) + padding
     cell_h = max(im.size[1] for _, im in loaded) + padding

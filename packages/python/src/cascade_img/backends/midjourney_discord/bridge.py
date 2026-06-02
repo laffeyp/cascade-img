@@ -530,6 +530,9 @@ _ready = threading.Event()
 @client.event
 async def on_ready():
     c = _cfg()
+    # discord.py-self guarantees client.user is populated by the time on_ready
+    # fires; assert it so the user_id reads below are not None-typed.
+    assert client.user is not None
     log.info(f"Discord connected as {client.user} (id={client.user.id})")
     log.info(f"Watching channel {c.channel_id}")
     emit("DISCORD_CONNECTED", user_id=str(client.user.id))

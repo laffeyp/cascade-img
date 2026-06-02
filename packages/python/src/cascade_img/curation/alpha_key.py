@@ -29,12 +29,28 @@ the asset; apply selectively per asset in the consumer's curation flow.
 from __future__ import annotations
 
 from collections import deque
+from typing import Any
 
 from PIL import Image, ImageDraw
 
 from cascade_img.vocabulary import emit
 
 DEFAULT_TOLERANCE = 40
+
+
+def _pixels(img: Image.Image) -> Any:
+    """``img.load()`` typed as ``Any``.
+
+    Pillow types the C pixel accessor as ``PixelAccess | None`` and does not
+    express its ``px[x, y]`` get/set subscript API, so a typed accessor trips
+    mypy on every pixel touch. The accessor is non-None for any loaded image
+    (load() returns None only for a closed/zero-size image, which the callers
+    already guard) and supports get/set at runtime."""
+    px = img.load()
+    if px is None:  # closed or zero-size image
+        raise ValueError("alpha_key: image has no pixel access (closed or zero-size)")
+    return px
+
 
 # Sentinel color used to mark flood-filled pixels in the working RGB copy.
 # Picked outside the typical illustration palette; the keyer falls back to a
@@ -61,7 +77,7 @@ def _rgba_components(pixel, mode: str) -> tuple[int, int, int, int]:
 
 def _sample_bg(rgba: Image.Image) -> tuple[int, int, int]:
     """Four-corner-average background color in 0-255 RGB space."""
-    px = rgba.load()
+    px = _pixels(rgba)
     w, h = rgba.size
     corners = (px[0, 0], px[w - 1, 0], px[0, h - 1], px[w - 1, h - 1])
     rs = [_rgba_components(c, rgba.mode) for c in corners]
@@ -75,7 +91,7 @@ def _sample_bg(rgba: Image.Image) -> tuple[int, int, int]:
 def _alpha_key_threshold(rgba: Image.Image, tolerance: int) -> tuple[Image.Image, int]:
     """Global-threshold keyer. Returns (image, keyed_count)."""
     bg_r, bg_g, bg_b = _sample_bg(rgba)
-    px = rgba.load()
+    px = _pixels(rgba)
     w, h = rgba.size
     keyed = 0
     for y in range(h):
@@ -99,7 +115,7 @@ def _flood_from_corners_bfs(rgb: Image.Image, tolerance: int) -> set[tuple[int, 
     the set of (x, y) coordinates classified as background.
     """
     w, h = rgb.size
-    px = rgb.load()
+    px = _pixels(rgb)
     bg_r, bg_g, bg_b = _sample_bg(rgb.convert("RGBA"))
     visited: set[tuple[int, int]] = set()
     queue: deque[tuple[int, int]] = deque()
@@ -145,7 +161,7 @@ def _alpha_key_flood(rgba: Image.Image, tolerance: int) -> tuple[Image.Image, in
 
     if use_bfs:
         bg_coords = _flood_from_corners_bfs(rgb_work, tolerance)
-        px = rgba.load()
+        px = _pixels(rgba)
         keyed = 0
         for x, y in bg_coords:
             r, g, b, _ = _rgba_components(px[x, y], rgba.mode)
@@ -159,8 +175,8 @@ def _alpha_key_flood(rgba: Image.Image, tolerance: int) -> tuple[Image.Image, in
     for xy in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
         ImageDraw.floodfill(rgb_work, xy, _FLOOD_SENTINEL, thresh=tolerance)
 
-    src = rgba.load()
-    work = rgb_work.load()
+    src = _pixels(rgba)
+    work = _pixels(rgb_work)
     keyed = 0
     for y in range(h):
         for x in range(w):
