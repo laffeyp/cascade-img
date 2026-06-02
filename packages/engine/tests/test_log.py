@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from cascade_img.instrumentation.runtime import clear, snapshot
 from cascade_img.log import AgentDecision, PromptLog
+from cascade_img.vocabulary import clear, snapshot
 
 
 def test_append_then_read_roundtrip(tmp_path: Path):

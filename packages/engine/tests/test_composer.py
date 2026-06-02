@@ -12,7 +12,7 @@ from cascade_img.composer import (
     StyleStack,
     Subject,
 )
-from cascade_img.instrumentation.runtime import clear, snapshot
+from cascade_img.vocabulary import clear, snapshot
 
 
 def test_subject_only_emits_minimal_prompt():

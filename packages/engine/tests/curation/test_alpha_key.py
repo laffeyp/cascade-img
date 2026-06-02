@@ -5,7 +5,7 @@ from __future__ import annotations
 from PIL import Image
 
 from cascade_img.curation import DEFAULT_TOLERANCE, alpha_key_corners
-from cascade_img.instrumentation.runtime import clear, snapshot
+from cascade_img.vocabulary import clear, snapshot
 
 
 def test_keys_uniform_background_keeps_center_opaque():

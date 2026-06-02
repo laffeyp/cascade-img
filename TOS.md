@@ -1,33 +1,21 @@
-# Terms of Service Posture
+# Terms of Service Context
 
-Cascade-img drives Midjourney through a Discord user account using `discord.py-self`. This is:
+cascade-img drives Midjourney through a Discord user account using `discord.py-self`. This is:
 
-- **Automation of a Discord account**, which Discord's [Terms of Service](https://discord.com/terms) prohibit.
-- **Automation of Midjourney**, which Midjourney's [Terms of Service](https://docs.midjourney.com/docs/terms-of-service) prohibit.
+- Automation of a Discord account, which Discord's [Terms of Service](https://discord.com/terms) prohibit.
+- Automation of Midjourney, which Midjourney's [Terms of Service](https://docs.midjourney.com/docs/terms-of-service) prohibit.
 
-**Accounts get banned.** Use a sacrificial Discord account.
+Midjourney has no public API. Its [Enterprise API](https://www.midjourney.com/) exists but is application-only and inaccessible to individual developers. The OSS pattern for programmatic Midjourney access is driving a user account via the Discord bot APIs — this is how every open-source Midjourney tool today works. Paid third-party REST proxies (TheNextLeg, PIAPI, useapi.net, GoAPI) run the same mechanism behind a hosted facade.
 
-This is the only OSS path to programmatic Midjourney access as of this release. Midjourney's [Enterprise API](https://www.midjourney.com/) exists but is application-only and inaccessible to individual developers. Paid third-party REST proxies (TheNextLeg, PIAPI, useapi.net, GoAPI) shift the ToS exposure onto their account pools but do not eliminate it — they run the same self-bot mechanism on accounts they own, charge $20-$50/month, and vendor-lock prompts through their infrastructure.
+## Pluggable backend
 
-This software is published for **research, prototyping, and personal use**, not production deployments.
+The `ImageGenerationBackend` interface in `cascade_img.backends.base` is the seam: when the Flux-via-Fal backend ships in v0.2, the same composer, curation kit, MCP server, and CLI drive it without consumer code changes. Planned backends:
 
-## The pluggable-backend escape
+- Flux Pro / Dev / Schnell via Fal — v0.2
+- OpenAI `gpt-image-1` / DALL-E 3 — v0.2
+- Stable Diffusion 3.5 via Stability — v0.3
+- Flux Kontext (instruction-edit) — v0.3
+- Imagen 3 via Vertex — v0.4
+- Ideogram, Recraft V3 — v0.4
 
-Cascade-img's architecture exists in part to give users a sanctioned alternative. The `ImageGenerationBackend` interface in `cascade_img.backends.base` is the seam: when v0.2 ships the Flux-via-Fal backend, the same composer, curation kit, MCP server, and CLI will drive it without consumer code changes. If the legal exposure of the MJ backend matters to you, wait for the v0.2 sanctioned-API backends:
-
-- Flux Pro / Dev / Schnell via Fal — v0.2 target
-- OpenAI `gpt-image-1` / DALL-E 3 — v0.2 target
-- Stable Diffusion 3.5 via Stability — v0.3 target
-- Flux Kontext (instruction-edit) — v0.3 target
-- Imagen 3 via Vertex — v0.4 target
-- Ideogram, Recraft V3 — v0.4 target
-
-When Midjourney's Enterprise API becomes generally available, an official `MidjourneyOfficialBackend` replaces the self-bot backend.
-
-## If your account gets banned
-
-Get a fresh Discord account, capture new credentials, plug them into `.env`, keep going. The cycle has been operationally validated; it's the cost of riding an unsanctioned channel.
-
----
-
-This stance is linked from the README's first paragraph, the PyPI long description, and `OPERATIONS.md`. It is not buried.
+When Midjourney's Enterprise API becomes generally available, an official backend replaces the self-bot path.

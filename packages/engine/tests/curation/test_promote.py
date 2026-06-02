@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from cascade_img.curation import promote
-from cascade_img.instrumentation.runtime import clear, snapshot
+from cascade_img.vocabulary import clear, snapshot
 
 
 def test_copies_file_and_emits_signal(tmp_path: Path):

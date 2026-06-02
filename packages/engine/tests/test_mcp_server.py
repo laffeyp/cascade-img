@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pytest
 
-from cascade_img.instrumentation.runtime import clear, snapshot
 from cascade_img.mcp_server import (
     compose_prompt,
     crop_grid,
@@ -21,6 +20,7 @@ from cascade_img.mcp_server import (
     promote,
     read_prompt_log,
 )
+from cascade_img.vocabulary import clear, snapshot
 
 
 def _tags() -> list[str]:

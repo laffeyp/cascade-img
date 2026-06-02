@@ -1,26 +1,19 @@
-"""Four-corner-average alpha keyer for MJ sprite-style outputs.
+"""Four-corner-average alpha keyer for sprite-style outputs.
 
-MJ frequently ignores ``transparent background`` in the prompt and ships the
-sprite on a near-uniform colored backdrop. Defensive post-process: sample the
-four corner pixels of the image, average their RGB to get the background
-color, then set alpha=0 on every pixel within ``tolerance`` per channel of
-that color.
+Samples the four corner pixels of the image, averages their RGB to estimate
+the background color, then sets alpha=0 on every pixel within ``tolerance``
+per channel of that color. Default tolerance 40 (0-255 range): too tight
+leaves a halo around the subject, too loose eats into it.
 
-Tuned for MJ's sprite art, which has soft anti-aliased edges. Default
-tolerance of 40 (0-255 range) is the calibration that came out of the default
-— too tight leaves a halo, too loose eats into the sprite. Tighten via the
-``tolerance`` arg for cleaner edges, loosen for backdrops with more variance.
-
-This is NOT appropriate for full-scene region backdrops where the entire
-image is the asset. Use the ``ALPHA_KEY`` per-asset gate in the consumer's
-curation config to decide which assets get keyed.
+Not appropriate for full-scene images where the entire frame is the asset.
+Apply selectively, per asset, in the consumer's curation flow.
 """
 
 from __future__ import annotations
 
 from PIL import Image
 
-from cascade_img.instrumentation.runtime import emit
+from cascade_img.vocabulary import emit
 
 DEFAULT_TOLERANCE = 40
 
@@ -43,11 +36,9 @@ def alpha_key_corners(
     if px is None or w == 0 or h == 0:
         return rgba
 
-    # PIL's RGBA pixel access usually returns a 4-tuple, but ``convert("RGBA")``
-    # on unusual inputs (palette mode P with single-channel transparency,
-    # corrupted files, custom modes) may not produce the expected shape.
-    # Use a small helper that tolerates >=3 channels (taking alpha=255 default)
-    # and raises a clean error on <3. Review-flagged 2026-06-02.
+    # ``convert("RGBA")`` is well-defined for ordinary inputs but some modes
+    # (P with single-channel transparency, corrupt files) yield 3-channel
+    # tuples. Tolerate >=3 channels; default alpha to 255 when absent.
     def _rgba(pixel):
         if len(pixel) >= 4:
             return pixel[0], pixel[1], pixel[2], pixel[3]

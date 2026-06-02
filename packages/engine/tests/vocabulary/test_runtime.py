@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from cascade_img.instrumentation.runtime import (
+from cascade_img.vocabulary import (
     VOCAB_VERSION,
     clear,
     emit,

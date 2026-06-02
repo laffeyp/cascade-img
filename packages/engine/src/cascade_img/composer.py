@@ -1,29 +1,27 @@
-"""PromptComposer — turn structured facets into a Midjourney v7 prompt string.
+"""Assemble Midjourney v7 prompt strings from structured facets.
 
-The single most-differentiated piece of cascade-img. No other OSS tool exposes
-V7 facets (``--p``/``--sref``/``--oref``/``--ow``) as independently composable
-inputs. The consumer supplies subject text, an optional style stack, an
-optional identity stack, and an aspect ratio. The composer assembles the
-backend-specific prompt string.
-
-For v0.1, the only backend is Midjourney Discord, so the composition emits
-MJ V7 syntax. When a second backend lands (Flux, DALL-E), the composer grows
-a per-backend ``compose_for(backend)`` path.
+The consumer supplies a subject, an optional style stack, an optional
+identity stack, and an aspect ratio. The composer emits the backend-specific
+prompt string. v0.1 emits Midjourney v7 syntax (``--ar``, ``--v``,
+``--style``, ``--p``, ``--sref``, ``--s``, ``--oref``, ``--ow``).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from cascade_img.instrumentation.runtime import emit
+from cascade_img.vocabulary import emit
 
 
 @dataclass
 class Subject:
-    """The thing being depicted. Free-text plus optional explicit constraints
-    that get folded into the prompt for emphasis (MJ weights repeated concepts
-    higher — the the default "pixel-art sprite, low-resolution, limited palette"
-    pattern is exactly this)."""
+    """The thing being depicted.
+
+    ``constraints`` are folded into the prompt as comma-separated phrases
+    after ``text``; Midjourney weights repeated concepts higher, so naming
+    style constraints explicitly (e.g. "pixel-art sprite", "limited palette")
+    pulls the render in that direction more reliably than a single phrase.
+    """
 
     text: str
     constraints: list[str] = field(default_factory=list)
@@ -53,8 +51,8 @@ class StyleStack:
 class IdentityStack:
     """Omni-reference identity lock (V7's ``--oref``/``--ow``).
 
-    ``ow`` is omni-weight (0-1000). Default 100 is loose; 400 is tight identity
-    match; 1000 is maximum — the Sprint 4.7 progression on the wing-frame work.
+    ``ow`` is omni-weight (0-1000). 100 is loose, 400 is tight identity
+    match, 1000 is maximum.
     """
 
     oref: str | None = None
@@ -76,8 +74,6 @@ class PromptComposer:
         aspect_ratio: str = "1:1",
     ) -> str:
         """Return a Midjourney v7 prompt string."""
-        # Subject text + constraints fold together. Repeating constraints
-        # is a Sprint-4.0 lesson: MJ weights repeated concepts higher.
         parts: list[str] = [subject.text.strip()]
         for c in subject.constraints:
             c = c.strip()

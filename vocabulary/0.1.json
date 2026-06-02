@@ -144,7 +144,7 @@
       "stratum": "event",
       "payload": ["asset_id", "job_id", "message_id", "match_path"],
       "optional_payload": [],
-      "note": "MJ message matched to job. match_path is 'pending' (first-touch) or 'progress_fallback' (v7 grid-as-new-message — the the default patch path)."
+      "note": "MJ message matched to job. match_path is 'pending' (first-touch on MJ's initial prompt-echo) or 'progress_fallback' (matched after the job was already in PROGRESS, which happens when MJ posts the final grid as a new message instead of editing the original)."
     },
     {
       "name": "GRID_RECEIVED",

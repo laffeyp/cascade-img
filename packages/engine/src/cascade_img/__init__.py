@@ -26,11 +26,12 @@ from cascade_img.curation import (
     crop_quadrant,
     promote,
 )
-from cascade_img.instrumentation.runtime import (
+from cascade_img.log import AgentDecision, PromptLog
+from cascade_img.vocabulary import (
     VOCAB_VERSION,
+    Emitter,
     Signal,
-    SignalEmitter,
-    SignalVocabulary,
+    Vocabulary,
     assert_no_signal,
     assert_signal,
     capture,
@@ -41,7 +42,6 @@ from cascade_img.instrumentation.runtime import (
     snapshot,
     vocabulary,
 )
-from cascade_img.log import AgentDecision, PromptLog
 
 __all__ = [  # noqa: RUF022 — order is by concern, not alphabetical
     "__version__",
@@ -76,8 +76,8 @@ __all__ = [  # noqa: RUF022 — order is by concern, not alphabetical
     "assert_no_signal",
     "capture",
     "vocabulary",
-    "SignalEmitter",
-    "SignalVocabulary",
+    "Emitter",
+    "Vocabulary",
     "Signal",
     "VOCAB_VERSION",
 ]

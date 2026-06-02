@@ -9,7 +9,7 @@ isolated.
 from __future__ import annotations
 
 from cascade_img.backends.midjourney_discord.bridge import check_env, doctor
-from cascade_img.instrumentation.runtime import clear, snapshot
+from cascade_img.vocabulary import clear, snapshot
 
 VALID = {
     "DISCORD_USER_TOKEN": "MTU.fake.token.with.some.length",

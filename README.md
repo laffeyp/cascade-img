@@ -2,7 +2,7 @@
 
 **An LLM-operable image-generation pipeline.** Midjourney via Discord today, Flux / DALL-E / Imagen / others through the same interface tomorrow. Composable V7 facets (`--p`, `--sref`, `--oref`, `--ow`) as first-class inputs, a curation toolkit (grid crop / four-corner alpha key / promote), a working-memory prompt log, and an MCP server that lets Claude Desktop, Cursor, Cline, or any MCP-aware host drive the full generate-curate-refine-promote-log loop without a human in the room for every roll.
 
-> **ToS notice.** This drives Midjourney through a Discord user account using `discord.py-self`. Both Discord and Midjourney prohibit this. Use a sacrificial Discord account. See [TOS.md](./TOS.md).
+> **Context.** Midjourney has no public API. Driving it through a Discord user account is the established OSS pattern for programmatic access. Both Discord and Midjourney's Terms of Service prohibit user-account automation. See [TOS.md](./TOS.md).
 
 Published by [Green Rose Systems](https://greenrosesystems.com).
 

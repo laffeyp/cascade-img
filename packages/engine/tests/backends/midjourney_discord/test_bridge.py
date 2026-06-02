@@ -24,7 +24,7 @@ from cascade_img.backends.midjourney_discord.bridge import (
     _match_grid,
     _token_needle,
 )
-from cascade_img.instrumentation.runtime import clear, snapshot
+from cascade_img.vocabulary import clear, snapshot
 
 
 def _reset_jobs():
