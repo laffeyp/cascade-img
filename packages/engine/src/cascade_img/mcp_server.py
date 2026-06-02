@@ -42,6 +42,7 @@ from cascade_img.curation import auto_trim as curation_auto_trim
 from cascade_img.curation import contact_sheet as curation_contact_sheet
 from cascade_img.curation import palette_quantize as curation_palette_quantize
 from cascade_img.curation import promote as curation_promote
+from cascade_img.curation import score_grid as curation_score_grid
 from cascade_img.curation import sprite_sheet as curation_sprite_sheet
 from cascade_img.log import PromptLog
 from cascade_img.vocabulary import emit
@@ -361,6 +362,18 @@ async def sprite_sheet(
         return {"dest": str(out)}
 
     return await _run_tool("sprite_sheet", go)
+
+
+@mcp.tool()
+async def score_grid(src: str) -> dict[str, Any]:
+    """Rank the four quadrants of a 2x2 grid on sharpness/contrast/edge-density
+    so the agent picks the strongest candidate on evidence (then confirms with
+    vision). Returns ``{ok, result: {scores}}`` sorted best-first."""
+
+    def go():
+        return {"scores": curation_score_grid(src)}
+
+    return await _run_tool("score_grid", go)
 
 
 @mcp.tool()

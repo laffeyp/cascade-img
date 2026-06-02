@@ -22,6 +22,7 @@ from cascade_img.mcp_server import (
     log_append,
     promote,
     read_prompt_log,
+    score_grid,
     status,
     wait,
 )
@@ -222,6 +223,21 @@ async def test_alpha_key_tool_keys_and_reports_ratio(tmp_path: Path):
     assert dest.exists()
     assert r["result"]["method"] == "flood"
     assert 0.0 <= r["result"]["keyed_ratio"] <= 1.0
+    assert "MCP_TOOL_COMPLETED" in _tags()
+
+
+@pytest.mark.asyncio
+async def test_score_grid_tool(tmp_path: Path):
+    clear()
+    from PIL import Image, ImageDraw
+
+    g = Image.new("RGB", (64, 64), (128, 128, 128))
+    ImageDraw.Draw(g).rectangle((0, 0, 31, 31), fill=(0, 0, 0))  # one dark quadrant
+    src = tmp_path / "grid.png"
+    g.save(src)
+    r = await score_grid(src=str(src))
+    assert r["ok"] is True
+    assert len(r["result"]["scores"]) == 4
     assert "MCP_TOOL_COMPLETED" in _tags()
 
 
