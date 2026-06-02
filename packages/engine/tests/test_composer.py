@@ -90,3 +90,16 @@ def test_no_style_stack_still_emits_style_raw():
     (the safe default for cascade-img's locked-style use case)."""
     p = PromptComposer().compose(Subject(text="x"))
     assert "--style raw" in p
+
+
+def test_subject_rejects_empty_text():
+    """Subject.text='' or whitespace would otherwise render a subject-less
+    prompt (review-003 MEDIUM). Validated at construction so the bad
+    Subject never reaches the composer."""
+    import pytest as _pytest
+    with _pytest.raises(ValueError, match="non-empty description"):
+        Subject(text="")
+    with _pytest.raises(ValueError, match="non-empty description"):
+        Subject(text="   \t  ")
+    with _pytest.raises(ValueError, match="non-empty description"):
+        Subject(text="\n")

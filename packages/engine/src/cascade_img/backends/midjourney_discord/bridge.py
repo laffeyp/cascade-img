@@ -527,12 +527,19 @@ def _job_by_message_id(message_id: int) -> Job | None:
 
 
 def _download_to(url: str, path: Path) -> int:
-    """Download ``url`` to ``path``; return the number of bytes written."""
+    """Download ``url`` to ``path``; return the number of bytes written.
+
+    Streams the response body to disk in 64 KB chunks so a large MJ grid
+    (typical ~1-3 MB; upscales can reach 8 MB) never sits in memory in full.
+    """
+    total = 0
     with requests.get(url, timeout=30, stream=True) as resp:
         resp.raise_for_status()
-        data = resp.content
-    path.write_bytes(data)
-    return len(data)
+        with path.open("wb") as f:
+            for chunk in resp.iter_content(64 * 1024):
+                if chunk:
+                    total += f.write(chunk)
+    return total
 
 
 def _extract_mj_uuid(components) -> str | None:
@@ -587,6 +594,19 @@ def _ingest_message(message):
                 job.touch()
             return
         if message.attachments:
+            # Claim the grid exactly once. on_message and on_message_edit
+            # both dispatch _ingest_message via run_in_executor; for the same
+            # MJ message both can race here and double-download / double-
+            # upscale. Reserve job.grid_path under LOCK before any I/O so a
+            # concurrent ingest short-circuits.
+            with LOCK:
+                if job.grid_path is not None or job.status not in (
+                    Status.PROGRESS,
+                    Status.SUBMITTED,
+                ):
+                    return
+                job.grid_path = ""  # reservation sentinel — closes the window
+
             att = message.attachments[0]
             ext = os.path.splitext(att.filename)[1] or ".png"
             suffix = "_grid" if job.upscale else ""
@@ -602,6 +622,11 @@ def _ingest_message(message):
             try:
                 grid_bytes = _download_to(att.url, grid_path)
             except Exception as e:
+                # Release the reservation so a retry (or the operator's
+                # re-fire) doesn't see a permanently-claimed slot.
+                with LOCK:
+                    if job.grid_path == "":
+                        job.grid_path = None
                 job._fail("GRID_DOWNLOAD_FAILED", f"grid download failed: {e}")
                 log.error(f"[{job.asset_id}] {job.error}")
                 return
@@ -1065,7 +1090,19 @@ def http_status(job_id):
 @app.get("/wait/<job_id>")
 def http_wait(job_id):
     """Block until the job hits done/failed or the timeout fires."""
-    timeout = float(request.args.get("timeout", "120"))
+    timeout_raw = request.args.get("timeout", "120")
+    try:
+        timeout = float(timeout_raw)
+    except (TypeError, ValueError):
+        return jsonify(
+            ok=False,
+            error={
+                "code": "INVALID_TIMEOUT",
+                "message": f"timeout must be a number of seconds; got {timeout_raw!r}",
+            },
+        ), 400
+    # Cap so a typo can't park a worker thread for hours.
+    timeout = max(0.0, min(timeout, 600.0))
     deadline = time.time() + timeout
     with TERMINAL_CV:
         job = JOBS.get(job_id)

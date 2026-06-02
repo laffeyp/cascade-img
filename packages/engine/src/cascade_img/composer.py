@@ -17,6 +17,11 @@ from cascade_img.vocabulary import emit
 class Subject:
     """The thing being depicted.
 
+    ``text`` must be a non-empty, non-whitespace description; the composer's
+    other dataclasses validate ranges at construction, and an empty subject
+    would otherwise produce a leading-space subject-less prompt that
+    Midjourney would render as noise.
+
     ``constraints`` are folded into the prompt as comma-separated phrases
     after ``text``; Midjourney weights repeated concepts higher, so naming
     style constraints explicitly (e.g. "pixel-art sprite", "limited palette")
@@ -25,6 +30,13 @@ class Subject:
 
     text: str
     constraints: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if not self.text or not self.text.strip():
+            raise ValueError(
+                "Subject.text must be a non-empty description; "
+                "empty/whitespace subjects render as noise."
+            )
 
 
 @dataclass
