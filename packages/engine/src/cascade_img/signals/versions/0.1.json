@@ -2,7 +2,7 @@
   "vocabulary_version": "0.1",
   "locked": false,
   "locked_at": null,
-  "categories": ["session", "config", "bridge", "job", "discord", "backend", "curation"],
+  "categories": ["session", "config", "bridge", "job", "discord", "backend", "curation", "composer", "log"],
   "tags": [
     {
       "name": "CASCADE_INIT",
@@ -131,6 +131,22 @@
       "payload": ["src", "dest", "bytes"],
       "optional_payload": [],
       "note": "promote() copied a curated asset to the consumer's asset tree."
+    },
+    {
+      "name": "PROMPT_COMPOSED",
+      "category": "composer",
+      "stratum": "event",
+      "payload": ["facets_used", "aspect_ratio", "prompt_chars"],
+      "optional_payload": [],
+      "note": "PromptComposer.compose() emitted a backend-ready prompt string. facets_used lists which of the optional facets were included (moodboard, sref, stylize, oref, ow)."
+    },
+    {
+      "name": "PROMPT_LOGGED",
+      "category": "log",
+      "stratum": "event",
+      "payload": ["asset_id", "has_job_id", "has_error", "agent_decision"],
+      "optional_payload": [],
+      "note": "PromptLog.append() wrote a record. agent_decision is one of '', 'promote', 'reroll', 'escalate'. Records read back via PromptLog.read() are the agent's working memory across loop iterations."
     }
   ]
 }
