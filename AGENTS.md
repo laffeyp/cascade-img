@@ -18,7 +18,9 @@ The agent's job, per asset:
 3. wait:     wait(job_id, timeout=180|360|600)               → job record
 4. inspect:  read the PNG at job.image_path with vision
 5. decide:   promote / re-roll / escalate ow / give up + ask human
-6. curate:   crop_grid → alpha_key → promote   (if decision = promote)
+6. curate:   crop_grid → [alpha_key]? → promote   (if decision = promote)
+              alpha_key is OPTIONAL — apply only when transparency is wanted
+              and only when keyed_ratio lands in the healthy band (0.1-0.9)
 7. log:      log_append(asset_id, prompt, job_id, outputs, agent_decision, agent_reason)
 
 next loop iteration starts with read_prompt_log(n=5) for working memory
@@ -42,7 +44,7 @@ Available via the `cascade-mcp` MCP server. Each returns `{ok: bool, result: ...
 | `status(job_id)` | Non-blocking status read |
 | `bridge_health()` | Is the daemon running? Is Discord connected? |
 | `crop_grid(src, quadrant, dest)` | Pull one quadrant from a 2x2 grid (0 = whole) |
-| `alpha_key(src, dest, tolerance)` | Four-corner alpha-key for sprite-style outputs |
+| `alpha_key(src, dest, tolerance, method)` | Corner-anchored alpha-key. `method="flood"` (default; correct for sprite-on-uniform-bg) or `method="threshold"`. Returns `keyed_ratio` so you can detect failure. |
 | `promote(src, dest)` | Copy curated asset to project tree |
 | `log_append(asset_id, prompt, backend, job_id, upscale, outputs, error, agent_decision, agent_reason)` | Append a record to the working-memory log |
 | `read_prompt_log(n)` | Read structured log entries (defaults to all) |
@@ -62,7 +64,7 @@ The composer assembles these into the prompt string:
 - **Ow (`--ow`)**: omni-weight, 0-1000. 100 default (loose), 400 tight identity, 1000 max.
 - **Aspect ratio (`--ar`)**: "1:1", "16:9", "9:16", etc.
 
-## Sprite-style register (the default lesson)
+## Sprite-style register
 
 Sref + moodboard alone don't dominate on small natural objects (feathers, scratch marks, keepsakes) — MJ falls back to photorealism even with `--style raw`. Bake the aesthetic into the subject explicitly:
 
@@ -74,7 +76,7 @@ centered, transparent background"
 
 The redundancy is intentional. Region backdrops (full scenes) drop "transparent background" and add "16:9 composed scene".
 
-## Identity lock (Sprint 4.7 lesson)
+## Identity lock
 
 When you need "same character, different pose":
 
@@ -85,15 +87,19 @@ When you need "same character, different pose":
 
 ## Failure modes you should branch on
 
-Every error returned to you carries a stable `code`. Five codes matter for the loop:
+Every error returned to you carries a stable `code`. The codes that matter for the loop:
 
 | code | what it means | what you do |
 |---|---|---|
 | `DISCORD_400_OUTDATED` | MJ updated the slash command | escalate to human — needs `MJ_IMAGINE_VERSION` re-capture |
 | `MISSING_*` | env var not set | escalate to human — one-time setup gap |
 | `DISCORD_401` | token expired | escalate to human — token re-capture |
+| `DISCORD_NOT_READY` (HTTP 503) | bridge's WebSocket dropped, reconnect in flight | retry after a short delay; the daemon auto-reconnects with exponential backoff |
 | `MJ_UUID_MISSING` | grid arrived without U1-U4 buttons | re-roll once; if reproducible, escalate |
 | `GRID_DOWNLOAD_FAILED` / `UPSCALE_DOWNLOAD_FAILED` | network blip during PNG fetch | re-roll automatically |
+| `UPSCALE_BUTTON_FAILED` / `UPSCALE_ALL_BUTTONS_FAILED` | transient Discord interaction error on the U-button press | re-roll the imagine |
+
+A `/imagine` that returns HTTP 202 with `status: "submitted_unconfirmed"` is NOT a failure — the Discord interaction took longer than 35s but MJ may have processed it. Poll `/wait` for the actual outcome. DO NOT re-fire `/imagine` for the same asset before `/wait` resolves; that would double-bill if MJ processed the original.
 
 Everything else (generic backend exceptions, timeouts): re-roll up to N times (3 is a reasonable default), then escalate.
 
@@ -103,7 +109,7 @@ You should not ask the human for:
 
 - Which quadrant of a grid is best — read the PNG with vision and decide.
 - Whether to re-roll — apply the policy above.
-- Tolerance values for alpha-keying — the default 40 is calibrated; only adjust if `ALPHA_KEY_APPLIED.keyed_count / total_count` is outside 0.3-0.7.
+- Whether to alpha-key — read the cropped PNG; if it needs transparency, call `alpha_key` (default `method="flood"`, `tolerance=24`). The tool envelope returns `keyed_ratio`. Healthy band is 0.1-0.9. Under 0.1 means the keyer found no background (swap `method="threshold"` or skip alpha-key). Over 0.9 means it ate the subject (reject and reroll with higher-contrast composition, or skip alpha-key for this asset).
 
 You should ask the human for:
 

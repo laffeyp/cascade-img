@@ -21,7 +21,7 @@
         "name": "bridge_session",
         "open_tag": "CASCADE_INIT",
         "close_tag": "BRIDGE_SHUTDOWN",
-        "framed_tags": ["CONFIG_VALIDATED", "DISCORD_CONNECTED", "BRIDGE_HEALTHY", "IMAGINE_FIRED", "GRID_MATCHED", "GRID_RECEIVED", "UPSCALE_REQUESTED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED"],
+        "framed_tags": ["CONFIG_VALIDATED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED"],
         "persistent_attributes": ["package_version", "backend"]
       },
       {
@@ -58,7 +58,7 @@
   "operators": {
     "operators": [
       {"name": "MidjourneyDiscordBackend", "emits": ["BACKEND_HTTP_CALLED"], "consumes": "HTTP calls from the MCP server, CLI, or library consumers", "location": "cascade_img/backends/midjourney_discord/backend.py"},
-      {"name": "BridgeDaemon", "emits": ["CASCADE_INIT", "CONFIG_VALIDATED", "CONFIG_VALIDATION_FAILED", "DISCORD_CONNECTED", "BRIDGE_HEALTHY", "BRIDGE_SHUTDOWN", "IMAGINE_FIRED", "GRID_MATCHED", "GRID_RECEIVED", "UPSCALE_REQUESTED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "BRIDGE_CHECKENV_RAN", "BRIDGE_DOCTOR_RAN"], "location": "cascade_img/backends/midjourney_discord/bridge.py"},
+      {"name": "BridgeDaemon", "emits": ["CASCADE_INIT", "CONFIG_VALIDATED", "CONFIG_VALIDATION_FAILED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "BRIDGE_SHUTDOWN", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "BRIDGE_CHECKENV_RAN", "BRIDGE_DOCTOR_RAN"], "location": "cascade_img/backends/midjourney_discord/bridge.py"},
       {"name": "PromptComposer", "emits": ["PROMPT_COMPOSED"], "location": "cascade_img/composer.py"},
       {"name": "PromptLog", "emits": ["PROMPT_LOGGED"], "location": "cascade_img/log.py"},
       {"name": "CurationKit", "emits": ["CROP_QUADRANT", "ALPHA_KEY_APPLIED", "ASSET_PROMOTED"], "location": "cascade_img/curation/"},
@@ -69,7 +69,7 @@
 
   "evidence_constraints": {
     "constraints": [
-      {"target_tag": "JOB_FAILED", "target_field": "error_code", "enum": ["DISCORD_400_OUTDATED", "DISCORD_400_UNKNOWN_CHANNEL", "DISCORD_401", "GRID_DOWNLOAD_FAILED", "MJ_UUID_MISSING", "SUBMIT_FAILED", "UPSCALE_DOWNLOAD_FAILED"], "enforceability": "mechanical"},
+      {"target_tag": "JOB_FAILED", "target_field": "error_code", "enum": ["DISCORD_400_OUTDATED", "DISCORD_400_UNKNOWN_CHANNEL", "DISCORD_401", "DISCORD_NOT_READY", "GRID_DOWNLOAD_FAILED", "MJ_UUID_MISSING", "SUBMIT_FAILED", "UPSCALE_DOWNLOAD_FAILED", "UPSCALE_BUTTON_FAILED", "UPSCALE_ALL_BUTTONS_FAILED"], "enforceability": "mechanical"},
       {"target_tag": "CONFIG_VALIDATION_FAILED", "target_field": "code", "enum": ["MISSING_DISCORD_TOKEN", "MISSING_CHANNEL_ID", "INVALID_CHANNEL_ID", "MISSING_IMAGINE_VERSION", "INVALID_PORT"], "enforceability": "mechanical"},
       {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["compose_prompt", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log"], "enforceability": "mechanical"},
       {"target_tag": "GRID_MATCHED", "target_field": "match_path", "enum": ["pending", "progress_fallback"], "enforceability": "mechanical"},
@@ -131,12 +131,44 @@
       "note": "discord.py-self WebSocket handshake completed; on_ready fired."
     },
     {
+      "name": "DISCORD_DISCONNECTED",
+      "category": "discord",
+      "stratum": "incident",
+      "payload": ["reason"],
+      "optional_payload": [],
+      "note": "WebSocket connection dropped. reason is 'gateway_close' (normal disconnect with a close code), 'exception' (transport error raised), or 'on_disconnect' (discord.py-self lifecycle event). _ready is cleared; new /imagine calls return 503 DISCORD_NOT_READY until reconnect."
+    },
+    {
+      "name": "DISCORD_RECONNECTING",
+      "category": "discord",
+      "stratum": "event",
+      "payload": ["attempt", "backoff_seconds"],
+      "optional_payload": [],
+      "note": "Outer reconnect loop sleeping before next client.start(). attempt is 1-indexed; backoff_seconds is the wait before retry. Capped at 60s; loop runs until success or terminal auth failure."
+    },
+    {
+      "name": "DISCORD_RECONNECT_FAILED",
+      "category": "discord",
+      "stratum": "incident",
+      "payload": ["reason", "attempts"],
+      "optional_payload": [],
+      "note": "Reconnect loop gave up. reason is 'auth' (token rejected — terminal; operator must rotate token) or 'shutdown' (process exiting). Daemon stays up but /imagine returns DISCORD_NOT_READY indefinitely until restart."
+    },
+    {
       "name": "IMAGINE_FIRED",
       "category": "job",
       "stratum": "event",
       "payload": ["asset_id", "job_id", "prompt_chars", "upscale"],
       "optional_payload": [],
       "note": "POST /imagine accepted by the bridge and Discord interaction sent. upscale is null|'1'|'2'|'3'|'4'|'all'."
+    },
+    {
+      "name": "JOB_SUBMIT_TIMEOUT",
+      "category": "job",
+      "stratum": "incident",
+      "payload": ["asset_id", "job_id", "timeout_seconds"],
+      "optional_payload": [],
+      "note": "Discord interaction POST did not return within the bridge's interaction-call timeout, but MJ may still have processed the imagine. Job stays in PENDING_GRID and transitions to SUBMITTED_UNCONFIRMED; the daemon continues to watch for a matching grid message. /imagine returned 202 with job_id; client should /wait or /status to learn the outcome rather than retry blindly (a retry will bill MJ twice if the original did process)."
     },
     {
       "name": "GRID_MATCHED",
@@ -155,12 +187,28 @@
       "note": "Grid PNG downloaded to disk."
     },
     {
+      "name": "OUTPUT_PATH_COLLISION",
+      "category": "job",
+      "stratum": "incident",
+      "payload": ["asset_id", "job_id", "intended_path", "actual_path", "kind"],
+      "optional_payload": [],
+      "note": "Intended output path already existed on disk (another concurrent job with the same asset_id wrote there first). The daemon wrote to actual_path instead — request_token suffix appended to disambiguate. kind is 'grid' or 'upscale'. The asset_id contract is preserved (the artifact exists) but the operator should investigate why two jobs shared an asset_id."
+    },
+    {
       "name": "UPSCALE_REQUESTED",
       "category": "job",
       "stratum": "event",
       "payload": ["asset_id", "job_id", "slot", "mj_job_uuid_prefix"],
       "optional_payload": [],
       "note": "Upscale button (U1-U4) pressed via Discord interaction. slot is 1-4."
+    },
+    {
+      "name": "UPSCALE_PRESS_FAILED",
+      "category": "job",
+      "stratum": "incident",
+      "payload": ["asset_id", "job_id", "slot", "error_code", "error_message"],
+      "optional_payload": [],
+      "note": "Single-slot button press failed during upscale='all'. Other slots may still succeed and land — the job stays UPSCALING. error_code is 'HTTP_<status>', 'TimeoutError', or the underlying exception class. If every requested slot fails, the job transitions to JOB_FAILED with UPSCALE_ALL_BUTTONS_FAILED."
     },
     {
       "name": "UPSCALE_RECEIVED",
@@ -184,7 +232,7 @@
       "stratum": "incident",
       "payload": ["asset_id", "job_id", "error_code", "error_message"],
       "optional_payload": [],
-      "note": "Job hit FAILED. error_code is a stable string; known values: DISCORD_400_OUTDATED, DISCORD_401, DISCORD_400_UNKNOWN_CHANNEL, GRID_DOWNLOAD_FAILED, UPSCALE_DOWNLOAD_FAILED, MJ_UUID_MISSING, SUBMIT_FAILED."
+      "note": "Job hit FAILED. error_code is a stable string; the evidence-constraints enum is canonical. Known values: DISCORD_400_OUTDATED, DISCORD_400_UNKNOWN_CHANNEL, DISCORD_401, DISCORD_NOT_READY (WebSocket dead at submit time), GRID_DOWNLOAD_FAILED, UPSCALE_DOWNLOAD_FAILED, MJ_UUID_MISSING, SUBMIT_FAILED, UPSCALE_BUTTON_FAILED (single-slot upscale press failed and was the only slot), UPSCALE_ALL_BUTTONS_FAILED (every requested upscale='all' slot's press failed)."
     },
     {
       "name": "BACKEND_HTTP_CALLED",
