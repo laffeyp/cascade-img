@@ -710,3 +710,76 @@ def test_concurrent_grid_ingest_only_downloads_once(monkeypatch, tmp_path):
     # or None).
     assert job.grid_path is not None and job.grid_path != ""
     assert job.grid_path.endswith(".png")
+
+
+def test_concurrent_upscale_ingest_only_downloads_once(monkeypatch, tmp_path):
+    """The SOLO upscale message arrives as a create plus several in-place edits,
+    each dispatched via run_in_executor, so two threads can both _match_upscale
+    the same slot. Without the slot reservation they double-download and
+    double-complete — a second UPSCALE_RECEIVED + JOB_COMPLETED for one job_id,
+    breaching the locked terminal invariant. The reservation claims the slot
+    under LOCK before any I/O so the second dispatch short-circuits. (Regression
+    guard for the bug the hunt reproduced 18/18.)"""
+    _reset_bridge_state()
+    clear()
+    bridge.cfg = bridge.Config(
+        discord_token="t",
+        channel_id=1,
+        guild_id=None,
+        mj_imagine_version="v",
+        mj_imagine_command_id="c",
+        output_dir=tmp_path,
+        port=5000,
+    )
+
+    job = Job(job_id="upR", asset_id="upA", prompt="p", request_token="tokUP", upscale="1")
+    job.status = Status.UPSCALING
+    job.upscale_pending = [1]
+    job.mj_job_uuid = "uuuuuuuu-uuuu-uuuu-uuuu-uuuuuuuuuuuu"
+    job.message_id = 555  # the grid message id, distinct from the SOLO id below
+    JOBS[job.job_id] = job
+
+    download_calls = {"n": 0}
+
+    def fake_download(url, path):
+        download_calls["n"] += 1
+        Path(path).write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 100)
+        return 108
+
+    monkeypatch.setattr(bridge, "_download_to", fake_download)
+
+    class _Att:
+        url = "https://cdn/u1.png"
+        filename = "u1.png"
+
+    class _Author:
+        id = bridge.MJ_BOT_ID
+
+    class _Channel:
+        id = 1  # matches cfg.channel_id
+
+    class _Msg:
+        id = 999  # the SOLO upscale message id (!= grid id), no reference
+        content = "**a sprite cscidnocollidetokUP --raw** - Image #1 <@u>"
+        guild = None
+        reference = None
+
+        def __init__(self):
+            self.author = _Author()
+            self.channel = _Channel()
+            self.attachments = [_Att()]
+            self.components = []
+
+    threads = [threading.Thread(target=bridge._ingest_message, args=(_Msg(),)) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=2.0)
+
+    assert download_calls["n"] == 1
+    assert job.upscale_paths.get(1) and job.upscale_paths[1] != ""
+    assert job.upscale_message_ids.get(1) == 999
+    assert job.status == Status.DONE
+    tags = _tags()
+    assert tags.count("UPSCALE_RECEIVED") == 1
+    assert tags.count("JOB_COMPLETED") == 1

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Parity check: every emit() in the cascade_img package uses a tag that
-exists in the locked vocabulary at ``signals/versions/0.1.json``.
+exists in the locked vocabulary at ``vocabulary/versions/0.1.json``.
 
 Walks the package via AST. For each ``emit("TAG", ...)`` call, extracts the
 literal first argument and asserts it appears in the vocabulary's tag list.

@@ -25,10 +25,13 @@ Design choices that keep it correct:
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger("cascade_img.job_store")
 
 # Statuses that are terminal — excluded from rehydration. Kept as bare strings
 # so this module needn't import the bridge's Status enum (avoids a cycle).
@@ -94,7 +97,16 @@ class JobStore:
                 _TERMINAL,
             )
             rows = cur.fetchall()
-        return [json.loads(r[0]) for r in rows]
+        # Decode per-row: one corrupt/truncated `data` blob (e.g. a torn write on
+        # an earlier crash) must drop only that job, not abort the whole
+        # rehydration and crash daemon startup. Skip-and-log the bad row.
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            try:
+                out.append(json.loads(r[0]))
+            except (ValueError, TypeError) as e:
+                log.warning(f"job-store: skipping unparseable row during rehydration: {e}")
+        return out
 
     def count(self) -> int:
         with self._lock:

@@ -52,10 +52,11 @@ class _FakeBackend:
     def health(self) -> dict:
         return {"discord_ready": True, "pending_grid": 0, "total_jobs": 0}
 
-    def action(self, job_id: str, action: str) -> dict:
+    def action(self, job_id: str, action: str, slot: int | None = None) -> dict:
         return {
             "job_id": job_id,
             "action": action,
+            "slot": slot,
             "custom_id": f"MJ::JOB::{action}::1::uuid::SOLO",
             "message_id": 42,
         }

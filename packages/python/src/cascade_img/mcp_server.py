@@ -217,20 +217,21 @@ async def bridge_health() -> dict[str, Any]:
 
 
 @mcp.tool()
-async def mj_action(job_id: str, action: str) -> dict[str, Any]:
+async def mj_action(job_id: str, action: str, slot: int | None = None) -> dict[str, Any]:
     """Press a Midjourney response-message button on a completed job's upscaled
     image — driving the buttons a human would otherwise click. ``action`` is one
     of: ``upscale_subtle``, ``upscale_creative``, ``vary_subtle``,
     ``vary_strong``, ``zoom_out_2x``, ``zoom_out_1_5x``, ``pan_left``,
     ``pan_right``, ``pan_up``, ``pan_down``, ``animate_high``, ``animate_low``,
-    ``favorite``.
+    ``favorite``. ``slot`` (1-4) targets a specific SOLO image when the job was
+    run with ``upscale="all"``; omit it for the canonical image.
 
     Requires the job to have an upscaled image (run ``imagine`` with
     ``upscale=1-4`` or ``"all"`` first); otherwise the envelope carries
     ``error.code == "NO_UPSCALED_IMAGE"``. The pressed action's result (a new
-    grid, or for ``animate_*`` a video) lands back in the Discord channel as a
-    fresh MJ message; v0.1 does not route it to a child job."""
-    return await _run_tool("mj_action", _backend.action, job_id=job_id, action=action)
+    grid, or for ``animate_*`` an animated webp) is routed back to the job and
+    recorded in its ``derived`` list (read it via ``status``)."""
+    return await _run_tool("mj_action", _backend.action, job_id=job_id, action=action, slot=slot)
 
 
 @mcp.tool()
