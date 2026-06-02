@@ -32,6 +32,8 @@
 
 *Agent appends one entry per sprint close, newest-at-top.*
 
+- **2026-06-02** — **Sprint 004 (bug fixes + live smoke).** Live smoke against the production `.env`: bridge started, Discord connected at t=3s, `/imagine` for `smoke_v1` accepted, job reached `done` at t=28s with `match_path: progress_fallback` and a 261986-byte grid at `/tmp/smoke/generated/smoke_v1.webp`. Acted on the second external review's 7 bugs: `_download_to` now closes the `requests.Response` via `with stream=True:`; Path-A and Path-B mutations in `_ingest_message` wrapped under `LOCK`; `PromptLog.read` switched from exists-then-read to try/except FileNotFoundError; `crop_quadrant` closes the path-opened loader in `finally` and materializes a copy for `quadrant=0`; `alpha_key_corners` guards pixel unpacking against 3-channel returns via `_rgba` helper; MCP `alpha_key` tool wraps `Image.open` in `with`. Added 4 tests covering the fixes. Discipline ladder 68/68 green.
+
 - **2026-06-02** — **Sprint 003 (code-review remediation).** Acted on the external review: fixed `test_cli_mj.py` JSONL-as-single-object parse bug; corrected `capture()` docstring to accurately describe enter-only clear; added 5 tests covering `capture()` (had zero) and root-vs-package vocabulary divergence; moved `logging.basicConfig` out of `bridge.py` module-import-time into `main()` with a no-clobber guard for embedding callers; removed the dead `SseServerTransport` import from `mcp_server.py`. Larger v0.2 items (JOBS unbounded, /wait Flask thread holding, backend async-sync mismatch, _ingest_message I/O race) added to ## Deferred. Discipline ladder 64/64 green.
 
 - **2026-06-02** — **Sprint 002 (sdd-kit-2 alignment).** Copied sdd-kit-2 into the project as read-only kit reference. Upgraded `cascade_img.instrumentation.sdd` from a minimal emit/snapshot module to a kit-conformant SignalVocabulary + SignalEmitter with validate-at-emit, `assert_signal`/`assert_no_signal` test primitives, and `format_for_ai()` digest output. Locked vocabulary at v0.1 (`locked: true`, `locked_at: 2026-06-02`). Mirrored `signals/0.1.json` at project root (canonical kit location). Added project-level discipline artifacts: BLACKBOARD.md, WORKING_AGREEMENT.md, KIT_DIARY.md, signals/0.1-rationale.md. Discipline ladder 59/59 green.
@@ -79,6 +81,15 @@
 ## Sprint tail
 
 *Agent maintains. Last 10 sprint closes.*
+
+### 2026-06-02 — Sprint 004 (bug fixes + live smoke) closed
+
+**Rubber Duck Pass:**
+- Sequence narration: Live smoke ran end-to-end against the production .env; bridge started, Discord WebSocket completed at t=3s, /imagine accepted, status transitioned through submitted → progress (queued → 17 → 30 → 35 → 47 → 67 → 83%) → done at t=28s. Final /status returned `match_path: "progress_fallback"`. Grid PNG (261986 bytes) on disk at /tmp/smoke/generated/smoke_v1.webp. Reviewer surfaced 7 bugs; all 7 fixed.
+- Observations: One **payload anomaly resolved-here** — `_download_to` returned `requests.get(...).content` and relied on GC to close the response; fixed via `with ... stream=True:`. One **missing-pair resolved-here** — Path-A grid-match mutations to `job.message_id` / `job.status` were outside LOCK while /status reads went through `asdict(job)` on Flask threads; both Path-A and Path-B mutations now under LOCK. Two **vocabulary-gap candidates surfaced**: would be useful to emit `BRIDGE_DOWNLOAD_RESPONSE_CLOSED` for /metrics, and `JOB_MUTATION_ATTEMPTED` to count contention. Both deferred to v0.2 grammar evolution; not load-bearing.
+- Disposition: resolved-here for the 7 fixes; deferred for the 2 vocabulary-gap candidates.
+
+Dual contract: pass (signal: 36 emit callsites against 27 vocab tags, parity clean; artifact: 7 in-place fixes + 4 new tests; observation: live-smoke captured the daemon producing a real grid through the patched V7 path, plus the discipline ladder ran 68/68 green).
 
 ### 2026-06-02 — Sprint 003 (code-review remediation) closed
 

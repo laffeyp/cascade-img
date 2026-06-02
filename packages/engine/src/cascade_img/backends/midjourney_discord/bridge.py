@@ -401,7 +401,12 @@ def _job_by_message_id(message_id: int) -> Optional[Job]:
 
 
 def _download_to(url: str, path: Path) -> int:
-    data = requests.get(url, timeout=30).content
+    # Use a stream + with-statement so the Response is closed deterministically
+    # rather than leaving it to GC — review-flagged 2026-06-02 (connection-pool
+    # exhaustion on a long-running bridge).
+    with requests.get(url, timeout=30, stream=True) as resp:
+        resp.raise_for_status()
+        data = resp.content
     path.write_bytes(data)
     return len(data)
 
@@ -430,9 +435,12 @@ def _ingest_message(message):
     if job is None:
         job = _match_grid(content)
         if job is not None:
-            job.message_id = message.id
-            job.status = Status.PROGRESS
-            job.touch()
+            # Mutate the matched job under LOCK so /status / /jobs HTTP routes
+            # don't see torn state. Review-flagged 2026-06-02.
+            with LOCK:
+                job.message_id = message.id
+                job.status = Status.PROGRESS
+                job.touch()
             log.info(
                 f"[{job.asset_id}] matched grid message {message.id} "
                 f"via {job.match_path}"
@@ -539,14 +547,19 @@ def _ingest_message(message):
             else:
                 out_path = c.output_dir / f"{parent.asset_id}{ext}"
             up_bytes = _download_to(att.url, out_path)
-            parent.upscale_paths[idx] = str(out_path)
-            if parent.image_path is None:
-                # First upscale wins canonical slot
-                parent.image_path = str(out_path)
-                parent.image_url = att.url
-            if idx in parent.upscale_pending:
-                parent.upscale_pending.remove(idx)
-            parent.touch()
+            # All post-download mutations under LOCK so the concurrent
+            # "two messages for the same slot" race can't crash with
+            # ValueError on list.remove, and /status reads don't see
+            # half-updated parent. Review-flagged 2026-06-02.
+            with LOCK:
+                parent.upscale_paths[idx] = str(out_path)
+                if parent.image_path is None:
+                    # First upscale wins canonical slot
+                    parent.image_path = str(out_path)
+                    parent.image_url = att.url
+                if idx in parent.upscale_pending:
+                    parent.upscale_pending.remove(idx)
+                parent.touch()
             log.info(f"[{parent.asset_id}] saved upscale U{idx} -> {out_path}")
             emit(
                 "UPSCALE_RECEIVED",

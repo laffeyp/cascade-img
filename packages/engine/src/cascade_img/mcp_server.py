@@ -203,8 +203,10 @@ async def alpha_key(
     ``dest``."""
     from PIL import Image
     def go():
-        img = Image.open(src)
-        keyed = alpha_key_corners(img, tolerance=tolerance)
+        # Close the source loader explicitly. Review-flagged 2026-06-02 — long-
+        # running MCP servers exhaust file descriptors otherwise.
+        with Image.open(src) as img:
+            keyed = alpha_key_corners(img, tolerance=tolerance)
         Path(dest).parent.mkdir(parents=True, exist_ok=True)
         keyed.save(dest)
         return {"dest": dest, "w": keyed.size[0], "h": keyed.size[1]}

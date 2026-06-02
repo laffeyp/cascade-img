@@ -15,6 +15,28 @@
 
 ## Entries
 
+### 2026-06-02 — Sprint 004 (bug fixes + live smoke) closed
+
+**What happened:** Live smoke ran the daemon against the production .env in the sandbox: Discord connected at t=3s, /imagine for a small finch sprite accepted, status progressed through submitted → progress (queued → 17 → 30 → 35 → 47 → 67 → 83%) → done at t=28s, grid PNG landed on disk (261986 bytes). `match_path: "progress_fallback"` in the final /status payload. Separately, a second external review surfaced 7 bugs across concurrency (Path-A and Path-B job mutations outside LOCK, list.remove without bounds-under-lock), resource management (requests.Response not closed, two PIL Image opens without close), and input validation (alpha_key 4-tuple unpack assumption). All 7 fixed in place; 4 new tests cover the fixes that were structurally testable.
+
+**What worked:**
+
+- The discipline ladder caught zero regressions on the 7 fixes; the 64 prior tests stayed green and the 4 new tests landed clean. Test-coverage-as-discipline did its work.
+- The live smoke exercised the bridge end-to-end and produced a recorded /status transition table plus a real file artifact. The signals emitted during the live run match the vocabulary's declared sequence for the happy path.
+- Wrapping the Path-A and Path-B mutations in `with LOCK:` is a minimal-surface fix. Same `LOCK` instance, no new lock, no abstraction cost.
+
+**What got in the way:**
+
+- The sandbox's bash session boundary kills background processes between calls, which made the smoke harder to structure than it would be on a developer's machine. Worked around by running the daemon and the test within a single bash call. **Kit-level note:** the kit's worked example doesn't model "the runtime under test is itself a long-running daemon"; for projects in this class the kit could add a snippet showing the in-bash-call lifecycle pattern.
+- Two of the bugs (Path-A LOCK gap, `_download_to` Response close) existed since the initial port from Katybird/Cascade. They were inherited from the original source rather than introduced by the port. **Kit-level note:** the BOOTSTRAP procedure asks the agent to read the existing source for context but doesn't ask for a defects-pass against the kit's TECHNIQUES catalog. A "port-pass" step would catch inherited bugs before they bake into v0.1.
+
+**What this says about the next kit version:**
+
+- **Finding 7.** When a project ports existing code (rather than greenfield-authoring), the BOOTSTRAP procedure should include an explicit "port-pass" step: read the imported source against TECHNIQUES Section 1's concurrency / resource-management entries, surface defects as `INHERITED_DEFECT` BLACKBOARD items, and either fix in the port sprint or defer with a re-visit condition.
+- **Finding 8.** The kit doesn't model long-running-daemon-under-test as a worked pattern. For Trading-System-class and bridge-daemon-class projects, the worked example or TECHNIQUES Section 2 could add a "daemon under test" subsection covering the lifecycle in test (start in background, wait for ready, exercise, kill in finally).
+
+---
+
 ### 2026-06-02 — Sprint 003 (code-review remediation) closed
 
 **What happened:** An external reviewer surfaced six in-scope fixes and four v0.2-scope smells in the v0.1.0a1 codebase. The Agent landed the six fixes (test JSONL bug, capture docstring, capture test coverage, logging.basicConfig at module top, dead SSE import, root-vs-package vocabulary divergence test) in one focused sprint. The four v0.2 smells went to BLACKBOARD ## Deferred with concrete remediation pointers (LRU+TTL eviction for JOBS, SSE/callback for /wait, httpx port for backend async, LOCK around _ingest_message mutations). Ladder 64/64 green.
