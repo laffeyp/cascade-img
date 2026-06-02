@@ -42,6 +42,21 @@ def test_missing_required_field_raises():
         emit("CASCADE_INIT", package_version="x")  # missing backend
 
 
+def test_undeclared_payload_field_raises():
+    """The schema's ``validator-extras: strict`` posture must be enforced:
+    payload keys that aren't in the tag's ``payload`` or ``optional_payload``
+    raise at emit time. Without this check the strictness guarantee was a
+    lie (review-003 HIGH)."""
+    clear()
+    with pytest.raises(ValueError, match="undeclared payload fields"):
+        emit(
+            "CASCADE_INIT",
+            package_version="0.1.0",
+            backend="midjourney_discord",
+            bogus_extra_field="shouldnt-be-allowed",
+        )
+
+
 def test_assert_signal_returns_matching_record():
     clear()
     emit("CASCADE_INIT", package_version="0.1.0a1", backend="midjourney_discord")

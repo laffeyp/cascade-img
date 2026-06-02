@@ -60,7 +60,14 @@ class Vocabulary:
         return cls(json.loads(Path(path).read_text(encoding="utf-8")))
 
     def validate(self, tag: str, payload: dict[str, Any]) -> None:
-        """Raise on unknown tag or missing required payload field."""
+        """Raise on unknown tag, missing required field, or undeclared field.
+
+        Enforces the ``validator-extras: strict`` posture the schema declares
+        in ``grammar_growth.project_overrides``: every payload key must be in
+        the tag's ``payload`` (required) or ``optional_payload`` (allowed-
+        optional) list. Production may relax the extras check by setting
+        ``CASCADE_STRICT_SIGNALS=false`` on the emitter (see :class:`Emitter`).
+        """
         spec = self._tag_index.get(tag)
         if spec is None:
             raise ValueError(
@@ -73,6 +80,16 @@ class Vocabulary:
             raise ValueError(
                 f"Event {tag!r} missing required payload fields: {missing}. "
                 f"Required by vocabulary: {required}"
+            )
+        optional = spec.get("optional_payload", []) or []
+        allowed = set(required) | set(optional)
+        extra = [k for k in payload if k not in allowed]
+        if extra:
+            raise ValueError(
+                f"Event {tag!r} has undeclared payload fields: {extra}. "
+                f"Declared by vocabulary: required={required}, optional={optional}. "
+                f"Add them to vocabulary/versions/{self.version}.json or "
+                f"drop them from the emit call."
             )
 
     def category_of(self, tag: str) -> str:
@@ -87,7 +104,13 @@ class Vocabulary:
 
 @dataclass
 class Signal:
-    """One emitted record."""
+    """One emitted record.
+
+    Carries ``vocab_version`` so the record reflects the vocabulary that
+    actually emitted it, not the module-global. Matters once a process
+    loads more than one vocabulary version (uncommon today but a latent
+    bug otherwise — review-003 LOW).
+    """
 
     tag: str
     category: str
@@ -95,6 +118,7 @@ class Signal:
     payload: dict[str, Any]
     t: float  # seconds since session start (time.monotonic delta)
     wall_ts: float = field(default_factory=time.time)  # wall-clock timestamp
+    vocab_version: str = VOCAB_VERSION
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -103,7 +127,7 @@ class Signal:
             "stratum": self.stratum,
             "t": round(self.t, 4),
             "ts": self.wall_ts,
-            "vocab_version": VOCAB_VERSION,
+            "vocab_version": self.vocab_version,
             "payload": dict(self.payload),
         }
 
@@ -139,6 +163,7 @@ class Emitter:
             stratum=stratum,
             payload=dict(payload),
             t=time.monotonic() - self._session_start,
+            vocab_version=self._vocab.version,
         )
         with self._lock:
             self._buffer.append(signal)

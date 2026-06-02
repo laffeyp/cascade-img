@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -606,3 +607,97 @@ def test_shutdown_event_cuts_backoff_short(valid_env, monkeypatch):
     assert elapsed < 5.0
     failed = next(r for r in snapshot() if r["tag"] == "DISCORD_RECONNECT_FAILED")
     assert failed["payload"]["reason"] == "shutdown"
+
+
+# ---------------------------------------------------------------------------
+# /wait timeout validation (review-003 MEDIUM)
+# ---------------------------------------------------------------------------
+
+
+def test_wait_returns_400_on_non_numeric_timeout():
+    """GET /wait/<id>?timeout=abc used to crash with Flask's default 500
+    HTML page; agents expect the structured JSON envelope. Now returns
+    400 with code=INVALID_TIMEOUT."""
+    _reset_bridge_state()
+    clear()
+    job = Job(job_id="ttest", asset_id="x", prompt="p")
+    JOBS["ttest"] = job
+
+    client = bridge.app.test_client()
+    resp = client.get("/wait/ttest?timeout=abc")
+    assert resp.status_code == 400
+    body = resp.get_json()
+    assert body["ok"] is False
+    assert body["error"]["code"] == "INVALID_TIMEOUT"
+    assert "must be a number" in body["error"]["message"]
+
+
+# ---------------------------------------------------------------------------
+# Grid-race reservation (review-003 HIGH)
+# ---------------------------------------------------------------------------
+
+
+def test_concurrent_grid_ingest_only_downloads_once(monkeypatch, tmp_path):
+    """on_message and on_message_edit can both fire _ingest_message for the
+    same MJ message. Without reservation, both threads would download +
+    upscale-press, double-billing MJ. The reservation pattern claims
+    grid_path under LOCK before any I/O so a concurrent ingest short-
+    circuits."""
+    _reset_bridge_state()
+    clear()
+    # Wire a Config so _cfg() works in _ingest_message.
+    bridge.cfg = bridge.Config(
+        discord_token="t", channel_id=1, guild_id=None,
+        mj_imagine_version="v", mj_imagine_command_id="c",
+        output_dir=tmp_path, port=5000,
+    )
+
+    job = Job(job_id="raceJ", asset_id="raceA", prompt="p", request_token="tok99")
+    job.status = Status.PROGRESS
+    job.message_id = 12345
+    JOBS[job.job_id] = job
+
+    download_calls = {"n": 0}
+
+    def fake_download(url, path):
+        download_calls["n"] += 1
+        Path(path).write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 100)
+        return 108
+
+    monkeypatch.setattr(bridge, "_download_to", fake_download)
+
+    # Fake MJ message that both threads will try to ingest.
+    class _Att:
+        url = "https://cdn/example.png"
+        filename = "example.png"
+    class _Author:
+        id = bridge.MJ_BOT_ID
+    class _Channel:
+        id = 1  # matches cfg.channel_id
+
+    class _Msg:
+        id = 12345
+        content = "done"
+        guild = None
+        def __init__(self):
+            self.author = _Author()
+            self.channel = _Channel()
+            self.attachments = [_Att()]
+            self.components = []
+
+    # Fire two ingests in parallel — the second must short-circuit.
+    threads = [
+        threading.Thread(target=bridge._ingest_message, args=(_Msg(),))
+        for _ in range(2)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=2.0)
+
+    # Only one download happened.
+    assert download_calls["n"] == 1
+    # The job's grid_path is a real path (not the "" reservation sentinel
+    # or None).
+    assert job.grid_path is not None and job.grid_path != ""
+    assert job.grid_path.endswith(".png")
