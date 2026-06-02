@@ -115,6 +115,13 @@ addopts = [
     "--strict-markers",
     "--strict-config",
 ]
+markers = [
+    "unit: fast, in-process; no network, subprocess, or real Discord. The default tier.",
+    "integration: crosses an in-process boundary (Flask test_client, MCP dispatch) but stays hermetic — no live external service.",
+    "contract: cross-artifact consistency gate (emit callsites vs vocabulary; root mirror vs package data). Fast; runs with unit.",
+    "smoke: fast happy-path slice of the live walk; needs a real .env. Skipped unless CASCADE_LIVE=1.",
+    "e2e: full live walk over the real MCP stdio transport + real Discord/Midjourney. Slow, costs credits. Skipped unless CASCADE_LIVE=1.",
+]
 filterwarnings = [
     "error",
     # PyNaCl voice-support warning fires unconditionally inside discord.py-self.
