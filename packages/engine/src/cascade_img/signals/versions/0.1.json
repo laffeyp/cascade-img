@@ -179,6 +179,22 @@
       "payload": ["tool", "error_code", "error_message"],
       "optional_payload": [],
       "note": "Tool raised. error_code is the exception class name or the structured `code` attribute if the exception carried one."
+    },
+    {
+      "name": "BRIDGE_CHECKENV_RAN",
+      "category": "bridge",
+      "stratum": "event",
+      "payload": ["ok", "error_code"],
+      "optional_payload": [],
+      "note": "cascade-mj-bridge --check-env completed. error_code is empty string on ok, otherwise the structured Config error code."
+    },
+    {
+      "name": "BRIDGE_DOCTOR_RAN",
+      "category": "bridge",
+      "stratum": "event",
+      "payload": ["ok", "checks_total", "checks_failed"],
+      "optional_payload": [],
+      "note": "cascade-mj-bridge --doctor completed. Pre-flight ladder: env + discord reachability + mcp_server import + discord.py-self import."
     }
   ]
 }

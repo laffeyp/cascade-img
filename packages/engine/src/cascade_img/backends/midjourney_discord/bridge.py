@@ -50,6 +50,7 @@ to understand the daemon's contract — they are the contract.
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import logging
 import os
@@ -806,8 +807,154 @@ def _run_discord():
     loop.run_until_complete(client.start(c.discord_token))
 
 
+# ---------------------------------------------------------------------------
+# CLI subcommands: --check-env, --doctor, default daemon run
+# ---------------------------------------------------------------------------
+
+
+def check_env() -> dict:
+    """Validate the environment without starting anything. Returns a
+    structured dict with ``ok`` and either ``config`` (the loaded fields,
+    secrets masked) or ``error`` (code + remediation).
+    """
+    import json as _json  # local to keep top-of-file imports clean
+
+    try:
+        c = Config.from_env()
+    except MissingEnvError as e:
+        emit(
+            "BRIDGE_CHECKENV_RAN",
+            ok=False,
+            error_code=e.code,
+        )
+        return {
+            "ok": False,
+            "error": e.to_payload(),
+        }
+    emit("BRIDGE_CHECKENV_RAN", ok=True, error_code="")
+    return {
+        "ok": True,
+        "config": {
+            # mask the token by length so the operator can see something is
+            # there without leaking it
+            "discord_token_present": bool(c.discord_token),
+            "discord_token_len": len(c.discord_token),
+            "channel_id": c.channel_id,
+            "guild_id": c.guild_id,
+            "mj_imagine_version": c.mj_imagine_version,
+            "mj_imagine_command_id": c.mj_imagine_command_id,
+            "output_dir": str(c.output_dir),
+            "port": c.port,
+        },
+    }
+
+
+def doctor() -> dict:
+    """Full validation: env, Discord API reachability, MCP server importable,
+    bridge-side imports clean. Returns a list of checks with per-check
+    pass/fail/remediation.
+
+    Does NOT start the daemon or connect to Discord — those are side-effecty
+    and require live MJ. Use ``--doctor`` for the pre-flight; use the running
+    daemon's ``/health`` for live-state.
+    """
+    checks: list[dict] = []
+
+    # check 1: env
+    env_result = check_env()
+    checks.append(
+        {
+            "name": "env",
+            "ok": env_result["ok"],
+            **({"detail": env_result["config"]} if env_result["ok"] else {"error": env_result["error"]}),
+        }
+    )
+
+    # check 2: discord.com reachability (no token needed; just network)
+    try:
+        r = requests.get("https://discord.com/api/v9/gateway", timeout=5)
+        checks.append(
+            {
+                "name": "discord_reachable",
+                "ok": r.status_code == 200,
+                "status": r.status_code,
+            }
+        )
+    except Exception as e:
+        checks.append(
+            {
+                "name": "discord_reachable",
+                "ok": False,
+                "error": {"code": "DISCORD_UNREACHABLE", "message": str(e)},
+            }
+        )
+
+    # check 3: MCP server module imports
+    try:
+        import importlib
+        importlib.import_module("cascade_img.mcp_server")
+        checks.append({"name": "mcp_server_importable", "ok": True})
+    except Exception as e:
+        checks.append(
+            {
+                "name": "mcp_server_importable",
+                "ok": False,
+                "error": {"code": "MCP_IMPORT_FAILED", "message": str(e)},
+            }
+        )
+
+    # check 4: discord.py-self importable (catches Python-version mismatch)
+    try:
+        import importlib
+        importlib.import_module("discord")
+        checks.append({"name": "discord_self_importable", "ok": True})
+    except Exception as e:
+        checks.append(
+            {
+                "name": "discord_self_importable",
+                "ok": False,
+                "error": {"code": "DISCORD_SELF_IMPORT_FAILED", "message": str(e)},
+            }
+        )
+
+    ok = all(c["ok"] for c in checks)
+    emit("BRIDGE_DOCTOR_RAN", ok=ok, checks_total=len(checks),
+         checks_failed=sum(1 for c in checks if not c["ok"]))
+    return {"ok": ok, "checks": checks}
+
+
 def main() -> None:
-    """Entrypoint for the ``cascade-mj-bridge`` console script."""
+    """Entrypoint for the ``cascade-mj-bridge`` console script.
+
+    Subcommands:
+      (no flags)        Run the daemon.
+      --check-env       Validate config; emit JSON; exit 0/1.
+      --doctor          Full pre-flight (env + reachability + imports); JSON; exit 0/1.
+    """
+    import json as _json
+    import sys
+
+    parser = argparse.ArgumentParser(prog="cascade-mj-bridge")
+    grp = parser.add_mutually_exclusive_group()
+    grp.add_argument("--check-env", action="store_true",
+                     help="Validate config and exit. JSON to stdout.")
+    grp.add_argument("--doctor", action="store_true",
+                     help="Full pre-flight check (env + reachability + imports). JSON to stdout.")
+    parser.add_argument("--pretty", action="store_true",
+                        help="Indent JSON output (--check-env / --doctor only).")
+    args = parser.parse_args()
+
+    if args.check_env:
+        result = check_env()
+        print(_json.dumps(result, indent=2 if args.pretty else None))
+        sys.exit(0 if result["ok"] else 1)
+
+    if args.doctor:
+        result = doctor()
+        print(_json.dumps(result, indent=2 if args.pretty else None))
+        sys.exit(0 if result["ok"] else 1)
+
+    # Default: run the daemon.
     global cfg
     try:
         cfg = Config.from_env()
@@ -818,8 +965,8 @@ def main() -> None:
             field=e.message,
             remediation=e.remediation,
         )
-        # Re-raise so the CLI can surface the structured payload to the
-        # operator (LLM or human).
+        # Re-raise so the CLI surfaces a non-zero exit; structured payload
+        # is reachable via --check-env / --doctor.
         raise
 
     emit("CASCADE_INIT", package_version=PACKAGE_VERSION, backend=BACKEND_NAME)
