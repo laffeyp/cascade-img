@@ -1,4 +1,7 @@
-"""``cascade-mj`` — unified roll-and-log CLI for the Midjourney backend.
+"""``cascade-mj`` — CLI for the Midjourney backend.
+
+Composes a prompt from a registry asset, fires the generation against the
+bridge daemon, waits for the result, and writes a record to the prompt log.
 
 Usage::
 
@@ -65,7 +68,7 @@ async def run(
     log_path: Path,
     dry_run: bool,
 ) -> dict[str, Any]:
-    """Execute one roll-and-log. Returns the structured result dict."""
+    """Execute one generation end-to-end. Returns the structured result dict."""
     emit("CLI_ROLL_STARTED", asset_id=asset_id, dry_run=dry_run, upscale=upscale or "grid")
 
     log = PromptLog(log_path)
@@ -191,7 +194,7 @@ def main() -> None:
         "--registry",
         required=True,
         type=Path,
-        help="Path to the JSON registry file (asset_id -> facets)",
+        help="Path to the JSON registry file (asset_id -> prompt parts)",
     )
     parser.add_argument(
         "--upscale",

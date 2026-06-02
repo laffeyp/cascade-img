@@ -1,11 +1,11 @@
-"""Behavior contract for ``cascade-mj`` unified roll-and-log CLI.
+"""Behavior contract for the ``cascade-mj`` CLI.
 
 Covers: registry loading, asset lookup, dry-run (full path without firing),
 unknown asset_id structured error, malformed registry structured error.
 
-Live-fire against a running bridge is not testable in the test suite
-— that's the smoke against your real .env. The dry-run path exercises
-compose + log without external state.
+Live-fire against a running bridge is not exercised by the unit test suite
+— that's tools/smoke_mcp_walk.py against a real .env. The dry-run path
+exercises compose + log without external state.
 """
 
 from __future__ import annotations

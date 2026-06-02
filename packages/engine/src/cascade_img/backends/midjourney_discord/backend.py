@@ -23,7 +23,7 @@ from cascade_img.backends.base import BackendCapabilities, ImageGenerationBacken
 from cascade_img.vocabulary import emit
 
 MIDJOURNEY_DISCORD_CAPABILITIES = BackendCapabilities(
-    facets=["moodboard", "sref", "oref", "ow", "style_raw", "stylize"],
+    prompt_parts=["moodboard", "sref", "oref", "ow", "style_raw", "stylize"],
     aspect_ratios=["1:1", "16:9", "9:16", "4:3", "3:4", "2:3", "3:2"],
 )
 

@@ -1,6 +1,13 @@
 # cascade-img
 
-**An LLM-operable image-generation pipeline.** Midjourney via Discord today, Flux / DALL-E / Imagen / others through the same interface tomorrow. Composable V7 facets (`--p`, `--sref`, `--oref`, `--ow`) as first-class inputs, a curation toolkit (grid crop, corner-anchored alpha key with flood-fill or global-threshold methods, promote), a working-memory prompt log, and an MCP server that lets Claude Desktop, Cursor, Cline, or any MCP-aware host drive the full generate-curate-refine-promote-log loop without a human in the room for every roll.
+[![PyPI](https://img.shields.io/pypi/v/cascade-img.svg)](https://pypi.org/project/cascade-img/)
+[![Python](https://img.shields.io/pypi/pyversions/cascade-img.svg)](https://pypi.org/project/cascade-img/)
+[![CI](https://github.com/greenrosesystems/cascade-img/actions/workflows/ci.yml/badge.svg)](https://github.com/greenrosesystems/cascade-img/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
+An image-generation pipeline an LLM can drive. It runs Midjourney through Discord today; Flux, DALL-E, and Imagen will use the same interface later.
+
+The Midjourney prompt is split into composable parts you set independently — subject, moodboard (`--p`), style reference (`--sref`), identity reference (`--oref`) and its weight (`--ow`), aspect ratio. A curation kit crops the 2×2 grid into quadrants and, optionally, removes a uniform background. A JSONL prompt log records every attempt so the next iteration knows what's been tried. An MCP server exposes all of this to Claude Desktop, Cursor, Cline, or any MCP-aware host — so an agent can compose, generate, curate, and log without a human on every attempt.
 
 > **Context.** Midjourney has no public API. Driving it through a Discord user account is the established OSS pattern for programmatic access. Both Discord and Midjourney's Terms of Service prohibit user-account automation. See [TOS.md](./TOS.md).
 
@@ -64,9 +71,9 @@ JSON to stdout, exit 0 on `done`.
 
 ---
 
-## What makes this different
+## How this differs
 
-V7 facet composition — `--p` (moodboard), `--sref` (style reference), `--oref` (omni-reference identity lock), `--ow` (omni-weight) — as independently stackable, typed inputs:
+cascade-img adds a layer above the Midjourney bridge: it composes the prompt from named parts, curates the output, and records each attempt so the loop can iterate.
 
 ```python
 from cascade_img.composer import PromptComposer, Subject, StyleStack, IdentityStack
@@ -84,21 +91,19 @@ prompt = PromptComposer().compose(
 )
 ```
 
-No other OSS tool treats V7 facets as composable inputs. Paid REST proxies (TheNextLeg, PIAPI, useapi.net) pass raw prompt strings through. Self-bot drivers (`erictik/midjourney-api`, `novicezk/midjourney-proxy`) drive `/imagine` but don't compose. cascade-img sits one layer up — composition, curation, reproducibility — exactly where the unoccupied ground is.
+Compared to other OSS Midjourney drivers:
 
-| | cascade-img | erictik/midjourney-api | novicezk/midjourney-proxy | Paid REST proxies | Sanctioned alternatives |
-|---|---|---|---|---|---|
-| Drives MJ V7 | yes | partial | OSS no, paid fork yes | yes | n/a |
-| V7 facet composition (oref/ow as first-class) | yes | no | no | passes raw strings | n/a |
-| Local HTTP bridge | yes | no (library only) | yes (Java) | n/a (hosted) | n/a (hosted) |
-| Curation utilities (grid split, alpha key, promote) | yes | no | no | no | no |
-| Append-only prompt log | yes | no | no | no | no |
-| MCP server | yes | no | no | no | no |
-| `AGENTS.md` + prompt templates | yes | no | no | no | no |
-| Structured-error remediation | yes | no | no | partial | varies |
-| Pluggable backend | yes (v0.1 MJ, v0.2+ Flux/DALL-E/Imagen) | MJ only | MJ only | provider-locked | single backend |
-| ToS posture | self-bot, explicit and honest | self-bot, mentioned | self-bot, mentioned | self-bot, hidden | sanctioned |
-| License | MIT | MIT | Apache 2.0 | proprietary | proprietary |
+| | cascade-img | erictik/midjourney-api | novicezk/midjourney-proxy | Paid REST proxies |
+|---|---|---|---|---|
+| Drives MJ V7 | yes | partial | OSS no, paid fork yes | yes |
+| Composable prompt parts (moodboard, sref, oref, ow as named inputs) | yes | no | no | passes raw strings |
+| Local HTTP bridge | yes | no (library only) | yes (Java) | n/a (hosted) |
+| Curation kit (grid crop, alpha key, promote) | yes | no | no | no |
+| Append-only prompt log | yes | no | no | no |
+| MCP server | yes | no | no | no |
+| Structured-error envelope with stable codes | yes | no | no | partial |
+| Pluggable backend (Flux / DALL-E / Imagen on the same interface in v0.2+) | yes | MJ only | MJ only | provider-locked |
+| License | MIT | MIT | Apache 2.0 | proprietary |
 
 ---
 
@@ -108,7 +113,7 @@ No other OSS tool treats V7 facets as composable inputs. Paid REST proxies (TheN
   - `--check-env` — JSON config validation with structured remediation.
   - `--doctor` — full pre-flight (env + Discord reachability + MCP server + discord.py-self imports).
 - **`cascade-mcp`** — MCP server. Stdio by default (Claude Desktop / Cursor / Cline); `--http <port>` for hosts that prefer HTTP.
-- **`cascade-mj`** — unified roll-and-log CLI. Takes an `asset_id` and a registry, fires, waits, logs.
+- **`cascade-mj`** — the CLI. Takes an `asset_id` and a registry, composes the prompt, fires, waits for the result, and writes a record to the prompt log.
 
 All three emit structured JSON; all three follow the same `{ok, result | error: {code, remediation}}` envelope.
 
@@ -116,7 +121,9 @@ All three emit structured JSON; all three follow the same `{ok, result | error: 
 
 ## Structured runtime events
 
-Every load-bearing state transition emits a structured event — config validated, Discord connected/disconnected/reconnecting, imagine fired, submit timed out (job stays in `PENDING_GRID`, not failed), grid matched (with `match_path` distinguishing the MJ V7 grid-as-new-message fallback), output path collision, upscale per-slot press failed, upscale received, job completed, job failed (with stable error codes for every known Discord failure mode). The vocabulary is locked at [`cascade_img/vocabulary/versions/0.1.json`](./packages/engine/src/cascade_img/vocabulary/versions/0.1.json). The parity tool asserts every `emit()` callsite references a vocabulary tag; the test suite ships green.
+Every important state change emits a structured event: config validated; Discord connected, disconnected, reconnecting; imagine fired; submit timed out (the job stays in `PENDING_GRID`, it is not failed); grid matched (with `match_path` recording which match path fired); output-path collision; upscale per-slot press failed; upscale received; job completed; job failed. Failures carry a stable error code for every known Discord failure mode.
+
+The vocabulary is locked at [`cascade_img/vocabulary/versions/0.1.json`](./packages/engine/src/cascade_img/vocabulary/versions/0.1.json). A parity check confirms every `emit()` callsite uses a declared tag, and the full test suite passes.
 
 ```
 $ pytest packages/engine/tests/ -q
@@ -129,7 +136,7 @@ Read the [`packages/engine/tests/`](./packages/engine/tests/) directory to under
 
 ## Documentation
 
-- **[OPERATIONS.md](./OPERATIONS.md)** — install, env capture, the bring-up ladder, the reconnect lifecycle, every known failure mode with structured-error code + remediation.
+- **[OPERATIONS.md](./OPERATIONS.md)** — install, env capture, the setup procedure, the reconnect lifecycle, and every known failure mode with its structured error code and remediation.
 - **[AGENTS.md](./AGENTS.md)** — the LLM operator's guide. Read this when handing cascade-img to an agent.
 - **[TOS.md](./TOS.md)** — the technical context: Midjourney has no public API; Discord user-account automation is the established OSS pattern; both Discord's and Midjourney's Terms of Service prohibit it.
 - **[examples/demo/](./examples/demo/)** — one consumer project's worked usage of cascade-img (the demo sprite-art pipeline). Not generic templates; an example of how a real project structured agent prompts against the tool. Read AGENTS.md before any of these.

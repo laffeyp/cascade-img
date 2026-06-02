@@ -22,7 +22,7 @@ def test_subject_only_emits_minimal_prompt():
     assert p == "a small finch --ar 1:1 --v 7 --style raw"
     rec = snapshot()[-1]
     assert rec["tag"] == "PROMPT_COMPOSED"
-    assert rec["payload"]["facets_used"] == []
+    assert rec["payload"]["prompt_parts_used"] == []
     assert rec["payload"]["aspect_ratio"] == "1:1"
 
 
@@ -50,7 +50,7 @@ def test_full_style_stack_includes_all_flags():
     assert "--sref https://cdn.midjourney.com/x/0_0.png" in p
     assert "--s 50" in p
     rec = snapshot()[-1]
-    assert set(rec["payload"]["facets_used"]) == {"moodboard", "sref", "stylize"}
+    assert set(rec["payload"]["prompt_parts_used"]) == {"moodboard", "sref", "stylize"}
 
 
 def test_identity_stack_appends_oref_and_ow():
@@ -63,8 +63,8 @@ def test_identity_stack_appends_oref_and_ow():
     assert "--oref https://cdn/oref.png" in p
     assert "--ow 1000" in p
     rec = snapshot()[-1]
-    assert "oref" in rec["payload"]["facets_used"]
-    assert "ow" in rec["payload"]["facets_used"]
+    assert "oref" in rec["payload"]["prompt_parts_used"]
+    assert "ow" in rec["payload"]["prompt_parts_used"]
 
 
 def test_identity_without_oref_is_noop():

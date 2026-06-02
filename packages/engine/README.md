@@ -10,7 +10,7 @@ Three console scripts ship with the package:
 
 - `cascade-mj-bridge` — the long-running daemon that drives Midjourney via a Discord user account
 - `cascade-mcp` — an MCP server that exposes the pipeline to Claude Desktop, Cursor, Cline, or any MCP-aware host
-- `cascade-mj` — a unified roll-and-log CLI
+- `cascade-mj` — the CLI that composes a prompt from a registry asset, fires the generation, waits, and logs the result
 
 Full documentation, setup procedure, failure-mode catalog, and the agent-operator guide live in the [project repository](https://github.com/greenrosesystems/cascade-img).
 

@@ -1,4 +1,4 @@
-"""Assemble Midjourney v7 prompt strings from structured facets.
+"""Assemble Midjourney v7 prompt strings from composable prompt parts.
 
 The consumer supplies a subject, an optional style stack, an optional
 identity stack, and an aspect ratio. The composer emits the backend-specific
@@ -29,7 +29,7 @@ class Subject:
 
 @dataclass
 class StyleStack:
-    """Style parts. None values are omitted from the prompt.
+    """Style-related prompt parts. ``None`` values are omitted from the prompt.
 
     - ``moodboard`` is Midjourney's ``--p`` personalization profile code
       (e.g. ``m7458053701014388751``). The composer doesn't enforce a
@@ -74,7 +74,7 @@ class IdentityStack:
 
 
 class PromptComposer:
-    """Compose v7 prompts from facets.
+    """Compose Midjourney v7 prompts from composable prompt parts.
 
     Stateless. Hold one in a module-level singleton if you want, or instantiate
     per call — there's nothing to share.
@@ -99,32 +99,32 @@ class PromptComposer:
         flags.append(f"--ar {aspect_ratio}")
         flags.append("--v 7")
 
-        facets_used: list[str] = []
+        prompt_parts_used: list[str] = []
 
         if style is not None:
             if style.style_raw:
                 flags.append("--style raw")
             if style.moodboard:
                 flags.append(f"--p {style.moodboard}")
-                facets_used.append("moodboard")
+                prompt_parts_used.append("moodboard")
             if style.sref:
                 flags.append(f"--sref {style.sref}")
-                facets_used.append("sref")
+                prompt_parts_used.append("sref")
             if style.stylize is not None:
                 flags.append(f"--s {style.stylize}")
-                facets_used.append("stylize")
+                prompt_parts_used.append("stylize")
         else:
             flags.append("--style raw")
 
         if identity is not None and identity.oref:
             flags.append(f"--oref {identity.oref}")
             flags.append(f"--ow {identity.ow}")
-            facets_used.extend(["oref", "ow"])
+            prompt_parts_used.extend(["oref", "ow"])
 
         prompt = subject_text + " " + " ".join(flags)
         emit(
             "PROMPT_COMPOSED",
-            facets_used=facets_used,
+            prompt_parts_used=prompt_parts_used,
             aspect_ratio=aspect_ratio,
             prompt_chars=len(prompt),
         )

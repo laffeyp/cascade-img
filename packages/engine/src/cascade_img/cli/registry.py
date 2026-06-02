@@ -1,6 +1,6 @@
 """Asset registry loader.
 
-A registry is a JSON file mapping ``asset_id`` to facets:
+A registry is a JSON file mapping ``asset_id`` to its composable prompt parts:
 
 .. code-block:: json
 
