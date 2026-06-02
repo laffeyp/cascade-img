@@ -71,7 +71,14 @@ async def _run_tool(name: str, fn, **kwargs) -> dict[str, Any]:
     emit("MCP_TOOL_CALLED", tool=name)
     t0 = time.time()
     try:
-        result = await fn(**kwargs) if _is_coro(fn) else fn(**kwargs)
+        if _is_coro(fn):
+            result = await fn(**kwargs)
+        else:
+            # Sync callable — run on a worker thread so the asyncio loop
+            # stays responsive for concurrent tool calls. Matches the
+            # backend's synchronous-by-design contract (Sprint 008).
+            import asyncio as _asyncio
+            result = await _asyncio.to_thread(lambda: fn(**kwargs))
         emit(
             "MCP_TOOL_COMPLETED",
             tool=name,
@@ -141,9 +148,8 @@ async def imagine(
     asset_id: str,
     upscale: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Fire one generation against the running bridge. Returns
-    ``{ok, result: {job_id, asset_id, status, upscale}}``. Caller awaits
-    ``wait`` next."""
+    """Fire one generation against the running bridge. Backend is sync —
+    _run_tool dispatches it via asyncio.to_thread."""
     return await _run_tool(
         "imagine",
         _backend.imagine,
@@ -169,8 +175,7 @@ async def status(job_id: str) -> dict[str, Any]:
 @mcp.tool()
 async def bridge_health() -> dict[str, Any]:
     """Check whether the bridge daemon is up and the Discord WebSocket is
-    connected. Returns ``{ok, result: {discord_ready, pending_grid,
-    total_jobs, ...}}``."""
+    connected."""
     return await _run_tool("bridge_health", _backend.health)
 
 
@@ -234,7 +239,13 @@ async def log_append(
     agent_decision: Optional[str] = None,
     agent_reason: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Append a record to the prompt log."""
+    """Append a record to the prompt log.
+
+    ``agent_decision`` must be one of: ``"promote"``, ``"reroll"``,
+    ``"escalate"``, ``"dry_run"`` (or omitted). Invalid values produce a
+    structured ValueError via the ``_run_tool`` envelope, naming the allowed
+    set in the message.
+    """
     def go():
         record = _log.append(
             asset_id=asset_id,
@@ -266,8 +277,25 @@ async def read_prompt_log(n: Optional[int] = None) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+_mcp_shutdown_emitted = False
+
+
+def _emit_mcp_shutdown(reason: str) -> None:
+    global _mcp_shutdown_emitted
+    if _mcp_shutdown_emitted:
+        return
+    _mcp_shutdown_emitted = True
+    try:
+        emit("MCP_SERVER_STOPPED", reason=reason)
+    except Exception:
+        pass
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="cascade-mj-mcp")
+    import atexit
+    import signal as _signal
+
+    parser = argparse.ArgumentParser(prog="cascade-mcp")
     parser.add_argument(
         "--http",
         type=int,
@@ -276,21 +304,37 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    emit("MCP_SERVER_STARTED", transport="http" if args.http else "stdio")
+    transport = "http" if args.http else "stdio"
+    emit("MCP_SERVER_STARTED", transport=transport)
 
-    if args.http:
-        # FastMCP exposes its own HTTP/SSE runner; we delegate to it without
-        # importing the lower-level SseServerTransport directly.
-        if hasattr(mcp, "run_sse_async"):
-            import asyncio
-            asyncio.run(mcp.run_sse_async(host="127.0.0.1", port=args.http))
+    atexit.register(_emit_mcp_shutdown, "atexit")
+
+    def _sig(signum, _frame):
+        name = _signal.Signals(signum).name if isinstance(signum, int) else str(signum)
+        _emit_mcp_shutdown(f"signal:{name}")
+        raise SystemExit(0)
+
+    try:
+        _signal.signal(_signal.SIGINT, _sig)
+        _signal.signal(_signal.SIGTERM, _sig)
+    except (ValueError, OSError):
+        pass
+
+    try:
+        if args.http:
+            if hasattr(mcp, "run_sse_async"):
+                import asyncio
+                asyncio.run(mcp.run_sse_async(host="127.0.0.1", port=args.http))
+            else:
+                raise RuntimeError(
+                    "HTTP transport not available in this mcp SDK version; "
+                    "use stdio (omit --http) or upgrade mcp."
+                )
         else:
-            raise RuntimeError(
-                "HTTP transport not available in this mcp SDK version; "
-                "use stdio (omit --http) or upgrade mcp."
-            )
-    else:
-        mcp.run()
+            mcp.run()
+    except Exception:
+        _emit_mcp_shutdown("exception")
+        raise
 
 
 if __name__ == "__main__":

@@ -107,6 +107,46 @@ async def test_log_append_and_read_roundtrip(tmp_path: Path, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_run_tool_envelopes_exception_with_remediation():
+    """An exception whose class carries `.code` and `.remediation` flows
+    through `_run_tool` into the structured envelope unchanged."""
+    from cascade_img.mcp_server import _run_tool
+    clear()
+
+    class TestError(Exception):
+        code = "TEST_ERROR"
+        remediation = "Read the docs."
+
+    def failing():
+        raise TestError("the thing broke")
+
+    result = await _run_tool("fictional_tool", failing)
+    assert result["ok"] is False
+    assert result["error"]["code"] == "TEST_ERROR"
+    assert result["error"]["message"] == "the thing broke"
+    assert result["error"]["remediation"] == "Read the docs."
+    tags = [r["tag"] for r in snapshot()]
+    assert "MCP_TOOL_FAILED" in tags
+
+
+@pytest.mark.asyncio
+async def test_run_tool_envelopes_bare_exception_without_remediation():
+    """An exception without `.code` or `.remediation` still routes through;
+    code is the class name, remediation absent."""
+    from cascade_img.mcp_server import _run_tool
+    clear()
+
+    def failing():
+        raise ValueError("bad input")
+
+    result = await _run_tool("fictional_tool", failing)
+    assert result["ok"] is False
+    assert result["error"]["code"] == "ValueError"
+    assert result["error"]["message"] == "bad input"
+    assert "remediation" not in result["error"]
+
+
+@pytest.mark.asyncio
 async def test_failure_path_returns_structured_error(tmp_path: Path):
     """A tool that raises returns {ok: false, error: {code, message}} and
     emits MCP_TOOL_FAILED."""

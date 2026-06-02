@@ -112,6 +112,10 @@ You should ask the human for:
 - Recovery from any `escalate` failure mode above.
 - Tonal judgment calls where stakes exceed mechanical "is the output well-formed" checks.
 
+## Routing is collision-resistant; you can submit similar prompts safely
+
+Every `/imagine` submission gets a per-job request token appended to the prompt as `--no cscidnocollide{token}`. The bridge matches MJ's echoed grid messages on this token, not on prompt substrings. You can fire two prompts with identical leading text back-to-back without grid messages being mis-routed.
+
 ## The prompt log is your working memory
 
 `read_prompt_log(n=5)` returns the last 5 records as structured dicts. Read it at the top of each loop iteration to know what you've already tried for the current asset_id. Write to it via `log_append` after every roll, including failures — the next iteration's read depends on yours having been written.

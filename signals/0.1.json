@@ -5,6 +5,90 @@
   "locked_by": "Architect (Peter Laffey, Green Rose Systems) via cascade-img v0.1.0a1 ship",
   "prior_version": null,
   "categories": ["session", "config", "bridge", "job", "discord", "backend", "curation", "composer", "log", "mcp", "cli"],
+
+  "ontology": {
+    "entities": [
+      {"name": "Job", "definition": "One /imagine roll through to its terminal state (done | failed). Identified by job_id."},
+      {"name": "Asset", "definition": "A named output the user is generating (e.g., 'bird', 'clue_a'). Identified by asset_id."},
+      {"name": "Bridge", "definition": "The long-running Flask + discord.py-self daemon process. Operated through HTTP."},
+      {"name": "Backend", "definition": "The pluggable backend implementing ImageGenerationBackend. v0.1 has one (MidjourneyDiscordBackend)."}
+    ]
+  },
+
+  "sessions": {
+    "strata": [
+      {
+        "name": "bridge_session",
+        "open_tag": "CASCADE_INIT",
+        "close_tag": "BRIDGE_SHUTDOWN",
+        "framed_tags": ["CONFIG_VALIDATED", "DISCORD_CONNECTED", "BRIDGE_HEALTHY", "IMAGINE_FIRED", "GRID_MATCHED", "GRID_RECEIVED", "UPSCALE_REQUESTED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED"],
+        "persistent_attributes": ["package_version", "backend"]
+      },
+      {
+        "name": "mcp_session",
+        "open_tag": "MCP_SERVER_STARTED",
+        "close_tag": "MCP_SERVER_STOPPED",
+        "framed_tags": ["MCP_TOOL_CALLED", "MCP_TOOL_COMPLETED", "MCP_TOOL_FAILED"],
+        "persistent_attributes": ["transport"]
+      }
+    ]
+  },
+
+  "temporal_invariants": {
+    "invariants": [
+      {"kind": "window", "from_tag": "IMAGINE_FIRED", "to_tag": "JOB_COMPLETED", "duration_seconds": 180, "note": "Grid-only upscale=None completes within 180s typical."},
+      {"kind": "window", "from_tag": "IMAGINE_FIRED", "to_tag": "JOB_COMPLETED", "duration_seconds": 360, "note": "Single upscale (1-4) completes within 360s typical."},
+      {"kind": "window", "from_tag": "IMAGINE_FIRED", "to_tag": "JOB_COMPLETED", "duration_seconds": 600, "note": "upscale=all completes within 600s typical."},
+      {"kind": "pairing", "from_tag": "MCP_TOOL_CALLED", "to_tag": "MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "note": "Every tool call resolves to one of the two terminal tags."},
+      {"kind": "forbidden_after", "from_tag": "JOB_COMPLETED", "to_tag": "GRID_MATCHED|GRID_RECEIVED|UPSCALE_REQUESTED|UPSCALE_RECEIVED", "note": "Terminal — no further job-state tags carry the same job_id."},
+      {"kind": "forbidden_after", "from_tag": "JOB_FAILED", "to_tag": "GRID_MATCHED|GRID_RECEIVED|UPSCALE_REQUESTED|UPSCALE_RECEIVED", "note": "Terminal — no further job-state tags carry the same job_id."}
+    ]
+  },
+
+  "state_transitions": {
+    "rules": [
+      {"kind": "forced_next", "from_tag": "CASCADE_INIT", "to_tags_allowed": ["CONFIG_VALIDATED"], "note": "Either CONFIG_VALIDATED follows CASCADE_INIT or the process exited via CONFIG_VALIDATION_FAILED before."},
+      {"kind": "pairing_ordering", "from_tag": "DISCORD_CONNECTED", "to_tags_allowed": ["IMAGINE_FIRED"], "note": "IMAGINE_FIRED requires DISCORD_CONNECTED first (gated by _ready.is_set())."},
+      {"kind": "pairing_ordering", "from_tag": "GRID_MATCHED", "to_tags_allowed": ["GRID_RECEIVED"], "payload_match": "job_id", "note": "Grid received must follow grid matched for the same job_id."},
+      {"kind": "pairing_ordering", "from_tag": "UPSCALE_REQUESTED", "to_tags_allowed": ["UPSCALE_RECEIVED"], "payload_match": "job_id+slot", "note": "Slot N's UPSCALE_RECEIVED follows its UPSCALE_REQUESTED."},
+      {"kind": "terminal", "tags": ["JOB_COMPLETED", "JOB_FAILED"], "note": "No further job-category tags carry the same job_id after a terminal."}
+    ]
+  },
+
+  "operators": {
+    "operators": [
+      {"name": "MidjourneyDiscordBackend", "emits": ["BACKEND_HTTP_CALLED"], "consumes": "HTTP calls from the MCP server, CLI, or library consumers", "location": "cascade_img/backends/midjourney_discord/backend.py"},
+      {"name": "BridgeDaemon", "emits": ["CASCADE_INIT", "CONFIG_VALIDATED", "CONFIG_VALIDATION_FAILED", "DISCORD_CONNECTED", "BRIDGE_HEALTHY", "BRIDGE_SHUTDOWN", "IMAGINE_FIRED", "GRID_MATCHED", "GRID_RECEIVED", "UPSCALE_REQUESTED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "BRIDGE_CHECKENV_RAN", "BRIDGE_DOCTOR_RAN"], "location": "cascade_img/backends/midjourney_discord/bridge.py"},
+      {"name": "PromptComposer", "emits": ["PROMPT_COMPOSED"], "location": "cascade_img/composer.py"},
+      {"name": "PromptLog", "emits": ["PROMPT_LOGGED"], "location": "cascade_img/log.py"},
+      {"name": "CurationKit", "emits": ["CROP_QUADRANT", "ALPHA_KEY_APPLIED", "ASSET_PROMOTED"], "location": "cascade_img/curation/"},
+      {"name": "MCPServer", "emits": ["MCP_SERVER_STARTED", "MCP_SERVER_STOPPED", "MCP_TOOL_CALLED", "MCP_TOOL_COMPLETED", "MCP_TOOL_FAILED"], "location": "cascade_img/mcp_server.py"},
+      {"name": "AssetCLI", "emits": ["CLI_ROLL_STARTED", "CLI_ROLL_COMPLETED", "CLI_ROLL_FAILED"], "location": "cascade_img/cli/mj.py"}
+    ]
+  },
+
+  "evidence_constraints": {
+    "constraints": [
+      {"target_tag": "JOB_FAILED", "target_field": "error_code", "enum": ["DISCORD_400_OUTDATED", "DISCORD_400_UNKNOWN_CHANNEL", "DISCORD_401", "GRID_DOWNLOAD_FAILED", "MJ_UUID_MISSING", "SUBMIT_FAILED", "UPSCALE_DOWNLOAD_FAILED"], "enforceability": "mechanical"},
+      {"target_tag": "CONFIG_VALIDATION_FAILED", "target_field": "code", "enum": ["MISSING_DISCORD_TOKEN", "MISSING_CHANNEL_ID", "INVALID_CHANNEL_ID", "MISSING_IMAGINE_VERSION", "INVALID_PORT"], "enforceability": "mechanical"},
+      {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["compose_prompt", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log"], "enforceability": "mechanical"},
+      {"target_tag": "GRID_MATCHED", "target_field": "match_path", "enum": ["pending", "progress_fallback"], "enforceability": "mechanical"},
+      {"target_tag": "MCP_SERVER_STARTED", "target_field": "transport", "enum": ["stdio", "http"], "enforceability": "mechanical"}
+    ]
+  },
+
+  "report_binding": {
+    "observed_categories": ["session", "config", "bridge", "discord", "job", "backend", "curation", "composer", "log", "mcp", "cli"],
+    "notes_categories": ["incident"]
+  },
+
+  "grammar_growth": {
+    "taxonomy_version": "0.1",
+    "project_overrides": [
+      {"name": "validator-extras", "value": "strict", "note": "Payload fields not declared in the schema raise at emit; production may relax via CASCADE_STRICT_SIGNALS=false."},
+      {"name": "view-payload-universal", "value": "n/a", "note": "No UI in cascade-img; the view category does not exist."}
+    ]
+  },
   "tags": [
     {
       "name": "CASCADE_INIT",
@@ -221,6 +305,30 @@
       "payload": ["asset_id", "error_code", "error_message"],
       "optional_payload": [],
       "note": "cascade-mj CLI exited with a structured error. error_code is one of UNKNOWN_ASSET_ID, FileNotFoundError, ValueError (registry malformed), or any backend exception class name."
+    },
+    {
+      "name": "BRIDGE_SHUTDOWN",
+      "category": "bridge",
+      "stratum": "event",
+      "payload": ["reason"],
+      "optional_payload": [],
+      "note": "Bridge daemon shutting down. reason is 'signal' (SIGINT/SIGTERM), 'config_error' (failed startup), or 'exception' (unhandled)."
+    },
+    {
+      "name": "JOB_EVICTED",
+      "category": "job",
+      "stratum": "event",
+      "payload": ["asset_id", "job_id", "reason", "age_seconds", "total_jobs_after"],
+      "optional_payload": [],
+      "note": "Job evicted from the in-memory JOBS dict. reason is 'lru_capacity' (oldest evicted to stay under cap) or 'terminal_age_ttl' (DONE/FAILED job exceeded retention). age_seconds is wall-clock since job created_at."
+    },
+    {
+      "name": "MCP_SERVER_STOPPED",
+      "category": "mcp",
+      "stratum": "event",
+      "payload": ["reason"],
+      "optional_payload": [],
+      "note": "MCP server exited. reason is 'signal' or 'exception'."
     }
   ]
 }

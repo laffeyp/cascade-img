@@ -5,7 +5,13 @@ The bridge (``bridge.py``) runs as a separate process started by
 rather than importing daemon internals, so the daemon can restart, be
 replaced, or move to another machine without touching the consumer side.
 
-Each method emits a ``BACKEND_HTTP_CALLED`` signal so graders can see the
+Methods are **synchronous** — wrapping blocking ``requests`` calls in
+``async def`` would lie about the coroutine contract. Callers that need the
+asyncio loop to remain responsive should invoke these via
+``asyncio.to_thread(backend.imagine, ...)`` or the MCP server's
+``_run_tool`` helper (which already wraps sync callables in to_thread).
+
+Each method emits a ``BACKEND_HTTP_CALLED`` signal so graders see the
 client-side traffic, not just the daemon-side state transitions.
 """
 
@@ -29,37 +35,37 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
     def __init__(self, base_url: str = "http://127.0.0.1:5000") -> None:
         self.base_url = base_url.rstrip("/")
 
-    async def imagine(self, prompt: str, asset_id: str, upscale=None) -> dict:
+    def imagine(self, prompt: str, asset_id: str, upscale=None) -> dict:
         body: dict = {"prompt": prompt, "asset_id": asset_id}
         if upscale is not None:
             body["upscale"] = upscale
-        r = requests.post(f"{self.base_url}/imagine", json=body, timeout=30)
-        emit("BACKEND_HTTP_CALLED", method="POST", path="/imagine", status=r.status_code)
-        r.raise_for_status()
-        return r.json()
+        with requests.post(f"{self.base_url}/imagine", json=body, timeout=30) as r:
+            emit("BACKEND_HTTP_CALLED", method="POST", path="/imagine", status=r.status_code)
+            r.raise_for_status()
+            return r.json()
 
-    async def wait(self, job_id: str, timeout: int = 180) -> dict:
-        r = requests.get(
+    def wait(self, job_id: str, timeout: int = 180) -> dict:
+        with requests.get(
             f"{self.base_url}/wait/{job_id}",
             params={"timeout": timeout},
             timeout=timeout + 5,
-        )
-        emit("BACKEND_HTTP_CALLED", method="GET", path=f"/wait/{job_id}", status=r.status_code)
-        if r.status_code == 504:
-            data = r.json()
-            data["timed_out"] = True
-            return data
-        r.raise_for_status()
-        return r.json()
+        ) as r:
+            emit("BACKEND_HTTP_CALLED", method="GET", path=f"/wait/{job_id}", status=r.status_code)
+            if r.status_code == 504:
+                data = r.json()
+                data["timed_out"] = True
+                return data
+            r.raise_for_status()
+            return r.json()
 
-    async def status(self, job_id: str) -> dict:
-        r = requests.get(f"{self.base_url}/status/{job_id}", timeout=10)
-        emit("BACKEND_HTTP_CALLED", method="GET", path=f"/status/{job_id}", status=r.status_code)
-        r.raise_for_status()
-        return r.json()
+    def status(self, job_id: str) -> dict:
+        with requests.get(f"{self.base_url}/status/{job_id}", timeout=10) as r:
+            emit("BACKEND_HTTP_CALLED", method="GET", path=f"/status/{job_id}", status=r.status_code)
+            r.raise_for_status()
+            return r.json()
 
-    async def health(self) -> dict:
-        r = requests.get(f"{self.base_url}/health", timeout=5)
-        emit("BACKEND_HTTP_CALLED", method="GET", path="/health", status=r.status_code)
-        r.raise_for_status()
-        return r.json()
+    def health(self) -> dict:
+        with requests.get(f"{self.base_url}/health", timeout=5) as r:
+            emit("BACKEND_HTTP_CALLED", method="GET", path="/health", status=r.status_code)
+            r.raise_for_status()
+            return r.json()

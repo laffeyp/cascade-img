@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from cascade_img.instrumentation.sdd import clear, snapshot
-from cascade_img.log import PromptLog
+from cascade_img.log import AgentDecision, PromptLog
 
 
 def test_append_then_read_roundtrip(tmp_path: Path):
@@ -52,6 +54,25 @@ def test_read_last_n(tmp_path: Path):
 def test_read_empty_log(tmp_path: Path):
     log = PromptLog(tmp_path / "nonexistent.jsonl")
     assert log.read() == []
+
+
+def test_agent_decision_enum_values_pass(tmp_path: Path):
+    log = PromptLog(tmp_path / "log.jsonl")
+    for value in ("promote", "reroll", "escalate", "dry_run"):
+        log.append(asset_id="x", prompt="p", backend="b", agent_decision=value)
+
+
+def test_agent_decision_enum_object_pass(tmp_path: Path):
+    log = PromptLog(tmp_path / "log.jsonl")
+    log.append(asset_id="x", prompt="p", backend="b", agent_decision=AgentDecision.PROMOTE)
+    records = log.read()
+    assert records[0]["agent_decision"] == "promote"
+
+
+def test_agent_decision_invalid_raises(tmp_path: Path):
+    log = PromptLog(tmp_path / "log.jsonl")
+    with pytest.raises(ValueError, match=r"agent_decision must be one of"):
+        log.append(asset_id="x", prompt="p", backend="b", agent_decision="yeet")
 
 
 def test_read_handles_concurrent_deletion(tmp_path: Path):
