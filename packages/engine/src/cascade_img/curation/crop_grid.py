@@ -18,7 +18,7 @@ from PIL import Image
 
 from cascade_img.vocabulary import emit
 
-# MJ grid layout (top-left origin). Each tuple is (column_fraction, row_fraction).
+# MJ grid layout (top-left origin). Each tuple is (col_index, row_index), 0 or 1.
 QUADRANT_OFFSETS: dict[int, tuple[int, int]] = {
     1: (0, 0),  # top-left      U1
     2: (1, 0),  # top-right     U2

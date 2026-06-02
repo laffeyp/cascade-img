@@ -17,7 +17,12 @@ close to the background color. Kept for backward compatibility and for
 domains where flood-fill leaks (e.g. broken outlines, intentional gradients
 from bg into subject).
 
-Neither algorithm is appropriate for full-scene images where the frame IS
+``method="rembg"`` — ML background removal via the optional ``rembg``
+dependency (the ``[ml]`` extra). Handles the gradient, vignette, textured, and
+broken-outline cases where both corner-anchored algorithms fail. Lazy-imported;
+raises a clear install hint if the extra is absent.
+
+None of these are appropriate for full-scene images where the frame IS
 the asset; apply selectively per asset in the consumer's curation flow.
 """
 
@@ -166,6 +171,27 @@ def _alpha_key_flood(rgba: Image.Image, tolerance: int) -> tuple[Image.Image, in
     return rgba, keyed
 
 
+def _alpha_key_rembg(rgba: Image.Image) -> tuple[Image.Image, int]:
+    """ML background removal via the optional ``rembg`` dependency.
+
+    The corner-anchored algorithms fail on gradient/vignette/textured
+    backgrounds and broken outlines; rembg's learned matting handles those.
+    Requires the optional ``[ml]`` extra (``pip install 'cascade-img[ml]'``),
+    which pulls onnxruntime (~150 MB). Returns (image, keyed_count).
+    """
+    try:
+        from rembg import remove
+    except ImportError as e:
+        raise RuntimeError(
+            "alpha_key_corners(method='rembg') needs the optional 'rembg' "
+            "dependency. Install it with: pip install 'cascade-img[ml]' "
+            "(pulls onnxruntime, ~150 MB)."
+        ) from e
+    out = remove(rgba).convert("RGBA")
+    keyed = out.getchannel("A").histogram()[0]
+    return out, keyed
+
+
 def alpha_key_corners(
     img: Image.Image,
     tolerance: int = DEFAULT_TOLERANCE,
@@ -179,8 +205,10 @@ def alpha_key_corners(
             For flood mode, the maximum per-channel step the flood will
             tolerate between neighbors. For threshold mode, the global
             distance from the corner-average color that counts as background.
-        method: ``"flood"`` (default; corner-anchored 4-connected flood-fill)
-            or ``"threshold"`` (global per-pixel distance check).
+        method: ``"flood"`` (default; corner-anchored 4-connected flood-fill),
+            ``"threshold"`` (global per-pixel distance check), or ``"rembg"``
+            (ML background removal; needs the ``[ml]`` extra). ``tolerance`` is
+            ignored for ``"rembg"``.
 
     Returns:
         RGBA Image with background pixels set to alpha=0.
@@ -196,9 +224,13 @@ def alpha_key_corners(
         rgba, keyed = _alpha_key_flood(rgba, tolerance)
     elif method == "threshold":
         rgba, keyed = _alpha_key_threshold(rgba, tolerance)
+    elif method == "rembg":
+        rgba, keyed = _alpha_key_rembg(rgba)
+        w, h = rgba.size
     else:
         raise ValueError(
-            f"alpha_key_corners: unknown method {method!r}; expected 'flood' or 'threshold'."
+            f"alpha_key_corners: unknown method {method!r}; expected 'flood', "
+            f"'threshold', or 'rembg'."
         )
 
     total = w * h

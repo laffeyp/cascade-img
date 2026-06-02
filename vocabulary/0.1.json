@@ -61,7 +61,7 @@
       {"name": "BridgeDaemon", "emits": ["CASCADE_INIT", "CONFIG_VALIDATED", "CONFIG_VALIDATION_FAILED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "BRIDGE_SHUTDOWN", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "BRIDGE_CHECKENV_RAN", "BRIDGE_DOCTOR_RAN"], "location": "cascade_img/backends/midjourney_discord/bridge.py"},
       {"name": "PromptComposer", "emits": ["PROMPT_COMPOSED"], "location": "cascade_img/composer.py"},
       {"name": "PromptLog", "emits": ["PROMPT_LOGGED"], "location": "cascade_img/log.py"},
-      {"name": "CurationKit", "emits": ["CROP_QUADRANT", "ALPHA_KEY_APPLIED", "ASSET_PROMOTED"], "location": "cascade_img/curation/"},
+      {"name": "CurationKit", "emits": ["CROP_QUADRANT", "ALPHA_KEY_APPLIED", "ASSET_PROMOTED", "CONTACT_SHEET_RENDERED", "AUTO_TRIM_APPLIED", "PALETTE_QUANTIZED", "SPRITE_SHEET_PACKED"], "location": "cascade_img/curation/"},
       {"name": "MCPServer", "emits": ["MCP_SERVER_STARTED", "MCP_SERVER_STOPPED", "MCP_TOOL_CALLED", "MCP_TOOL_COMPLETED", "MCP_TOOL_FAILED"], "location": "cascade_img/mcp_server.py"},
       {"name": "AssetCLI", "emits": ["CLI_ROLL_STARTED", "CLI_ROLL_COMPLETED", "CLI_ROLL_FAILED"], "location": "cascade_img/cli/mj.py"}
     ]
@@ -71,7 +71,7 @@
     "constraints": [
       {"target_tag": "JOB_FAILED", "target_field": "error_code", "enum": ["DISCORD_400_OUTDATED", "DISCORD_400_UNKNOWN_CHANNEL", "DISCORD_401", "DISCORD_NOT_READY", "GRID_DOWNLOAD_FAILED", "MJ_UUID_MISSING", "SUBMIT_FAILED", "UPSCALE_DOWNLOAD_FAILED", "UPSCALE_BUTTON_FAILED", "UPSCALE_ALL_BUTTONS_FAILED"], "enforceability": "mechanical"},
       {"target_tag": "CONFIG_VALIDATION_FAILED", "target_field": "code", "enum": ["MISSING_DISCORD_TOKEN", "MISSING_CHANNEL_ID", "INVALID_CHANNEL_ID", "MISSING_IMAGINE_VERSION", "INVALID_PORT"], "enforceability": "mechanical"},
-      {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["compose_prompt", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log"], "enforceability": "mechanical"},
+      {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["compose_prompt", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log", "contact_sheet", "auto_trim", "palette_quantize", "sprite_sheet"], "enforceability": "mechanical"},
       {"target_tag": "GRID_MATCHED", "target_field": "match_path", "enum": ["pending", "progress_fallback"], "enforceability": "mechanical"},
       {"target_tag": "MCP_SERVER_STARTED", "target_field": "transport", "enum": ["stdio", "http"], "enforceability": "mechanical"}
     ]
@@ -267,6 +267,38 @@
       "note": "promote() copied a curated asset to the consumer's asset tree."
     },
     {
+      "name": "CONTACT_SHEET_RENDERED",
+      "category": "curation",
+      "stratum": "event",
+      "payload": ["src", "dest", "tiles", "w", "h"],
+      "optional_payload": [],
+      "note": "contact_sheet() composited a grid's panels (with optional index/score labels) into one annotated image — a far better single input for vision-model selection than four separate reads. tiles is the number of panels placed; w/h are the output sheet dimensions."
+    },
+    {
+      "name": "AUTO_TRIM_APPLIED",
+      "category": "curation",
+      "stratum": "event",
+      "payload": ["src", "dest", "bbox", "w", "h"],
+      "optional_payload": [],
+      "note": "auto_trim() cropped an image to its content bounding box. bbox is [left, top, right, bottom] in source pixels; w/h are the trimmed output dimensions. A bbox spanning the whole image means nothing was trimmed."
+    },
+    {
+      "name": "PALETTE_QUANTIZED",
+      "category": "curation",
+      "stratum": "event",
+      "payload": ["src", "dest", "n_colors", "method"],
+      "optional_payload": [],
+      "note": "palette_quantize() reduced an image to a fixed palette for the limited-palette look. method is 'median_cut', 'maximum_coverage', or 'octree'; n_colors is the requested palette size."
+    },
+    {
+      "name": "SPRITE_SHEET_PACKED",
+      "category": "curation",
+      "stratum": "event",
+      "payload": ["dest", "count", "layout", "w", "h"],
+      "optional_payload": [],
+      "note": "sprite_sheet() packed N curated sprites into one atlas plus a JSON frame map written alongside it. layout is 'grid', 'row', or 'column'; count is the number of frames; w/h are the atlas dimensions."
+    },
+    {
       "name": "PROMPT_COMPOSED",
       "category": "composer",
       "stratum": "event",
@@ -296,7 +328,7 @@
       "stratum": "event",
       "payload": ["tool"],
       "optional_payload": [],
-      "note": "An MCP tool invocation began. tool is one of: compose_prompt, imagine, wait, status, bridge_health, crop_grid, alpha_key, promote, log_append, read_prompt_log."
+      "note": "An MCP tool invocation began. tool is one of: compose_prompt, imagine, wait, status, bridge_health, crop_grid, alpha_key, promote, log_append, read_prompt_log, contact_sheet, auto_trim, palette_quantize, sprite_sheet."
     },
     {
       "name": "MCP_TOOL_COMPLETED",

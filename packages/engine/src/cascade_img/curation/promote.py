@@ -13,7 +13,7 @@ from cascade_img.vocabulary import emit
 
 
 def promote(src: str | Path, dest: str | Path) -> Path:
-    """Move a curated asset to its destination path.
+    """Copy a curated asset to its destination path.
 
     Args:
         src: Path to the staging asset (e.g. a cropped + alpha-keyed PNG).
