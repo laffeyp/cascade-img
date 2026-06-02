@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.env
+
+# Node
+node_modules/
+*.tgz
+.npm
+npm-debug.log*
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
