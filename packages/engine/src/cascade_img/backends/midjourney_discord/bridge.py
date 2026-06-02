@@ -82,6 +82,25 @@ class MissingEnvError(Exception):
         }
 
 
+class DiscordNotReadyError(Exception):
+    """The Discord WebSocket is not in a state where an interaction call would
+    succeed (no session_id available). Distinct from MissingEnvError so the
+    Flask layer can return 503 with a structured retryable-error envelope.
+    """
+
+    code = "DISCORD_NOT_READY"
+    remediation = (
+        "Wait for the bridge's reconnect loop to re-establish the gateway "
+        "session. Check GET /health for discord_ready=true; the daemon will "
+        "back off and retry automatically unless DISCORD_RECONNECT_FAILED was "
+        "emitted (terminal auth failure — operator must rotate the token)."
+    )
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(f"Discord client not ready: {detail}")
+        self.detail = detail
+
+
 @dataclass
 class Config:
     """Daemon configuration. Constructed via :meth:`from_env`."""
@@ -207,7 +226,12 @@ log = logging.getLogger("cascade_img.bridge")
 
 class Status(str, Enum):
     QUEUED = "queued"          # accepted, not yet sent to Discord
-    SUBMITTED = "submitted"    # /imagine fired, awaiting MJ message
+    SUBMITTED = "submitted"    # /imagine fired, Discord ack'd, awaiting MJ message
+    # Discord interaction POST timed out before returning. MJ may or may not
+    # have processed the imagine. Job stays in PENDING_GRID so the grid-match
+    # path still claims it if MJ comes through; /wait will resolve to DONE or
+    # to the bridge-side wait-timeout, whichever lands first.
+    SUBMITTED_UNCONFIRMED = "submitted_unconfirmed"
     PROGRESS = "progress"      # MJ is rendering the grid
     UPSCALING = "upscaling"    # grid done, awaiting U1-U4 results
     DONE = "done"
@@ -236,6 +260,12 @@ class Job:
     grid_url: str | None = None
     upscale_paths: dict[int, str] = field(default_factory=dict)
     upscale_pending: list[int] = field(default_factory=list)
+    # Per-slot button-press failures (slot -> error message). During
+    # upscale="all", individual U-button presses can fail while others succeed;
+    # the job stays in UPSCALING and completes when surviving slots land. If
+    # every requested slot's press fails, the job terminates with
+    # UPSCALE_ALL_BUTTONS_FAILED. Empty when no presses failed.
+    upscale_press_failures: dict[int, str] = field(default_factory=dict)
     error: str | None = None
     error_code: str | None = None
     created_at: float = field(default_factory=time.time)
@@ -288,6 +318,43 @@ JOBS: OrderedDict[str, Job] = OrderedDict()
 PENDING_GRID: list[str] = []  # FIFO of job_ids awaiting grid message match
 LOCK = threading.RLock()
 TERMINAL_CV = threading.Condition(LOCK)
+
+# Set by the signal/atexit shutdown path. The Discord reconnect loop polls
+# this between attempts so the daemon doesn't hammer Discord on the way out.
+_shutdown_event = threading.Event()
+
+
+def _safe_output_path(
+    *,
+    output_dir: Path,
+    asset_id: str,
+    suffix: str,
+    ext: str,
+    request_token: str,
+    kind: str,
+    job_id: str,
+) -> Path:
+    """Return an output path for the asset, disambiguating on collision.
+
+    If ``<output_dir>/<asset_id><suffix><ext>`` already exists on disk, the
+    request_token is woven into the filename to avoid clobbering a concurrent
+    job's artifact. The collision is announced via ``OUTPUT_PATH_COLLISION``.
+    The asset_id contract is preserved either way: the artifact lands; the
+    operator learns from the signal that two jobs shared an asset_id.
+    """
+    intended = output_dir / f"{asset_id}{suffix}{ext}"
+    if not intended.exists():
+        return intended
+    actual = output_dir / f"{asset_id}_{request_token}{suffix}{ext}"
+    emit(
+        "OUTPUT_PATH_COLLISION",
+        asset_id=asset_id,
+        job_id=job_id,
+        intended_path=str(intended),
+        actual_path=str(actual),
+        kind=kind,
+    )
+    return actual
 
 
 def _evict_if_needed() -> None:
@@ -357,6 +424,43 @@ async def on_ready():
     log.info(f"Watching channel {c.channel_id}")
     emit("DISCORD_CONNECTED", user_id=str(client.user.id))
     _ready.set()
+
+
+@client.event
+async def on_disconnect():
+    """Clear the readiness flag the moment the gateway drops.
+
+    discord.py-self's internal reconnect logic handles transient drops without
+    bouncing the process; while it's reconnecting, ``client.ws.session_id``
+    may be ``None`` and any interaction call we attempt will 401. Gating
+    /imagine on ``_ready.is_set()`` returns a clean 503 DISCORD_NOT_READY
+    instead of leaking an AttributeError.
+    """
+    was_ready = _ready.is_set()
+    _ready.clear()
+    if was_ready:
+        # Only announce drops we actually noticed (suppress the noise of a
+        # reconnect attempt that briefly fires on_disconnect before on_ready).
+        emit("DISCORD_DISCONNECTED", reason="on_disconnect")
+
+
+def _session_id_or_raise() -> str:
+    """Return ``client.ws.session_id`` or raise :class:`DiscordNotReadyError`.
+
+    Reads the underlying gateway state safely. During a reconnect window the
+    websocket is rebuilt and ``client.ws`` can be ``None`` or its session_id
+    can be unset; in either case a /imagine or button press would 401, so
+    short-circuit with a structured error the Flask layer can return as 503.
+    """
+    ws = getattr(client, "ws", None)
+    if ws is None:
+        raise DiscordNotReadyError("client.ws is None (gateway not connected)")
+    sid = getattr(ws, "session_id", None)
+    if sid is None:
+        raise DiscordNotReadyError(
+            "client.ws.session_id is None (gateway handshake incomplete)"
+        )
+    return sid
 
 
 def _token_needle(token: str) -> str:
@@ -485,8 +589,15 @@ def _ingest_message(message):
         if message.attachments:
             att = message.attachments[0]
             ext = os.path.splitext(att.filename)[1] or ".png"
-            grid_path = c.output_dir / (
-                f"{job.asset_id}_grid{ext}" if job.upscale else f"{job.asset_id}{ext}"
+            suffix = "_grid" if job.upscale else ""
+            grid_path = _safe_output_path(
+                output_dir=c.output_dir,
+                asset_id=job.asset_id,
+                suffix=suffix,
+                ext=ext,
+                request_token=job.request_token,
+                kind="grid",
+                job_id=job.job_id,
             )
             try:
                 grid_bytes = _download_to(att.url, grid_path)
@@ -536,9 +647,7 @@ def _ingest_message(message):
             )
 
             guild_id = str(message.guild.id) if message.guild else None
-            loop = _running_loop()
             for n in slots:
-                custom_id = f"MJ::JOB::upsample::{n}::{mj_uuid}"
                 emit(
                     "UPSCALE_REQUESTED",
                     asset_id=job.asset_id,
@@ -546,26 +655,93 @@ def _ingest_message(message):
                     slot=n,
                     mj_job_uuid_prefix=mj_uuid[:8],
                 )
-                fut = asyncio.run_coroutine_threadsafe(
-                    _press_button(message.id, custom_id, guild_id), loop
+
+            # Fire all button presses concurrently — gather lets a slow Discord
+            # interaction on slot 1 not stall slot 2/3/4. return_exceptions=True
+            # collects per-slot failures without aborting the others.
+            async def _press_all_slots():
+                coros = [
+                    _press_button(
+                        message.id, f"MJ::JOB::upsample::{n}::{mj_uuid}", guild_id
+                    )
+                    for n in slots
+                ]
+                return await asyncio.gather(*coros, return_exceptions=True)
+
+            try:
+                gather_fut = asyncio.run_coroutine_threadsafe(
+                    _press_all_slots(), _running_loop()
                 )
-                try:
-                    resp = fut.result(timeout=20)
-                except Exception as e:
-                    job._fail(
-                        "UPSCALE_BUTTON_FAILED",
-                        f"U{n} press exception: {e}",
+                # 35s budget: 30s per-request timeout in _post_interaction +
+                # 5s gather/scheduling slack.
+                results = gather_fut.result(timeout=35)
+            except Exception as e:
+                # The gather itself blew up (shouldn't happen with
+                # return_exceptions=True except on loop death / timeout).
+                job._fail(
+                    "UPSCALE_BUTTON_FAILED",
+                    f"upscale gather failed: {type(e).__name__}: {e}",
+                )
+                log.error(f"[{job.asset_id}] {job.error}")
+                return
+
+            failed_slots: list[tuple[int, str]] = []
+            succeeded_slots: list[int] = []
+            for n, result in zip(slots, results, strict=True):
+                if isinstance(result, BaseException):
+                    code = type(result).__name__
+                    msg = str(result) or repr(result)
+                    failed_slots.append((n, f"{code}: {msg}"))
+                    emit(
+                        "UPSCALE_PRESS_FAILED",
+                        asset_id=job.asset_id,
+                        job_id=job.job_id,
+                        slot=n,
+                        error_code=code,
+                        error_message=msg[:500],
                     )
-                    log.error(f"[{job.asset_id}] {job.error}")
-                    return
-                if resp.status_code not in (200, 204):
-                    job._fail(
-                        "UPSCALE_BUTTON_FAILED",
-                        f"U{n} press returned {resp.status_code}: "
-                        f"{resp.text[:200]}",
+                elif result.status_code not in (200, 204):
+                    code = f"HTTP_{result.status_code}"
+                    msg = result.text[:500] if hasattr(result, "text") else ""
+                    failed_slots.append((n, f"{code}: {msg[:200]}"))
+                    emit(
+                        "UPSCALE_PRESS_FAILED",
+                        asset_id=job.asset_id,
+                        job_id=job.job_id,
+                        slot=n,
+                        error_code=code,
+                        error_message=msg,
                     )
-                    log.error(f"[{job.asset_id}] {job.error}")
-                    return
+                else:
+                    succeeded_slots.append(n)
+
+            with LOCK:
+                for n, detail in failed_slots:
+                    job.upscale_press_failures[n] = detail
+                    if n in job.upscale_pending:
+                        job.upscale_pending.remove(n)
+                job.touch()
+
+            if not succeeded_slots:
+                # Every slot's press failed; the job has nothing to wait for.
+                terminal_code = (
+                    "UPSCALE_BUTTON_FAILED"
+                    if len(slots) == 1
+                    else "UPSCALE_ALL_BUTTONS_FAILED"
+                )
+                detail = "; ".join(f"U{n}: {d}" for n, d in failed_slots)
+                job._fail(terminal_code, f"all upscale presses failed — {detail}")
+                log.error(f"[{job.asset_id}] {job.error}")
+                return
+
+            if failed_slots:
+                log.warning(
+                    f"[{job.asset_id}] {len(failed_slots)}/{len(slots)} "
+                    f"upscale presses failed "
+                    f"(U{','.join(str(n) for n, _ in failed_slots)}); "
+                    f"continuing to wait for "
+                    f"U{','.join(str(n) for n in succeeded_slots)}"
+                )
             return
 
     matched = _match_upscale(content)
@@ -573,10 +749,15 @@ def _ingest_message(message):
         parent, idx = matched
         att = message.attachments[0]
         ext = os.path.splitext(att.filename)[1] or ".png"
-        out_path = c.output_dir / (
-            f"{parent.asset_id}_u{idx}{ext}"
-            if parent.upscale == "all"
-            else f"{parent.asset_id}{ext}"
+        suffix = f"_u{idx}" if parent.upscale == "all" else ""
+        out_path = _safe_output_path(
+            output_dir=c.output_dir,
+            asset_id=parent.asset_id,
+            suffix=suffix,
+            ext=ext,
+            request_token=parent.request_token,
+            kind="upscale",
+            job_id=parent.job_id,
         )
         try:
             up_bytes = _download_to(att.url, out_path)
@@ -625,27 +806,27 @@ def _running_loop() -> asyncio.AbstractEventLoop:
 
 @client.event
 async def on_message(message):
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, _ingest_message, message)
 
 
 @client.event
 async def on_message_edit(before, after):
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, _ingest_message, after)
 
 
 async def _post_interaction(payload: dict) -> requests.Response:
     c = _cfg()
     headers = {"Authorization": c.discord_token, "Content-Type": "application/json"}
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
         None,
         lambda: requests.post(
             "https://discord.com/api/v9/interactions",
             json=payload,
             headers=headers,
-            timeout=20,
+            timeout=30,
         ),
     )
 
@@ -659,13 +840,18 @@ _OPTION_TYPE_STRING = 3
 
 
 async def _send_imagine(prompt: str) -> requests.Response:
-    """Fire ``/imagine`` to MJ via the Discord Interactions API."""
+    """Fire ``/imagine`` to MJ via the Discord Interactions API.
+
+    Raises :class:`DiscordNotReadyError` if the gateway session_id is not
+    available (during reconnect windows). The Flask layer maps this to a
+    structured 503 with a retryable error code.
+    """
     c = _cfg()
     payload: dict = {
         "type": _INTERACTION_APPLICATION_COMMAND,
         "application_id": str(MJ_BOT_ID),
         "channel_id": str(c.channel_id),
-        "session_id": client.ws.session_id,
+        "session_id": _session_id_or_raise(),
         "data": {
             "version": c.mj_imagine_version,
             "id": c.mj_imagine_command_id,
@@ -694,14 +880,19 @@ async def _send_imagine(prompt: str) -> requests.Response:
 async def _press_button(
     message_id: int, custom_id: str, guild_id: str | None
 ) -> requests.Response:
-    """Press a message component (U1-U4) via the Discord Interactions API."""
+    """Press a message component (U1-U4) via the Discord Interactions API.
+
+    Raises :class:`DiscordNotReadyError` if the gateway session_id is not
+    available. The button-press caller routes that into a per-slot
+    UPSCALE_PRESS_FAILED rather than failing the whole job.
+    """
     c = _cfg()
     payload: dict = {
         "type": _INTERACTION_MESSAGE_COMPONENT,
         "application_id": str(MJ_BOT_ID),
         "channel_id": str(c.channel_id),
         "message_id": str(message_id),
-        "session_id": client.ws.session_id,
+        "session_id": _session_id_or_raise(),
         "data": {
             "component_type": _COMPONENT_TYPE_BUTTON,
             "custom_id": custom_id,
@@ -767,13 +958,61 @@ def http_imagine():
         PENDING_GRID.append(job.job_id)
         _evict_if_needed()
 
+    # Submit budget: 35s for the Discord interaction round-trip
+    # (_post_interaction uses a 30s requests timeout + scheduling slack).
+    # If the call exceeds this, MJ may still have accepted the imagine — the
+    # job stays in PENDING_GRID so a late-arriving grid still matches it.
+    SUBMIT_TIMEOUT_SECONDS = 35
     fut = asyncio.run_coroutine_threadsafe(
         _send_imagine(job.tagged_prompt()), _running_loop()
     )
     try:
-        resp = fut.result(timeout=20)
+        resp = fut.result(timeout=SUBMIT_TIMEOUT_SECONDS)
+    except TimeoutError:
+        # Discord didn't return within budget. MJ may or may not have it.
+        # Don't fail the job; don't evict from PENDING_GRID. If MJ does
+        # process it, the grid-match path will catch the result and resolve
+        # /wait normally. If not, /wait's own timeout fires.
+        with LOCK:
+            job.status = Status.SUBMITTED_UNCONFIRMED
+            job.touch()
+        emit(
+            "JOB_SUBMIT_TIMEOUT",
+            asset_id=job.asset_id,
+            job_id=job.job_id,
+            timeout_seconds=SUBMIT_TIMEOUT_SECONDS,
+        )
+        log.warning(
+            f"[{job.asset_id}] submit interaction timed out after "
+            f"{SUBMIT_TIMEOUT_SECONDS}s; job left in PENDING_GRID — "
+            f"MJ may still process. Poll /wait/{job.job_id} instead of retrying."
+        )
+        return jsonify(
+            job_id=job.job_id,
+            asset_id=job.asset_id,
+            status=job.status,
+            upscale=upscale,
+            note=(
+                "Discord interaction timed out before returning. The job is in "
+                "PENDING_GRID — MJ may have accepted it. Use /wait or /status "
+                "to learn the outcome; do not retry /imagine for this asset "
+                "(would bill twice if the original is processed)."
+            ),
+        ), 202
+    except DiscordNotReadyError as e:
+        job._fail(e.code, str(e))
+        with LOCK:
+            if job.job_id in PENDING_GRID:
+                PENDING_GRID.remove(job.job_id)
+        log.warning(f"[{job.asset_id}] {job.error}")
+        return jsonify(
+            error=str(e),
+            code=e.code,
+            remediation=e.remediation,
+            job_id=job.job_id,
+        ), 503
     except Exception as e:
-        job._fail("SUBMIT_FAILED", f"submit failed: {e}")
+        job._fail("SUBMIT_FAILED", f"submit failed: {type(e).__name__}: {e}")
         with LOCK:
             if job.job_id in PENDING_GRID:
                 PENDING_GRID.remove(job.job_id)
@@ -876,12 +1115,127 @@ def http_health():
     )
 
 
-def _run_discord():
+def _reconnect_backoff_seconds(attempt: int) -> float:
+    """Exponential backoff capped at 60s. ``attempt`` is 1-indexed.
+
+    1 -> 2s, 2 -> 4s, 3 -> 8s, 4 -> 16s, 5 -> 32s, 6+ -> 60s.
+    Tests monkeypatch this to short-circuit waits.
+    """
+    return min(60.0, 2.0 ** min(attempt, 6))
+
+
+def _is_terminal_auth_failure(exc: BaseException) -> bool:
+    """Return True iff an exception from ``client.start`` should stop the
+    reconnect loop entirely (no token-rotation hope of recovery).
+
+    discord.py-self surfaces auth failures as :class:`discord.LoginFailure`
+    or as :class:`discord.HTTPException` with status 401. Both mean the
+    operator must rotate the user token before the daemon can recover, so
+    the loop reports DISCORD_RECONNECT_FAILED(auth) and exits rather than
+    burning Discord rate limit on guaranteed-401s.
+    """
+    if isinstance(exc, discord.LoginFailure):
+        return True
+    return bool(
+        isinstance(exc, discord.HTTPException)
+        and getattr(exc, "status", None) == 401
+    )
+
+
+def _run_discord() -> None:
+    """Run discord.py-self with an outer reconnect loop.
+
+    discord.py-self has internal reconnect for transient WebSocket drops, but
+    ``client.start()`` can still return (clean close) or raise (HTTP error,
+    network blip past its retry budget, auth failure). When that happens the
+    inner loop stops and any subsequent /imagine would 500.
+
+    This wrapper restarts the client with exponential backoff until shutdown
+    is signalled or auth fails terminally. Each iteration emits the lifecycle
+    tags (DISCORD_DISCONNECTED → DISCORD_RECONNECTING) so an LLM operator
+    watching the signal stream sees the daemon's transport state evolve.
+    """
     c = _cfg()
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     _loop_holder["loop"] = loop
-    loop.run_until_complete(client.start(c.discord_token))
+
+    attempt = 0
+    try:
+        while not _shutdown_event.is_set():
+            attempt += 1
+            try:
+                loop.run_until_complete(client.start(c.discord_token))
+                # Returned without raising — gateway closed cleanly. _ready
+                # may have been cleared by on_disconnect; if not, clear here.
+                _ready.clear()
+                emit("DISCORD_DISCONNECTED", reason="gateway_close")
+            except BaseException as e:
+                _ready.clear()
+                if _is_terminal_auth_failure(e):
+                    log.error(
+                        f"Discord auth rejected (terminal): "
+                        f"{type(e).__name__}: {e}"
+                    )
+                    emit(
+                        "DISCORD_RECONNECT_FAILED",
+                        reason="auth",
+                        attempts=attempt,
+                    )
+                    return
+                log.warning(
+                    f"Discord client exited unexpectedly "
+                    f"(attempt {attempt}): {type(e).__name__}: {e}"
+                )
+                emit("DISCORD_DISCONNECTED", reason="exception")
+
+            if _shutdown_event.is_set():
+                emit(
+                    "DISCORD_RECONNECT_FAILED",
+                    reason="shutdown",
+                    attempts=attempt,
+                )
+                return
+
+            # Reset client state so the next start() can re-handshake.
+            # clear() restores the Client to its initial state; the
+            # @client.event registrations live on the class and survive.
+            with contextlib.suppress(Exception):
+                client.clear()
+
+            backoff = _reconnect_backoff_seconds(attempt)
+            emit(
+                "DISCORD_RECONNECTING",
+                attempt=attempt + 1,
+                backoff_seconds=backoff,
+            )
+            log.info(
+                f"Reconnecting to Discord in {backoff:.0f}s "
+                f"(attempt {attempt + 1})"
+            )
+            # Sleep on _shutdown_event so SIGINT/SIGTERM cuts the wait short.
+            if _shutdown_event.wait(timeout=backoff):
+                emit(
+                    "DISCORD_RECONNECT_FAILED",
+                    reason="shutdown",
+                    attempts=attempt,
+                )
+                return
+    finally:
+        # Closed-on-exit so the daemon doesn't leak its event loop or its
+        # async resources. The loop holder is cleared so any in-flight
+        # /imagine call gets a clean RuntimeError from _running_loop()
+        # instead of dispatching onto a dead loop.
+        _loop_holder["loop"] = None
+        with contextlib.suppress(Exception):
+            # Cancel anything still pending on the loop before closing.
+            for task in asyncio.all_tasks(loop):
+                task.cancel()
+        with contextlib.suppress(Exception):
+            loop.run_until_complete(loop.shutdown_asyncgens())
+        with contextlib.suppress(Exception):
+            if not loop.is_closed():
+                loop.close()
 
 
 # ---------------------------------------------------------------------------
@@ -1000,8 +1354,11 @@ _shutdown_emitted = False
 
 def _emit_shutdown(reason: str) -> None:
     """Idempotent BRIDGE_SHUTDOWN emit. atexit + signal handlers both call
-    this; whichever runs first wins."""
+    this; whichever runs first wins. Also sets ``_shutdown_event`` so the
+    Discord reconnect loop exits without sleeping out its remaining backoff.
+    """
     global _shutdown_emitted
+    _shutdown_event.set()
     if _shutdown_emitted:
         return
     _shutdown_emitted = True

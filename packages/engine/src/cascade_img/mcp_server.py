@@ -203,18 +203,43 @@ async def alpha_key(
     src: str,
     dest: str,
     tolerance: int = DEFAULT_TOLERANCE,
+    method: str = "flood",
 ) -> dict[str, Any]:
-    """Apply four-corner-average alpha keying. Reads ``src``, writes RGBA to
-    ``dest``."""
+    """Apply corner-anchored alpha keying. Reads ``src``, writes RGBA to ``dest``.
+
+    ``method`` is ``"flood"`` (default — 4-connected flood-fill from each
+    corner; correct for sprite-on-uniform-bg cases where the subject has a
+    darker outline) or ``"threshold"`` (per-pixel distance from corner-average;
+    faster but eats subject pixels whose color is close to the background).
+
+    The returned ``keyed_ratio`` is the fraction of pixels keyed transparent
+    (0.0-1.0). The agent can use it to detect failure: typical sprite outputs
+    key 0.4-0.8 of the frame; ratios <0.1 mean the keyer didn't find the
+    background (gradient/vignette/wrong tolerance); ratios >0.9 mean the keyer
+    ate the subject and the result should be rejected or re-rolled.
+    """
     from PIL import Image
     def go():
-        # Close the source loader explicitly. Review-flagged 2026-06-02 — long-
-        # running MCP servers exhaust file descriptors otherwise.
+        # Close the source loader explicitly so long-running MCP servers
+        # don't exhaust file descriptors.
         with Image.open(src) as img:
-            keyed = alpha_key_corners(img, tolerance=tolerance)
+            keyed = alpha_key_corners(img, tolerance=tolerance, method=method)
         Path(dest).parent.mkdir(parents=True, exist_ok=True)
         keyed.save(dest)
-        return {"dest": dest, "w": keyed.size[0], "h": keyed.size[1]}
+        # Count alpha=0 pixels via the alpha channel's histogram; bucket 0
+        # is fully transparent. Cheaper than a Python pixel walk.
+        keyed_count = keyed.getchannel("A").histogram()[0]
+        total = keyed.size[0] * keyed.size[1]
+        return {
+            "dest": dest,
+            "w": keyed.size[0],
+            "h": keyed.size[1],
+            "method": method,
+            "tolerance": tolerance,
+            "keyed_count": keyed_count,
+            "total_count": total,
+            "keyed_ratio": round(keyed_count / total, 4) if total else 0.0,
+        }
     return await _run_tool("alpha_key", go)
 
 

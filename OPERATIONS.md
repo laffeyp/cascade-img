@@ -1,8 +1,8 @@
 # Operations
 
-How to run `cascade-img` end-to-end against a real Midjourney account, what breaks, and how to recover. Generalized from the Sprint 4.0 + 4.7 bring-up work that exercised every failure mode this doc covers.
+How to run `cascade-img` end-to-end against a real Midjourney account, what breaks, and how to recover. Each failure mode named here has been exercised against live MJ.
 
-> **ToS note.** This tool drives Midjourney through a Discord user account using `discord.py-self`. That violates both Discord's and Midjourney's Terms of Service. Accounts get banned. Use a sacrificial Discord account. See [TOS.md](./TOS.md).
+> **Context.** Midjourney has no public API. Driving it through a Discord user account is the established OSS pattern for programmatic access. Both Discord's and Midjourney's Terms of Service prohibit user-account automation. See [TOS.md](./TOS.md).
 
 ---
 
@@ -55,7 +55,7 @@ Drop a `.env` file in the working directory of `cascade-mj-bridge`. Required:
 
 | Variable | How to capture |
 |---|---|
-| `DISCORD_USER_TOKEN` | DevTools → Console → run the iframe localStorage snippet below. 70 chars, starts with `MTU`, `MTk`, `OD`, or `Nz`. Treat as password. |
+| `DISCORD_USER_TOKEN` | DevTools → Console → run the iframe localStorage snippet below. 70 chars, starts with `MTU`, `MTk`, `OD`, or `Nz`. |
 | `MJ_CHANNEL_ID` | Discord Settings → Advanced → Developer Mode ON. Right-click your MJ channel → Copy Channel ID. |
 | `MJ_GUILD_ID` | Same trick — right-click the server icon → Copy Server ID. **Required when the MJ channel lives in a guild** (see Failure mode #2). |
 | `MJ_IMAGINE_VERSION` | Desktop Discord DevTools → Network. Fire `/imagine <any prompt>` in MJ channel. Find `POST /api/v9/interactions` → Payload → `data.version`. 19-digit number. Re-capture whenever MJ updates the slash command. |
@@ -202,7 +202,7 @@ curl -sS http://127.0.0.1:5000/status/<job_id> | python3 -m json.tool
 
 ## Failure modes
 
-Every failure surfaces as a stable error code through both the bridge's structured payload (HTTP) and the daemon's `JOB_FAILED` signal (emitted via `cascade_img.instrumentation.sdd`). LLM operators branch on `error_code`; humans read `remediation`.
+Every failure surfaces as a stable error code through both the bridge's structured payload (HTTP) and the daemon's `JOB_FAILED` event (emitted via `cascade_img.vocabulary`). LLM operators branch on `error_code`; humans read `remediation`.
 
 ### `MISSING_DISCORD_TOKEN` / `MISSING_CHANNEL_ID` / `MISSING_IMAGINE_VERSION`
 
@@ -246,15 +246,27 @@ The Sprint 4.0 patch addresses this — MJ V7 posts the final grid as a separate
 
 Bridge tracks jobs in memory. A restart vaporizes in-flight state. MJ-side generation continues server-side but the bridge can't surface results. Re-fire after restart.
 
-### MJ ban email
+### `DISCORD_NOT_READY` (HTTP 503)
 
-Sacrificial account per design. Get a fresh account, capture new credentials, restart.
+The bridge's Discord WebSocket dropped and the reconnect loop is in flight. `/imagine` returns 503 with `{code: "DISCORD_NOT_READY", remediation: ...}` until `on_ready` re-fires. The reconnect loop has exponential backoff (2 → 60s cap) and emits `DISCORD_RECONNECTING` between attempts. If the disconnect was transient, the next `/imagine` after `DISCORD_CONNECTED` re-fires succeeds. If `DISCORD_RECONNECT_FAILED` is emitted with `reason: "auth"`, the token was rejected — re-capture `DISCORD_USER_TOKEN` per setup §4.
+
+### `SUBMITTED_UNCONFIRMED` (HTTP 202)
+
+The Discord interaction POST didn't return within the bridge's 35-second budget, but MJ may still have processed the imagine. The job stays in `PENDING_GRID` with `status: "submitted_unconfirmed"` — a late-arriving grid still matches it normally. Poll `/wait` or `/status` rather than re-firing `/imagine` (a retry would double-bill if MJ processed the original). The bridge emits `JOB_SUBMIT_TIMEOUT` when this fires.
+
+### `UPSCALE_PRESS_FAILED` (signal, per slot)
+
+During `upscale="all"`, an individual U-button press (U1/U2/U3/U4) failed at the Discord interaction layer (network blip, slot-specific 5xx). Surviving slots stay in `upscale_pending` and complete normally; the failed slot is recorded on `Job.upscale_press_failures` and the signal carries `slot`, `error_code` (`HTTP_<status>` or the exception class), and `error_message`. The job stays in `UPSCALING`. If every requested slot's press fails, the job terminates with `UPSCALE_ALL_BUTTONS_FAILED` (or `UPSCALE_BUTTON_FAILED` for single-slot mode).
+
+### `OUTPUT_PATH_COLLISION` (signal, not a failure)
+
+Two concurrent jobs shared an `asset_id`. The bridge detects the existing artifact and writes the second job's output to `<asset_id>_<request_token>{suffix}{ext}` instead of clobbering the first. Both artifacts land. The signal payload carries `intended_path`, `actual_path`, and `kind` (`'grid'` or `'upscale'`). Operator-side: investigate why two jobs got the same asset_id.
 
 ---
 
 ## Sprite-style language to fight photoreal drift
 
-Sref + moodboard alone isn't enough on small natural objects (feathers, scratch marks, keepsakes). MJ falls back to photorealism even with `--style raw`. Bake the aesthetic into every subject explicitly. The Sprint 4.0 pattern:
+Sref + moodboard alone isn't enough on small natural objects (feathers, scratch marks, keepsakes). MJ falls back to photorealism even with `--style raw`. Bake the aesthetic into every subject explicitly:
 
 ```
 pixel-art sprite of <SUBJECT>, <COMPOSITION HINTS>, low-resolution 2D game sprite,
@@ -262,7 +274,7 @@ limited palette, handmade restrained sprite art, readable silhouette, centered,
 transparent background
 ```
 
-The redundant aesthetic phrases (pixel-art / low-resolution / limited palette / handmade / readable silhouette) are intentional — MJ weights repeated concepts higher, and the sref alone needs reinforcement on small subjects. The `PromptComposer` folds `Subject.constraints` into the subject text exactly so this idiom is one-liner.
+The redundant aesthetic phrases (pixel-art / low-resolution / limited palette / handmade / readable silhouette) are intentional — MJ weights repeated concepts higher, and the sref alone needs reinforcement on small subjects. The `PromptComposer` folds `Subject.constraints` into the subject text so this idiom is one-liner.
 
 If subject + sref + moodboard still drifts photoreal, bump sref weight (`--sref <url>::2` or `::3`) and/or reduce stylize (`stylize=50`) to constrain MJ's prettifier.
 
@@ -301,13 +313,14 @@ Response has `attachments[0].url` — use that as `--oref`.
 
 ## Curation flow
 
-After a roll completes, you have a grid (`<asset_id>.{png,webp}`) and optionally upscales. The curation kit handles cropping, alpha-keying, and promotion:
+After a roll completes, you have a grid (`<asset_id>.{png,webp}`) and optionally upscales. The curation kit handles cropping, optional alpha-keying, and promotion. The pipeline order is: **crop → (optional) alpha-key → promote**. The alpha-key step is opt-in per asset; the operator decides whether transparency is wanted.
 
 ```python
 from cascade_img.curation import crop_quadrant, alpha_key_corners, promote
 
 img = crop_quadrant("generated/bird.webp", quadrant=2)   # U2
-img = alpha_key_corners(img, tolerance=40)               # for character/item sprites
+# Optional — only when transparency is wanted:
+img = alpha_key_corners(img, tolerance=24, method="flood")
 img.save("staging/bird.png")
 promote("staging/bird.png", "assets/bird.png")
 ```
@@ -316,15 +329,21 @@ Or as MCP tool calls:
 
 ```
 crop_grid(src="generated/bird.webp", quadrant=2, dest="staging/bird.png")
-alpha_key(src="staging/bird.png", dest="staging/bird_keyed.png", tolerance=40)
+# Optional:
+alpha_key(src="staging/bird.png", dest="staging/bird_keyed.png", tolerance=24, method="flood")
 promote(src="staging/bird_keyed.png", dest="assets/bird.png")
 ```
 
-### Alpha-key tolerance
+### Alpha-key method and tolerance
 
-The default 40 (0-255 per channel) is the Sprint 4.0 calibration for MJ's soft anti-aliased sprite art. Too tight (10-20) leaves a halo; too loose (60+) eats into the sprite. The `ALPHA_KEY_APPLIED` signal reports the four-corner average and the keyed-pixel ratio — a typical sprite keys 30-70% of pixels. Outside that band suggests tolerance is wrong.
+Two algorithms ship under `alpha_key_corners`:
 
-Region backdrops (full-scene images) should NOT be alpha-keyed — the entire image is the asset.
+- **`method="flood"` (default)** — 4-connected flood-fill from each corner. Subject regions surrounded by a darker outline stay opaque because the outline blocks the flood (the case where a white-bellied subject sits on a white background). Correct for most MJ sprite outputs.
+- **`method="threshold"`** — global per-pixel distance from the corner-average color. Faster, simpler, but eats subject pixels whose color is close to the background. Available for domains where flood-fill leaks (broken outlines, intentional gradients from bg into subject).
+
+`tolerance` (0-255 per channel) controls how permissive each algorithm is. Default 24 works for MJ's anti-aliased sprite art. The MCP `alpha_key` envelope returns `keyed_count`, `total_count`, and `keyed_ratio` (0.0-1.0). Typical sprite outputs key 0.4-0.8 of the frame. Ratios under 0.1 mean the keyer found no background (gradient, vignette, wrong tolerance, wrong method). Ratios over 0.9 mean the keyer ate the subject — reject and reroll, swap method, or skip alpha-keying for this asset.
+
+Region backdrops (full-scene images) should not be alpha-keyed — the entire image is the asset.
 
 ---
 
@@ -341,28 +360,45 @@ The whole point of the package is that an LLM can close the loop without human-i
 
 The next iteration starts with `read_prompt_log(n=5)` to surface what's already been tried for this asset. That's the working memory across loop iterations.
 
-Failures carry a stable `error_code` and a `remediation` string. Five codes the agent should branch on:
+Failures carry a stable `error_code` and a `remediation` string. Codes the agent should branch on:
 
 | code | recovery |
 |---|---|
 | `DISCORD_400_OUTDATED` | escalate to human — `MJ_IMAGINE_VERSION` needs re-capture |
 | `MISSING_GUILD_ID` / `MISSING_*` | escalate to human — one-time setup gap |
 | `DISCORD_401` | escalate to human — token re-capture |
+| `DISCORD_NOT_READY` (HTTP 503) | retry after a short delay; the bridge's reconnect loop is in flight |
 | `MJ_UUID_MISSING` | re-roll once; if reproducible, escalate |
 | `GRID_DOWNLOAD_FAILED` / `UPSCALE_DOWNLOAD_FAILED` | re-roll automatically |
+| `UPSCALE_BUTTON_FAILED` / `UPSCALE_ALL_BUTTONS_FAILED` | retry the imagine; transient Discord interaction error |
+
+A `/imagine` that returns HTTP 202 with `status: "submitted_unconfirmed"` is NOT a failure: poll `/wait` for the actual outcome. Re-firing `/imagine` for the same asset before `/wait` resolves would double-bill if MJ processed the original.
 
 Everything else: re-roll up to N times, then escalate.
 
 ---
 
+## Pre-release end-to-end check
+
+`tools/smoke_mcp_walk.py` boots the bridge daemon and walks every MCP tool over the real stdio JSON-RPC transport (not Python imports) against live MJ. Useful as a release-gate before tagging:
+
+```bash
+python3 packages/engine/tools/smoke_mcp_walk.py --env-file .env
+python3 packages/engine/tools/smoke_mcp_walk.py --env-file .env --upscale all --wait-timeout 240
+python3 packages/engine/tools/smoke_mcp_walk.py --env-file .env --alpha-key
+```
+
+Exit 0 means every tool returned `ok: true`, the promoted artifact landed, and the prompt log round-tripped. Exit 1 dumps the last 30 lines of the bridge log to stderr for forensics.
+
 ## Known limits (v0.1)
 
-- Bridge tracks jobs in memory; restart drops in-flight state.
+- Bridge tracks jobs in memory; restart drops in-flight state. `JOBS` is LRU+TTL bounded so memory doesn't grow unboundedly, but non-terminal jobs are never evicted — an operator submitting faster than MJ completes can push `total_jobs` past `MAX_JOBS`. Surfaced on `/health`.
 - No automatic retry on moderation rejection.
-- No webhook support; clients poll `/wait`.
+- No webhook support; clients poll `/wait` (Condition-based wake on terminal — no polling, no thread-per-request spin).
 - No `/blend` command support yet.
 - Windows bridge is v0.2; macOS and Linux only at v0.1.
 - Only the MJ backend; Flux / DALL-E / Imagen land v0.2+.
+- Background removal is a corner-anchored heuristic (flood-fill or threshold). It handles the common "subject on uniform bg" case; complex matting (hair, fur, semi-transparency, multi-tone backgrounds) needs a learned model — slated as a v0.2 backend.
 
 ---
 
