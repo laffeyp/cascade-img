@@ -81,14 +81,16 @@ def test_dry_run_composes_and_logs(tmp_path):
     reg_path = _write_registry(tmp_path, REGISTRY_BIRD)
     log_path = tmp_path / "log.jsonl"
 
-    result = asyncio.run(run(
-        asset_id="bird",
-        registry_path=reg_path,
-        upscale=None,
-        bridge_url="http://127.0.0.1:9999",  # unreachable; not hit in dry-run
-        log_path=log_path,
-        dry_run=True,
-    ))
+    result = asyncio.run(
+        run(
+            asset_id="bird",
+            registry_path=reg_path,
+            upscale=None,
+            bridge_url="http://127.0.0.1:9999",  # unreachable; not hit in dry-run
+            log_path=log_path,
+            dry_run=True,
+        )
+    )
 
     assert result["ok"] is True
     assert result["asset_id"] == "bird"
@@ -98,11 +100,7 @@ def test_dry_run_composes_and_logs(tmp_path):
 
     # Log got a record with agent_decision=dry_run. The log is JSON Lines
     # (one record per line), so parse line-by-line — reviewer-flagged bug.
-    records = [
-        json.loads(line)
-        for line in log_path.read_text().splitlines()
-        if line.strip()
-    ]
+    records = [json.loads(line) for line in log_path.read_text().splitlines() if line.strip()]
     assert len(records) == 1
     assert records[0]["agent_decision"] == "dry_run"
     assert records[0]["asset_id"] == "bird"
@@ -111,7 +109,7 @@ def test_dry_run_composes_and_logs(tmp_path):
     assert "CLI_ROLL_STARTED" in tags
     assert "CLI_ROLL_COMPLETED" in tags
     assert "PROMPT_COMPOSED" in tags  # composer fired
-    assert "PROMPT_LOGGED" in tags     # log fired
+    assert "PROMPT_LOGGED" in tags  # log fired
 
 
 def test_unknown_asset_id_returns_structured_error(tmp_path):
@@ -119,14 +117,16 @@ def test_unknown_asset_id_returns_structured_error(tmp_path):
     reg_path = _write_registry(tmp_path, REGISTRY_BIRD)
     log_path = tmp_path / "log.jsonl"
 
-    result = asyncio.run(run(
-        asset_id="not_in_registry",
-        registry_path=reg_path,
-        upscale=None,
-        bridge_url="http://127.0.0.1:9999",
-        log_path=log_path,
-        dry_run=True,
-    ))
+    result = asyncio.run(
+        run(
+            asset_id="not_in_registry",
+            registry_path=reg_path,
+            upscale=None,
+            bridge_url="http://127.0.0.1:9999",
+            log_path=log_path,
+            dry_run=True,
+        )
+    )
 
     assert result["ok"] is False
     assert result["error"]["code"] == "UNKNOWN_ASSET_ID"
@@ -138,14 +138,16 @@ def test_missing_registry_returns_structured_error(tmp_path):
     clear()
     log_path = tmp_path / "log.jsonl"
 
-    result = asyncio.run(run(
-        asset_id="bird",
-        registry_path=tmp_path / "does-not-exist.json",
-        upscale=None,
-        bridge_url="http://127.0.0.1:9999",
-        log_path=log_path,
-        dry_run=True,
-    ))
+    result = asyncio.run(
+        run(
+            asset_id="bird",
+            registry_path=tmp_path / "does-not-exist.json",
+            upscale=None,
+            bridge_url="http://127.0.0.1:9999",
+            log_path=log_path,
+            dry_run=True,
+        )
+    )
 
     assert result["ok"] is False
     assert result["error"]["code"] == "FileNotFoundError"
@@ -156,14 +158,16 @@ def test_identity_lock_facets_flow_through(tmp_path):
     """clue_a has oref+ow set in the registry — the composed prompt must
     include --oref and --ow."""
     reg_path = _write_registry(tmp_path, REGISTRY_BIRD)
-    result = asyncio.run(run(
-        asset_id="clue_a",
-        registry_path=reg_path,
-        upscale=None,
-        bridge_url="http://127.0.0.1:9999",
-        log_path=tmp_path / "log.jsonl",
-        dry_run=True,
-    ))
+    result = asyncio.run(
+        run(
+            asset_id="clue_a",
+            registry_path=reg_path,
+            upscale=None,
+            bridge_url="http://127.0.0.1:9999",
+            log_path=tmp_path / "log.jsonl",
+            dry_run=True,
+        )
+    )
     assert result["ok"] is True
     assert "--oref https://cdn/oref.png" in result["prompt"]
     assert "--ow 400" in result["prompt"]
@@ -187,6 +191,7 @@ def test_non_dry_run_dispatches_sync_backend_via_to_thread(tmp_path, monkeypatch
 
     class _StubSyncBackend:
         """Mirrors MidjourneyDiscordBackend's sync method signatures."""
+
         def __init__(self, base_url: str) -> None:
             self.base_url = base_url
 
@@ -204,16 +209,19 @@ def test_non_dry_run_dispatches_sync_backend_via_to_thread(tmp_path, monkeypatch
             }
 
     import cascade_img.cli.mj as cli_mod
+
     monkeypatch.setattr(cli_mod, "MidjourneyDiscordBackend", _StubSyncBackend)
 
-    result = asyncio.run(cli_mod.run(
-        asset_id="bird",
-        registry_path=reg_path,
-        upscale=None,
-        bridge_url="http://127.0.0.1:9999",
-        log_path=log_path,
-        dry_run=False,
-    ))
+    result = asyncio.run(
+        cli_mod.run(
+            asset_id="bird",
+            registry_path=reg_path,
+            upscale=None,
+            bridge_url="http://127.0.0.1:9999",
+            log_path=log_path,
+            dry_run=False,
+        )
+    )
 
     assert result["ok"] is True
     assert result["job_id"] == "stub-job-1"
@@ -221,10 +229,6 @@ def test_non_dry_run_dispatches_sync_backend_via_to_thread(tmp_path, monkeypatch
     # The synchronous backend methods were actually invoked — no TypeError.
     assert [c[0] for c in calls] == ["imagine", "wait"]
     # Log captured the live-path record.
-    records = [
-        json.loads(line)
-        for line in log_path.read_text().splitlines()
-        if line.strip()
-    ]
+    records = [json.loads(line) for line in log_path.read_text().splitlines() if line.strip()]
     assert len(records) == 1
     assert records[0]["job_id"] == "stub-job-1"

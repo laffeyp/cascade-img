@@ -109,8 +109,7 @@ class IdentityStack:
     def __post_init__(self) -> None:
         if not 0 <= self.ow <= 1000:
             raise ValueError(
-                f"IdentityStack.ow must be 0-1000 per Midjourney's --ow "
-                f"range; got {self.ow!r}."
+                f"IdentityStack.ow must be 0-1000 per Midjourney's --ow range; got {self.ow!r}."
             )
 
 
@@ -151,8 +150,7 @@ class ParamStack:
             )
         if self.stop is not None and not 10 <= self.stop <= 100:
             raise ValueError(
-                f"ParamStack.stop must be 10-100 per Midjourney's --stop "
-                f"range; got {self.stop!r}."
+                f"ParamStack.stop must be 10-100 per Midjourney's --stop range; got {self.stop!r}."
             )
         if self.quality is not None and self.quality not in (1, 2, 4):
             raise ValueError(

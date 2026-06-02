@@ -269,12 +269,14 @@ class _FakeFuture:
 
 def _patch_coroutine_threadsafe(monkeypatch, future: _FakeFuture) -> None:
     """Bypass the real asyncio coroutine dispatch with a sync fake."""
+
     def fake_run(coro, loop):
         # Close the un-awaited coroutine to avoid the "coroutine was never
         # awaited" RuntimeWarning that pytest -W error would escalate.
         if asyncio.iscoroutine(coro):
             coro.close()
         return future
+
     monkeypatch.setattr(bridge.asyncio, "run_coroutine_threadsafe", fake_run)
     monkeypatch.setattr(bridge, "_running_loop", lambda: object())
 
@@ -512,7 +514,9 @@ def test_all_press_failures_fails_job_with_all_buttons_failed():
     assert len(failed) == 4
 
     # Simulate the terminal-failure branch of _ingest_message.
-    terminal_code = "UPSCALE_BUTTON_FAILED" if len([1, 2, 3, 4]) == 1 else "UPSCALE_ALL_BUTTONS_FAILED"
+    terminal_code = (
+        "UPSCALE_BUTTON_FAILED" if len([1, 2, 3, 4]) == 1 else "UPSCALE_ALL_BUTTONS_FAILED"
+    )
     assert terminal_code == "UPSCALE_ALL_BUTTONS_FAILED"
     job._fail(terminal_code, "all upscale presses failed — synthetic")
 
@@ -598,6 +602,7 @@ def test_shutdown_event_cuts_backoff_short(valid_env, monkeypatch):
     t.start()
 
     import time as _time
+
     t0 = _time.monotonic()
     bridge._run_discord()
     elapsed = _time.monotonic() - t0
@@ -647,9 +652,13 @@ def test_concurrent_grid_ingest_only_downloads_once(monkeypatch, tmp_path):
     clear()
     # Wire a Config so _cfg() works in _ingest_message.
     bridge.cfg = bridge.Config(
-        discord_token="t", channel_id=1, guild_id=None,
-        mj_imagine_version="v", mj_imagine_command_id="c",
-        output_dir=tmp_path, port=5000,
+        discord_token="t",
+        channel_id=1,
+        guild_id=None,
+        mj_imagine_version="v",
+        mj_imagine_command_id="c",
+        output_dir=tmp_path,
+        port=5000,
     )
 
     job = Job(job_id="raceJ", asset_id="raceA", prompt="p", request_token="tok99")
@@ -670,8 +679,10 @@ def test_concurrent_grid_ingest_only_downloads_once(monkeypatch, tmp_path):
     class _Att:
         url = "https://cdn/example.png"
         filename = "example.png"
+
     class _Author:
         id = bridge.MJ_BOT_ID
+
     class _Channel:
         id = 1  # matches cfg.channel_id
 
@@ -679,6 +690,7 @@ def test_concurrent_grid_ingest_only_downloads_once(monkeypatch, tmp_path):
         id = 12345
         content = "done"
         guild = None
+
         def __init__(self):
             self.author = _Author()
             self.channel = _Channel()
@@ -686,10 +698,7 @@ def test_concurrent_grid_ingest_only_downloads_once(monkeypatch, tmp_path):
             self.components = []
 
     # Fire two ingests in parallel — the second must short-circuit.
-    threads = [
-        threading.Thread(target=bridge._ingest_message, args=(_Msg(),))
-        for _ in range(2)
-    ]
+    threads = [threading.Thread(target=bridge._ingest_message, args=(_Msg(),)) for _ in range(2)]
     for t in threads:
         t.start()
     for t in threads:

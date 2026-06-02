@@ -161,9 +161,7 @@ class Config:
             "DevTools whenever MJ updates the slash command (you'll see "
             "'discord 400: This command is outdated'). See RUNBOOK.md.",
         )
-        mj_imagine_command_id = os.environ.get(
-            "MJ_IMAGINE_COMMAND_ID", "938956540159881230"
-        )
+        mj_imagine_command_id = os.environ.get("MJ_IMAGINE_COMMAND_ID", "938956540159881230")
 
         output_dir = Path(os.environ.get("MJ_OUTPUT_DIR", "./generated")).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -225,15 +223,15 @@ log = logging.getLogger("cascade_img.bridge")
 
 
 class Status(str, Enum):
-    QUEUED = "queued"          # accepted, not yet sent to Discord
-    SUBMITTED = "submitted"    # /imagine fired, Discord ack'd, awaiting MJ message
+    QUEUED = "queued"  # accepted, not yet sent to Discord
+    SUBMITTED = "submitted"  # /imagine fired, Discord ack'd, awaiting MJ message
     # Discord interaction POST timed out before returning. MJ may or may not
     # have processed the imagine. Job stays in PENDING_GRID so the grid-match
     # path still claims it if MJ comes through; /wait will resolve to DONE or
     # to the bridge-side wait-timeout, whichever lands first.
     SUBMITTED_UNCONFIRMED = "submitted_unconfirmed"
-    PROGRESS = "progress"      # MJ is rendering the grid
-    UPSCALING = "upscaling"    # grid done, awaiting U1-U4 results
+    PROGRESS = "progress"  # MJ is rendering the grid
+    UPSCALING = "upscaling"  # grid done, awaiting U1-U4 results
     DONE = "done"
     FAILED = "failed"
 
@@ -254,7 +252,7 @@ def _merge_no_clause(prompt: str, token: str) -> str:
     needle = f"cscidnocollide{token}"
     m = _NO_CLAUSE_RE.search(prompt)
     if m:
-        return f"{prompt[:m.start()]}--no {m.group(1)}, {needle}"
+        return f"{prompt[: m.start()]}--no {m.group(1)}, {needle}"
     return f"{prompt} --no {needle}"
 
 
@@ -269,11 +267,11 @@ class Job:
     # token instead of substring matching to avoid two-prompts-with-same-
     # prefix mis-routing.
     request_token: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
-    upscale: str | None = None              # None | "1".."4" | "all"
+    upscale: str | None = None  # None | "1".."4" | "all"
     status: Status = Status.QUEUED
     progress: str = ""
-    message_id: int | None = None           # grid message id
-    mj_job_uuid: str | None = None          # extracted from grid buttons
+    message_id: int | None = None  # grid message id
+    mj_job_uuid: str | None = None  # extracted from grid buttons
     image_path: str | None = None
     image_url: str | None = None
     grid_path: str | None = None
@@ -384,9 +382,9 @@ def _evict_if_needed() -> None:
     now = time.time()
     # TTL: drop terminal jobs older than TERMINAL_AGE_SECONDS.
     to_drop_ttl = [
-        jid for jid, j in list(JOBS.items())
-        if j.status in (Status.DONE, Status.FAILED)
-        and (now - j.updated_at) > TERMINAL_AGE_SECONDS
+        jid
+        for jid, j in list(JOBS.items())
+        if j.status in (Status.DONE, Status.FAILED) and (now - j.updated_at) > TERMINAL_AGE_SECONDS
     ]
     for jid in to_drop_ttl:
         j = JOBS.pop(jid, None)
@@ -422,6 +420,7 @@ def _evict_if_needed() -> None:
                 break
         if not evicted_one:
             break  # all over-cap jobs are in-flight; let it grow this round
+
 
 UPSAMPLE_BTN_RE = re.compile(r"MJ::JOB::upsample::(\d+)::([0-9a-f-]+)")
 IMAGE_TAG_RE = re.compile(r"Image #(\d+)")
@@ -477,9 +476,7 @@ def _session_id_or_raise() -> str:
         raise DiscordNotReadyError("client.ws is None (gateway not connected)")
     sid = getattr(ws, "session_id", None)
     if sid is None:
-        raise DiscordNotReadyError(
-            "client.ws.session_id is None (gateway handshake incomplete)"
-        )
+        raise DiscordNotReadyError("client.ws.session_id is None (gateway handshake incomplete)")
     return sid
 
 
@@ -589,10 +586,7 @@ def _ingest_message(message):
                 job.message_id = message.id
                 job.status = Status.PROGRESS
                 job.touch()
-            log.info(
-                f"[{job.asset_id}] matched grid message {message.id} "
-                f"via {job.match_path}"
-            )
+            log.info(f"[{job.asset_id}] matched grid message {message.id} via {job.match_path}")
             emit(
                 "GRID_MATCHED",
                 asset_id=job.asset_id,
@@ -706,17 +700,13 @@ def _ingest_message(message):
             # collects per-slot failures without aborting the others.
             async def _press_all_slots():
                 coros = [
-                    _press_button(
-                        message.id, f"MJ::JOB::upsample::{n}::{mj_uuid}", guild_id
-                    )
+                    _press_button(message.id, f"MJ::JOB::upsample::{n}::{mj_uuid}", guild_id)
                     for n in slots
                 ]
                 return await asyncio.gather(*coros, return_exceptions=True)
 
             try:
-                gather_fut = asyncio.run_coroutine_threadsafe(
-                    _press_all_slots(), _running_loop()
-                )
+                gather_fut = asyncio.run_coroutine_threadsafe(_press_all_slots(), _running_loop())
                 # 35s budget: 30s per-request timeout in _post_interaction +
                 # 5s gather/scheduling slack.
                 results = gather_fut.result(timeout=35)
@@ -770,9 +760,7 @@ def _ingest_message(message):
             if not succeeded_slots:
                 # Every slot's press failed; the job has nothing to wait for.
                 terminal_code = (
-                    "UPSCALE_BUTTON_FAILED"
-                    if len(slots) == 1
-                    else "UPSCALE_ALL_BUTTONS_FAILED"
+                    "UPSCALE_BUTTON_FAILED" if len(slots) == 1 else "UPSCALE_ALL_BUTTONS_FAILED"
                 )
                 detail = "; ".join(f"U{n}: {d}" for n, d in failed_slots)
                 job._fail(terminal_code, f"all upscale presses failed — {detail}")
@@ -879,7 +867,7 @@ async def _post_interaction(payload: dict) -> requests.Response:
 # Discord Interactions API constants (per
 # https://discord.com/developers/docs/interactions/receiving-and-responding).
 _INTERACTION_APPLICATION_COMMAND = 2  # slash-command invocation
-_INTERACTION_MESSAGE_COMPONENT = 3    # button / select-menu interaction
+_INTERACTION_MESSAGE_COMPONENT = 3  # button / select-menu interaction
 _COMPONENT_TYPE_BUTTON = 2
 _OPTION_TYPE_STRING = 3
 
@@ -910,7 +898,11 @@ async def _send_imagine(prompt: str) -> requests.Response:
                 "name": "imagine",
                 "type": 1,
                 "options": [
-                    {"type": _OPTION_TYPE_STRING, "name": "prompt", "description": "The prompt to imagine"}
+                    {
+                        "type": _OPTION_TYPE_STRING,
+                        "name": "prompt",
+                        "description": "The prompt to imagine",
+                    }
                 ],
             },
         },
@@ -922,9 +914,7 @@ async def _send_imagine(prompt: str) -> requests.Response:
     return await _post_interaction(payload)
 
 
-async def _press_button(
-    message_id: int, custom_id: str, guild_id: str | None
-) -> requests.Response:
+async def _press_button(message_id: int, custom_id: str, guild_id: str | None) -> requests.Response:
     """Press a message component (U1-U4) via the Discord Interactions API.
 
     Raises :class:`DiscordNotReadyError` if the gateway session_id is not
@@ -988,9 +978,7 @@ def http_imagine():
         return jsonify(error=str(e)), 400
 
     asset_id_raw = body.get("asset_id") or f"asset_{uuid.uuid4().hex[:8]}"
-    asset_id = "".join(
-        c if c.isalnum() or c in "._-" else "_" for c in str(asset_id_raw)
-    )[:80]
+    asset_id = "".join(c if c.isalnum() or c in "._-" else "_" for c in str(asset_id_raw))[:80]
 
     job = Job(
         job_id=uuid.uuid4().hex,
@@ -1008,9 +996,7 @@ def http_imagine():
     # If the call exceeds this, MJ may still have accepted the imagine — the
     # job stays in PENDING_GRID so a late-arriving grid still matches it.
     SUBMIT_TIMEOUT_SECONDS = 35
-    fut = asyncio.run_coroutine_threadsafe(
-        _send_imagine(job.tagged_prompt()), _running_loop()
-    )
+    fut = asyncio.run_coroutine_threadsafe(_send_imagine(job.tagged_prompt()), _running_loop())
     try:
         resp = fut.result(timeout=SUBMIT_TIMEOUT_SECONDS)
     except TimeoutError:
@@ -1083,9 +1069,7 @@ def http_imagine():
     with LOCK:
         job.status = Status.SUBMITTED
         job.touch()
-    log.info(
-        f"[{job.asset_id}] submitted: upscale={upscale or '-'} prompt={prompt[:80]}"
-    )
+    log.info(f"[{job.asset_id}] submitted: upscale={upscale or '-'} prompt={prompt[:80]}")
     emit(
         "IMAGINE_FIRED",
         asset_id=job.asset_id,
@@ -1093,9 +1077,7 @@ def http_imagine():
         prompt_chars=len(prompt),
         upscale=upscale,
     )
-    return jsonify(
-        job_id=job.job_id, asset_id=job.asset_id, status=job.status, upscale=upscale
-    )
+    return jsonify(job_id=job.job_id, asset_id=job.asset_id, status=job.status, upscale=upscale)
 
 
 @app.get("/status/<job_id>")
@@ -1193,10 +1175,7 @@ def _is_terminal_auth_failure(exc: BaseException) -> bool:
     """
     if isinstance(exc, discord.LoginFailure):
         return True
-    return bool(
-        isinstance(exc, discord.HTTPException)
-        and getattr(exc, "status", None) == 401
-    )
+    return bool(isinstance(exc, discord.HTTPException) and getattr(exc, "status", None) == 401)
 
 
 def _run_discord() -> None:
@@ -1230,10 +1209,7 @@ def _run_discord() -> None:
             except BaseException as e:
                 _ready.clear()
                 if _is_terminal_auth_failure(e):
-                    log.error(
-                        f"Discord auth rejected (terminal): "
-                        f"{type(e).__name__}: {e}"
-                    )
+                    log.error(f"Discord auth rejected (terminal): {type(e).__name__}: {e}")
                     emit(
                         "DISCORD_RECONNECT_FAILED",
                         reason="auth",
@@ -1266,10 +1242,7 @@ def _run_discord() -> None:
                 attempt=attempt + 1,
                 backoff_seconds=backoff,
             )
-            log.info(
-                f"Reconnecting to Discord in {backoff:.0f}s "
-                f"(attempt {attempt + 1})"
-            )
+            log.info(f"Reconnecting to Discord in {backoff:.0f}s (attempt {attempt + 1})")
             # Sleep on _shutdown_event so SIGINT/SIGTERM cuts the wait short.
             if _shutdown_event.wait(timeout=backoff):
                 emit(
@@ -1353,7 +1326,11 @@ def doctor() -> dict:
         {
             "name": "env",
             "ok": env_result["ok"],
-            **({"detail": env_result["config"]} if env_result["ok"] else {"error": env_result["error"]}),
+            **(
+                {"detail": env_result["config"]}
+                if env_result["ok"]
+                else {"error": env_result["error"]}
+            ),
         }
     )
 
@@ -1401,8 +1378,12 @@ def doctor() -> dict:
         )
 
     ok = all(c["ok"] for c in checks)
-    emit("BRIDGE_DOCTOR_RAN", ok=ok, checks_total=len(checks),
-         checks_failed=sum(1 for c in checks if not c["ok"]))
+    emit(
+        "BRIDGE_DOCTOR_RAN",
+        ok=ok,
+        checks_total=len(checks),
+        checks_failed=sum(1 for c in checks if not c["ok"]),
+    )
     return {"ok": ok, "checks": checks}
 
 
@@ -1462,12 +1443,17 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(prog="cascade-mj-bridge")
     grp = parser.add_mutually_exclusive_group()
-    grp.add_argument("--check-env", action="store_true",
-                     help="Validate config and exit. JSON to stdout.")
-    grp.add_argument("--doctor", action="store_true",
-                     help="Full pre-flight check (env + reachability + imports). JSON to stdout.")
-    parser.add_argument("--pretty", action="store_true",
-                        help="Indent JSON output (--check-env / --doctor only).")
+    grp.add_argument(
+        "--check-env", action="store_true", help="Validate config and exit. JSON to stdout."
+    )
+    grp.add_argument(
+        "--doctor",
+        action="store_true",
+        help="Full pre-flight check (env + reachability + imports). JSON to stdout.",
+    )
+    parser.add_argument(
+        "--pretty", action="store_true", help="Indent JSON output (--check-env / --doctor only)."
+    )
     args = parser.parse_args()
 
     if args.check_env:

@@ -79,6 +79,7 @@ async def _run_tool(name: str, fn, **kwargs) -> dict[str, Any]:
             # Sync callable: run on a worker thread so the asyncio loop stays
             # responsive while concurrent tool calls execute.
             import asyncio as _asyncio
+
             result = await _asyncio.to_thread(lambda: fn(**kwargs))
         emit(
             "MCP_TOOL_COMPLETED",
@@ -105,6 +106,7 @@ async def _run_tool(name: str, fn, **kwargs) -> dict[str, Any]:
 
 def _is_coro(fn) -> bool:
     import asyncio
+
     return asyncio.iscoroutinefunction(fn)
 
 
@@ -142,6 +144,7 @@ async def compose_prompt(
     optional ``image_weight`` (``--iw``); ``tile``/``chaos``/``weird``/``stop``/
     ``quality``/``seed`` are render controls. Out-of-range values return a
     structured ValueError through the envelope."""
+
     def go():
         prompt = _composer.compose(
             Subject(
@@ -169,6 +172,7 @@ async def compose_prompt(
             aspect_ratio=aspect_ratio,
         )
         return {"prompt": prompt}
+
     return await _run_tool("compose_prompt", go)
 
 
@@ -217,6 +221,7 @@ async def crop_grid(
 ) -> dict[str, Any]:
     """Crop one quadrant of an MJ grid. ``quadrant=0`` returns the whole
     image. If ``dest`` is set, write the cropped image to that path."""
+
     def go():
         img = crop_quadrant(src, quadrant)
         out: dict[str, Any] = {"w": img.size[0], "h": img.size[1]}
@@ -225,6 +230,7 @@ async def crop_grid(
             img.save(dest)
             out["dest"] = dest
         return out
+
     return await _run_tool("crop_grid", go)
 
 
@@ -249,6 +255,7 @@ async def alpha_key(
     ate the subject and the result should be rejected or re-rolled.
     """
     from PIL import Image
+
     def go():
         # Close the source loader explicitly so long-running MCP servers
         # don't exhaust file descriptors.
@@ -270,15 +277,18 @@ async def alpha_key(
             "total_count": total,
             "keyed_ratio": round(keyed_count / total, 4) if total else 0.0,
         }
+
     return await _run_tool("alpha_key", go)
 
 
 @mcp.tool()
 async def promote(src: str, dest: str) -> dict[str, Any]:
     """Move a curated asset from staging into the consumer's asset tree."""
+
     def go():
         out = curation_promote(src, dest)
         return {"dest": str(out)}
+
     return await _run_tool("promote", go)
 
 
@@ -301,6 +311,7 @@ async def log_append(
     structured ValueError via the ``_run_tool`` envelope, naming the allowed
     set in the message.
     """
+
     def go():
         record = _log.append(
             asset_id=asset_id,
@@ -314,6 +325,7 @@ async def log_append(
             agent_reason=agent_reason,
         )
         return {"record": record}
+
     return await _run_tool("log_append", go)
 
 
@@ -322,8 +334,10 @@ async def read_prompt_log(n: int | None = None) -> dict[str, Any]:
     """Read the prompt log back as structured records. ``n`` returns the
     last n entries; omit for all. This is the agent's working memory across
     loop iterations — the answer to 'what have I tried for this asset?'"""
+
     def go():
         return {"records": _log.read(n=n)}
+
     return await _run_tool("read_prompt_log", go)
 
 
@@ -378,6 +392,7 @@ def main() -> None:
         if args.http:
             if hasattr(mcp, "run_sse_async"):
                 import asyncio
+
                 asyncio.run(mcp.run_sse_async(host="127.0.0.1", port=args.http))
             else:
                 raise RuntimeError(

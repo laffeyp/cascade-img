@@ -59,7 +59,9 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
 
     def status(self, job_id: str) -> dict:
         with requests.get(f"{self.base_url}/status/{job_id}", timeout=10) as r:
-            emit("BACKEND_HTTP_CALLED", method="GET", path=f"/status/{job_id}", status=r.status_code)
+            emit(
+                "BACKEND_HTTP_CALLED", method="GET", path=f"/status/{job_id}", status=r.status_code
+            )
             r.raise_for_status()
             return r.json()
 

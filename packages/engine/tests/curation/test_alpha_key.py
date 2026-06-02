@@ -21,7 +21,7 @@ def test_keys_uniform_background_keeps_center_opaque():
     keyed = alpha_key_corners(img)
     assert keyed.size == (40, 40)
     assert keyed.mode == "RGBA"
-    assert keyed.getpixel((0, 0))[3] == 0      # corner keyed
+    assert keyed.getpixel((0, 0))[3] == 0  # corner keyed
     assert keyed.getpixel((20, 20))[3] == 255  # center opaque
     records = snapshot()
     assert records[-1]["tag"] == "ALPHA_KEY_APPLIED"
@@ -50,12 +50,8 @@ def test_respects_tolerance():
     img.putpixel((0, 0), (160, 160, 160))  # noisy corner pixel
     keyed_tight = alpha_key_corners(img, tolerance=10)
     keyed_wide = alpha_key_corners(img, tolerance=80)
-    tight_alpha_sum = sum(
-        keyed_tight.getpixel((x, y))[3] for x in range(20) for y in range(20)
-    )
-    wide_alpha_sum = sum(
-        keyed_wide.getpixel((x, y))[3] for x in range(20) for y in range(20)
-    )
+    tight_alpha_sum = sum(keyed_tight.getpixel((x, y))[3] for x in range(20) for y in range(20))
+    wide_alpha_sum = sum(keyed_wide.getpixel((x, y))[3] for x in range(20) for y in range(20))
     assert tight_alpha_sum >= wide_alpha_sum
 
 
@@ -107,6 +103,7 @@ def test_threshold_method_eats_white_interior():
 def test_method_arg_validates():
     """Unknown method values raise ValueError at the keyer's mouth."""
     import pytest
+
     img = Image.new("RGB", (10, 10), (200, 200, 200))
     with pytest.raises(ValueError, match="unknown method"):
         alpha_key_corners(img, method="invalid")

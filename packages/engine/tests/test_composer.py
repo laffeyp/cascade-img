@@ -43,7 +43,11 @@ def test_full_style_stack_includes_all_flags():
     clear()
     p = PromptComposer().compose(
         Subject(text="a small finch"),
-        style=StyleStack(moodboard="m7458053701014388751", sref="https://cdn.midjourney.com/x/0_0.png", stylize=50),
+        style=StyleStack(
+            moodboard="m7458053701014388751",
+            sref="https://cdn.midjourney.com/x/0_0.png",
+            stylize=50,
+        ),
         aspect_ratio="16:9",
     )
     assert "--ar 16:9" in p
@@ -100,6 +104,7 @@ def test_subject_rejects_empty_text():
     prompt (review-003 MEDIUM). Validated at construction so the bad
     Subject never reaches the composer."""
     import pytest as _pytest
+
     with _pytest.raises(ValueError, match="non-empty description"):
         Subject(text="")
     with _pytest.raises(ValueError, match="non-empty description"):
@@ -136,8 +141,13 @@ def test_param_stack_flags_and_signal():
 
 def test_param_stack_validates_ranges_at_construction():
     for kw in (
-        {"chaos": 150}, {"chaos": -1}, {"weird": 3001}, {"stop": 5},
-        {"stop": 101}, {"quality": 3}, {"seed": 4294967296},
+        {"chaos": 150},
+        {"chaos": -1},
+        {"weird": 3001},
+        {"stop": 5},
+        {"stop": 101},
+        {"quality": 3},
+        {"seed": 4294967296},
     ):
         with pytest.raises(ValueError):
             ParamStack(**kw)

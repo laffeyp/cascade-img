@@ -76,8 +76,9 @@ async def run(
     try:
         registry = load_registry(registry_path)
     except (FileNotFoundError, ValueError) as e:
-        emit("CLI_ROLL_FAILED", asset_id=asset_id, error_code=type(e).__name__,
-             error_message=str(e))
+        emit(
+            "CLI_ROLL_FAILED", asset_id=asset_id, error_code=type(e).__name__, error_message=str(e)
+        )
         return {
             "ok": False,
             "asset_id": asset_id,
@@ -85,8 +86,12 @@ async def run(
         }
 
     if asset_id not in registry:
-        emit("CLI_ROLL_FAILED", asset_id=asset_id, error_code="UNKNOWN_ASSET_ID",
-             error_message=f"asset_id {asset_id!r} not in registry")
+        emit(
+            "CLI_ROLL_FAILED",
+            asset_id=asset_id,
+            error_code="UNKNOWN_ASSET_ID",
+            error_message=f"asset_id {asset_id!r} not in registry",
+        )
         return {
             "ok": False,
             "asset_id": asset_id,
@@ -123,15 +128,17 @@ async def run(
     # directly); dispatch via to_thread so the async CLI doesn't block its
     # event loop on the HTTP call and so a missing await doesn't TypeError.
     try:
-        submitted = await asyncio.to_thread(
-            backend.imagine, prompt, asset_id, upscale
-        )
+        submitted = await asyncio.to_thread(backend.imagine, prompt, asset_id, upscale)
     except Exception as e:
-        emit("CLI_ROLL_FAILED", asset_id=asset_id, error_code=type(e).__name__,
-             error_message=str(e))
+        emit(
+            "CLI_ROLL_FAILED", asset_id=asset_id, error_code=type(e).__name__, error_message=str(e)
+        )
         log.append(
-            asset_id=asset_id, prompt=prompt, backend="midjourney_discord",
-            upscale=upscale, error=str(e),
+            asset_id=asset_id,
+            prompt=prompt,
+            backend="midjourney_discord",
+            upscale=upscale,
+            error=str(e),
         )
         return {
             "ok": False,
@@ -148,11 +155,16 @@ async def run(
     try:
         result = await asyncio.to_thread(backend.wait, job_id, timeout)
     except Exception as e:
-        emit("CLI_ROLL_FAILED", asset_id=asset_id, error_code=type(e).__name__,
-             error_message=str(e))
+        emit(
+            "CLI_ROLL_FAILED", asset_id=asset_id, error_code=type(e).__name__, error_message=str(e)
+        )
         log.append(
-            asset_id=asset_id, prompt=prompt, backend="midjourney_discord",
-            job_id=job_id, upscale=upscale, error=str(e),
+            asset_id=asset_id,
+            prompt=prompt,
+            backend="midjourney_discord",
+            job_id=job_id,
+            upscale=upscale,
+            error=str(e),
         )
         return {
             "ok": False,
@@ -168,13 +180,20 @@ async def run(
         "upscale_paths": result.get("upscale_paths") or {},
     }
     log.append(
-        asset_id=asset_id, prompt=prompt, backend="midjourney_discord",
-        job_id=job_id, upscale=upscale,
+        asset_id=asset_id,
+        prompt=prompt,
+        backend="midjourney_discord",
+        job_id=job_id,
+        upscale=upscale,
         outputs=outputs,
         error=result.get("error"),
     )
-    emit("CLI_ROLL_COMPLETED", asset_id=asset_id, dry_run=False,
-         status=result.get("status", "unknown"))
+    emit(
+        "CLI_ROLL_COMPLETED",
+        asset_id=asset_id,
+        dry_run=False,
+        status=result.get("status", "unknown"),
+    )
 
     return {
         "ok": result.get("status") == "done",

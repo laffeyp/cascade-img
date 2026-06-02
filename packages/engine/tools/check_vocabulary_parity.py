@@ -40,7 +40,9 @@ def find_emit_calls(root: Path) -> list[tuple[Path, int, str]]:
                 continue
             func = node.func
             name = None
-            if (isinstance(func, ast.Name) and func.id == "emit") or (isinstance(func, ast.Attribute) and func.attr == "emit"):
+            if (isinstance(func, ast.Name) and func.id == "emit") or (
+                isinstance(func, ast.Attribute) and func.attr == "emit"
+            ):
                 name = "emit"
             if name != "emit" or not node.args:
                 continue

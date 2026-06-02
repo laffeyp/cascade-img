@@ -44,9 +44,7 @@ class Vocabulary:
         self.version: str = schema.get("vocabulary_version", "unknown")
         self.locked: bool = bool(schema.get("locked", False))
         self.categories: list[str] = list(schema.get("categories", []))
-        self._tag_index: dict[str, dict[str, Any]] = {
-            t["name"]: t for t in schema.get("tags", [])
-        }
+        self._tag_index: dict[str, dict[str, Any]] = {t["name"]: t for t in schema.get("tags", [])}
 
     @classmethod
     def from_package_data(cls) -> Vocabulary:
@@ -181,8 +179,7 @@ class Emitter:
     def flush_to_file(self, path: Path | str) -> int:
         records = self.snapshot()
         Path(path).write_text(
-            "\n".join(json.dumps(r.to_dict()) for r in records)
-            + ("\n" if records else ""),
+            "\n".join(json.dumps(r.to_dict()) for r in records) + ("\n" if records else ""),
             encoding="utf-8",
         )
         return len(records)
@@ -225,8 +222,7 @@ class Emitter:
         for s in self.snapshot():
             if s.tag == tag:
                 raise AssertionError(
-                    f"expected no {tag!r} but found one at t={s.t:.3f} "
-                    f"payload={s.payload}"
+                    f"expected no {tag!r} but found one at t={s.t:.3f} payload={s.payload}"
                 )
 
 
