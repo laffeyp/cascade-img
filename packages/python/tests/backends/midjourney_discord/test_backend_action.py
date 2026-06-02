@@ -72,3 +72,45 @@ def test_action_failure_without_error_body_uses_http_status(monkeypatch):
     with pytest.raises(bk.BridgeActionError) as ei:
         bk.MidjourneyDiscordBackend().action("j", "vary_strong")
     assert ei.value.code == "HTTP_502"
+
+
+# imagine/wait/status/health must surface the bridge's stable code on failure
+# (not flatten to a bare HTTPError) — the same contract as action().
+
+
+def test_imagine_surfaces_bridge_code_and_remediation(monkeypatch):
+    monkeypatch.setattr(
+        bk.requests,
+        "post",
+        lambda *a, **k: _FakeResp(
+            {
+                "error": "discord not ready",
+                "code": "DISCORD_NOT_READY",
+                "remediation": "wait for reconnect",
+            },
+            status=503,
+        ),
+    )
+    with pytest.raises(bk.BridgeError) as ei:
+        bk.MidjourneyDiscordBackend().imagine("p", "a")
+    assert ei.value.code == "DISCORD_NOT_READY"
+    assert ei.value.remediation == "wait for reconnect"
+
+
+def test_status_unknown_job_surfaces_http_code(monkeypatch):
+    monkeypatch.setattr(
+        bk.requests, "get", lambda *a, **k: _FakeResp({"error": "unknown job_id"}, status=404)
+    )
+    with pytest.raises(bk.BridgeError) as ei:
+        bk.MidjourneyDiscordBackend().status("nope")
+    assert ei.value.code == "HTTP_404"  # branchable, not "HTTPError"
+
+
+def test_wait_504_returns_timed_out_without_raising(monkeypatch):
+    monkeypatch.setattr(
+        bk.requests,
+        "get",
+        lambda *a, **k: _FakeResp({"job_id": "j", "status": "progress"}, status=504),
+    )
+    out = bk.MidjourneyDiscordBackend().wait("j", timeout=1)
+    assert out["timed_out"] is True

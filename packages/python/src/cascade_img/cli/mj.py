@@ -188,19 +188,44 @@ async def run(
         outputs=outputs,
         error=result.get("error"),
     )
-    emit(
-        "CLI_ROLL_COMPLETED",
-        asset_id=asset_id,
-        dry_run=False,
-        status=result.get("status", "unknown"),
-    )
+    status = result.get("status")
+
+    # /wait can return a non-terminal job: the bridge-side wait timed out
+    # (backend marks timed_out=True on the 504) while MJ may still be rendering.
+    # Without this branch the CLI returned ok=false / error=null — there was no
+    # way for a caller to tell "the job failed" from "still in progress". Emit a
+    # stable WAIT_TIMEOUT code with remediation that says poll, do NOT re-roll
+    # (a re-roll double-bills MJ if the original lands).
+    if result.get("timed_out") or status not in {"done", "failed"}:
+        emit("CLI_ROLL_COMPLETED", asset_id=asset_id, dry_run=False, status="unknown")
+        return {
+            "ok": False,
+            "asset_id": asset_id,
+            "prompt": prompt,
+            "job_id": job_id,
+            "status": status,
+            "outputs": outputs,
+            "error": {
+                "code": "WAIT_TIMEOUT",
+                "message": (
+                    f"job {job_id} did not reach a terminal state within {timeout}s "
+                    f"(status={status!r}); Midjourney may still be rendering"
+                ),
+                "remediation": (
+                    "Poll the job via GET /status/<job_id> or /wait/<job_id> on the bridge; "
+                    "do NOT re-roll — the original may still complete and a re-roll bills MJ twice."
+                ),
+            },
+        }
+
+    emit("CLI_ROLL_COMPLETED", asset_id=asset_id, dry_run=False, status=status or "unknown")
 
     return {
-        "ok": result.get("status") == "done",
+        "ok": status == "done",
         "asset_id": asset_id,
         "prompt": prompt,
         "job_id": job_id,
-        "status": result.get("status"),
+        "status": status,
         "outputs": outputs,
         "error": result.get("error"),
     }

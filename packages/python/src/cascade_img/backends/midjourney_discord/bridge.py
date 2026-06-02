@@ -295,6 +295,12 @@ class Job:
     # / favorite buttons. _ingest_message records it when an upscale lands so
     # POST /action/<job_id> can press those buttons by their live custom_id.
     upscale_message_id: int | None = None
+    # Per-slot SOLO message ids (slot -> Discord message id). upscale="all"
+    # produces four SOLO images, each its own actionable surface; this records
+    # all of them so mj_action(slot=N) can target any, and derived-result
+    # routing matches a reply to any of them. upscale_message_id stays the
+    # canonical (image_path's slot) for mj_action's default target.
+    upscale_message_ids: dict[int, int] = field(default_factory=dict)
     upscale_paths: dict[int, str] = field(default_factory=dict)
     upscale_pending: list[int] = field(default_factory=list)
     # Per-slot button-press failures (slot -> error message). During
@@ -482,6 +488,9 @@ def _job_from_row(row: dict) -> Job:
     row = dict(row)
     row["status"] = Status(row["status"])
     row["upscale_paths"] = {int(k): v for k, v in (row.get("upscale_paths") or {}).items()}
+    row["upscale_message_ids"] = {
+        int(k): int(v) for k, v in (row.get("upscale_message_ids") or {}).items()
+    }
     row["upscale_pending"] = [int(x) for x in (row.get("upscale_pending") or [])]
     row["upscale_press_failures"] = {
         int(k): v for k, v in (row.get("upscale_press_failures") or {}).items()
@@ -642,14 +651,27 @@ def _download_to(url: str, path: Path) -> int:
 
     Streams the response body to disk in 64 KB chunks so a large MJ grid
     (typical ~1-3 MB; upscales can reach 8 MB) never sits in memory in full.
+
+    Atomic: the body streams to a sibling ``.part`` file and is ``os.replace``d
+    into place only after a clean, fully-streamed response. A failure mid-stream
+    removes the partial instead of leaving truncated bytes at ``path`` — which
+    would otherwise poison the ``_safe_output_path`` existence check and orphan
+    a half-image on disk.
     """
     total = 0
-    with requests.get(url, timeout=30, stream=True) as resp:
-        resp.raise_for_status()
-        with path.open("wb") as f:
-            for chunk in resp.iter_content(64 * 1024):
-                if chunk:
-                    total += f.write(chunk)
+    tmp = path.with_suffix(path.suffix + ".part")
+    try:
+        with requests.get(url, timeout=30, stream=True) as resp:
+            resp.raise_for_status()
+            with tmp.open("wb") as f:
+                for chunk in resp.iter_content(64 * 1024):
+                    if chunk:
+                        total += f.write(chunk)
+        os.replace(tmp, path)
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            tmp.unlink()
+        raise
     return total
 
 
@@ -812,14 +834,24 @@ _DERIVED_KIND_MARKERS: tuple[tuple[str, str], ...] = (
 def _job_by_upscale_message_id(message_id: int) -> Job | None:
     with LOCK:
         for j in JOBS.values():
-            if j.upscale_message_id == message_id:
+            # Match the canonical SOLO or any per-slot SOLO (upscale="all" has
+            # four), so a derived result replying to any of them routes home.
+            if j.upscale_message_id == message_id or message_id in j.upscale_message_ids.values():
                 return j
     return None
 
 
 def _classify_derived(content: str) -> str:
+    # animation's rewritten prompt carries "--video" INSIDE the bolded prompt;
+    # the other families are named only in the suffix MJ appends after the
+    # prompt's closing "**" ("... ** - Variations (Strong) by ..."). Scan just
+    # that suffix for them so a family word inside the prompt body (e.g. an asset
+    # literally about "zoom") cannot mislabel the result.
+    if "--video" in content:
+        return "animation"
+    tail = content.rsplit("**", 1)[-1]
     for marker, kind in _DERIVED_KIND_MARKERS:
-        if marker in content:
+        if kind != "animation" and marker in tail:
             return kind
     return "variation"  # a bare grid result with no recognized suffix
 
@@ -1168,6 +1200,22 @@ def _ingest_message(message, event: str = "message"):
     matched = _match_upscale(content)
     if matched and message.attachments:
         parent, idx = matched
+        # Claim-once, mirroring the grid and derived paths. on_message and
+        # on_message_edit both dispatch _ingest_message via run_in_executor and
+        # the SOLO upscale message arrives as a create plus several edits, so
+        # two threads can both clear _match_upscale (a pure read) for the same
+        # slot. Reserve the slot under LOCK before any I/O — and re-check inside
+        # the lock — so a concurrent dispatch short-circuits instead of
+        # double-downloading and double-completing (which would breach the
+        # locked terminal invariant with a second UPSCALE_RECEIVED/JOB_COMPLETED).
+        with LOCK:
+            if (
+                idx in parent.upscale_paths
+                or idx not in parent.upscale_pending
+                or parent.status != Status.UPSCALING
+            ):
+                return
+            parent.upscale_paths[idx] = ""  # reservation sentinel — closes the window
         att = message.attachments[0]
         ext = os.path.splitext(att.filename)[1] or ".png"
         suffix = f"_u{idx}" if parent.upscale == "all" else ""
@@ -1183,6 +1231,11 @@ def _ingest_message(message, event: str = "message"):
         try:
             up_bytes = _download_to(att.url, out_path)
         except Exception as e:
+            with LOCK:
+                # Release the reservation so a later edit of the same slot can
+                # re-claim instead of seeing a permanently-reserved sentinel.
+                if parent.upscale_paths.get(idx) == "":
+                    parent.upscale_paths.pop(idx, None)
             parent._fail(
                 "UPSCALE_DOWNLOAD_FAILED",
                 f"upscale U{idx} download failed: {e}",
@@ -1192,15 +1245,16 @@ def _ingest_message(message, event: str = "message"):
 
         with LOCK:
             parent.upscale_paths[idx] = str(out_path)
-            # This SOLO message bears the vary/zoom/pan/animate/favorite
-            # buttons. Record it so /action can drive them. The last upscale to
-            # land wins, which is fine — every SOLO message carries the same
-            # action set, just bound to its own slot's uuid.
-            parent.upscale_message_id = message.id
+            # Record the SOLO message id per slot (every SOLO carries the same
+            # vary/zoom/pan/animate/favorite action set, bound to its own uuid).
+            parent.upscale_message_ids[idx] = message.id
             if parent.image_path is None:
-                # First upscale to land wins the canonical image slot.
+                # First upscale to land wins the canonical image slot — and the
+                # canonical SOLO message tracks the SAME slot, so mj_action and
+                # the promoted image_path always refer to one image.
                 parent.image_path = str(out_path)
                 parent.image_url = att.url
+                parent.upscale_message_id = message.id
             if idx in parent.upscale_pending:
                 parent.upscale_pending.remove(idx)
             parent.touch()
@@ -1551,10 +1605,13 @@ def http_action(job_id):
     here without a human clicking. The bridge fetches the live message, reads
     the button's current ``custom_id`` (never hardcoded), and presses it.
 
-    Body: ``{"action": "<name>"}`` where name is one of ``_ACTION_MARKERS``.
-    Returns the ``{ok, result | error}`` envelope. The pressed action's derived
-    result (a new grid for vary/zoom/pan, a video for animate) lands back in the
-    channel as a fresh MJ message; v0.1 does not route it to a child job.
+    Body: ``{"action": "<name>", "slot": <1-4, optional>}`` where name is one of
+    ``_ACTION_MARKERS``. ``slot`` targets a specific SOLO image under
+    ``upscale="all"`` (four actionable surfaces); omit it to use the canonical
+    one (the slot that produced ``image_path``). Returns the
+    ``{ok, result | error}`` envelope. The pressed action's derived result (a new
+    grid for vary/zoom/pan, a video for animate) is routed back to this job and
+    recorded in ``Job.derived``.
     """
     body = request.get_json(silent=True) or {}
     action = body.get("action")
@@ -1567,6 +1624,19 @@ def http_action(job_id):
                 "remediation": "Pass a supported action name. See RUNBOOK.md.",
             },
         ), 400
+
+    slot = body.get("slot")
+    if slot is not None:
+        try:
+            slot = int(slot)
+        except (TypeError, ValueError):
+            return jsonify(
+                ok=False,
+                error={
+                    "code": "INVALID_SLOT",
+                    "message": f"slot must be an integer 1-4 (or omitted); got {slot!r}",
+                },
+            ), 400
 
     if not _ready.is_set():
         return jsonify(
@@ -1585,22 +1655,29 @@ def http_action(job_id):
                 ok=False,
                 error={"code": "UNKNOWN_JOB", "message": "unknown job_id"},
             ), 404
-        message_id = job.upscale_message_id
+        message_id = (
+            job.upscale_message_ids.get(slot) if slot is not None else job.upscale_message_id
+        )
         asset_id = job.asset_id
 
     if message_id is None:
+        detail = (
+            f"no upscaled image for slot {slot}; available slots: {sorted(job.upscale_message_ids)}"
+            if slot is not None
+            else "job has no upscaled image; these buttons live on a SOLO upscale"
+        )
         emit(
             "MJ_ACTION_FAILED",
             job_id=job_id,
             action=action,
             error_code="NO_UPSCALED_IMAGE",
-            error_message="job has no upscaled image; these buttons live on a SOLO upscale",
+            error_message=detail,
         )
         return jsonify(
             ok=False,
             error={
                 "code": "NO_UPSCALED_IMAGE",
-                "message": "this action needs an upscaled image; upscale a quadrant first",
+                "message": detail,
                 "remediation": "Run the job with upscale=1-4 (or 'all'), then retry the action.",
             },
         ), 409
@@ -2047,7 +2124,15 @@ def main() -> None:
     db_path = os.environ.get("CASCADE_JOB_DB") or str(cfg.output_dir / "cascade-jobs.db")
     _store = JobStore(db_path)
     emit("JOB_STORE_INITIALIZED", path=db_path, mode=_store.mode)
-    rehydrated = _rehydrate_jobs()
+    # Rehydration is a best-effort resume convenience, never a startup gate: a
+    # bad store must not stop the daemon from coming up and serving new jobs.
+    try:
+        rehydrated = _rehydrate_jobs()
+    except Exception as e:
+        log.warning(
+            f"job rehydration failed ({type(e).__name__}: {e}); starting with an empty job map"
+        )
+        rehydrated = 0
     emit("JOB_STORE_REHYDRATED", count=rehydrated)
     if rehydrated:
         log.info(f"rehydrated {rehydrated} in-flight job(s) from {db_path}")

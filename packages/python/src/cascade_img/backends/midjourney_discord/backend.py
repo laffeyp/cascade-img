@@ -28,12 +28,14 @@ MIDJOURNEY_DISCORD_CAPABILITIES = BackendCapabilities(
 )
 
 
-class BridgeActionError(Exception):
-    """A ``POST /action`` call returned a structured failure. Carries the bridge's
-    stable ``code`` (NO_UPSCALED_IMAGE, BUTTON_NOT_FOUND, DISCORD_NOT_READY,
-    UNKNOWN_JOB, UNKNOWN_ACTION, HTTP_<status>) and ``remediation`` so the MCP
-    ``_run_tool`` envelope surfaces them as ``error.code`` / ``error.remediation``
-    — the same shape every other tool failure takes."""
+class BridgeError(Exception):
+    """A bridge HTTP call returned a structured failure. Carries the bridge's
+    stable ``code`` (e.g. DISCORD_NOT_READY, NO_UPSCALED_IMAGE, BUTTON_NOT_FOUND,
+    UNKNOWN_JOB, or HTTP_<status> when the body had none) and ``remediation`` so
+    the MCP ``_run_tool`` envelope surfaces them as ``error.code`` /
+    ``error.remediation`` — the same shape every tool failure takes. Without
+    this, ``raise_for_status()`` would surface a bare ``HTTPError`` and the
+    agent would lose every stable code the bridge took care to send."""
 
     def __init__(self, code: str, message: str, remediation: str | None = None) -> None:
         super().__init__(message)
@@ -41,6 +43,32 @@ class BridgeActionError(Exception):
         self.message = message
         if remediation:
             self.remediation = remediation
+
+
+# Back-compat alias (the exception was action-only before it generalized).
+BridgeActionError = BridgeError
+
+
+def _raise_for_envelope(r: requests.Response) -> None:
+    """Raise :class:`BridgeError` from a non-2xx bridge response, preserving the
+    stable code/remediation whether the body is enveloped
+    ``{ok: false, error: {code, message, remediation}}`` (e.g. /action) or flat
+    ``{error, code, remediation}`` (e.g. /imagine, /status). Falls back to
+    ``HTTP_<status>`` when the body carries no code."""
+    try:
+        body = r.json()
+    except ValueError:
+        body = {}
+    err = body.get("error") if isinstance(body, dict) else None
+    if isinstance(err, dict):
+        code, msg, rem = err.get("code"), err.get("message"), err.get("remediation")
+    elif isinstance(body, dict):
+        code = body.get("code")
+        msg = (err if isinstance(err, str) else None) or body.get("message")
+        rem = body.get("remediation")
+    else:
+        code = msg = rem = None
+    raise BridgeError(code or f"HTTP_{r.status_code}", msg or "bridge request failed", rem)
 
 
 class MidjourneyDiscordBackend(ImageGenerationBackend):
@@ -55,7 +83,10 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
             body["upscale"] = upscale
         with requests.post(f"{self.base_url}/imagine", json=body, timeout=30) as r:
             emit("BACKEND_HTTP_CALLED", method="POST", path="/imagine", status=r.status_code)
-            r.raise_for_status()
+            # 202 (SUBMITTED_UNCONFIRMED) is a success the caller must see, not a
+            # failure — only 4xx/5xx raise.
+            if r.status_code >= 400:
+                _raise_for_envelope(r)
             return r.json()
 
     def wait(self, job_id: str, timeout: int = 180) -> dict:
@@ -69,7 +100,10 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
                 data = r.json()
                 data["timed_out"] = True
                 return data
-            r.raise_for_status()
+            if r.status_code >= 400:
+                # 404 unknown job / 410 evicted-during-wait keep their stable
+                # code (or HTTP_<status>) instead of flattening to HTTPError.
+                _raise_for_envelope(r)
             return r.json()
 
     def status(self, job_id: str) -> dict:
@@ -77,39 +111,39 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
             emit(
                 "BACKEND_HTTP_CALLED", method="GET", path=f"/status/{job_id}", status=r.status_code
             )
-            r.raise_for_status()
+            if r.status_code >= 400:
+                _raise_for_envelope(r)
             return r.json()
 
     def health(self) -> dict:
         with requests.get(f"{self.base_url}/health", timeout=5) as r:
             emit("BACKEND_HTTP_CALLED", method="GET", path="/health", status=r.status_code)
-            r.raise_for_status()
+            if r.status_code >= 400:
+                _raise_for_envelope(r)
             return r.json()
 
-    def action(self, job_id: str, action: str) -> dict:
+    def action(self, job_id: str, action: str, slot: int | None = None) -> dict:
         """Press a response-message button on a completed job's upscaled image
-        (vary / zoom / pan / upscale-variant / animate / favorite).
+        (vary / zoom / pan / upscale-variant / animate / favorite). ``slot``
+        (1-4) targets a specific SOLO image under ``upscale="all"``; omit it for
+        the canonical one.
 
         The bridge's ``/action`` endpoint already speaks the ``{ok, result |
         error}`` envelope. This **unwraps** it: on success it returns the bare
         ``result`` dict (so the MCP ``_run_tool`` layer wraps it exactly once,
         single-level like every other tool); on failure it raises
-        :class:`BridgeActionError` carrying the stable ``code`` (so the failure
-        flows through ``_run_tool``'s ``{ok: false, error}`` path with the right
+        :class:`BridgeError` carrying the stable ``code`` (so the failure flows
+        through ``_run_tool``'s ``{ok: false, error}`` path with the right
         top-level ``ok``, instead of a confusing ``{ok: true, result: {ok: false,
         ...}}`` double-envelope)."""
-        with requests.post(
-            f"{self.base_url}/action/{job_id}", json={"action": action}, timeout=40
-        ) as r:
+        body: dict = {"action": action}
+        if slot is not None:
+            body["slot"] = slot
+        with requests.post(f"{self.base_url}/action/{job_id}", json=body, timeout=40) as r:
             emit(
                 "BACKEND_HTTP_CALLED", method="POST", path=f"/action/{job_id}", status=r.status_code
             )
-            body = r.json()
-        if not isinstance(body, dict) or not body.get("ok", False):
-            err = body.get("error", {}) if isinstance(body, dict) else {}
-            raise BridgeActionError(
-                err.get("code") or f"HTTP_{r.status_code}",
-                err.get("message") or "action failed",
-                err.get("remediation"),
-            )
-        return body.get("result", {})
+            if r.status_code >= 400:
+                _raise_for_envelope(r)
+            payload = r.json()
+        return payload.get("result", {}) if isinstance(payload, dict) else {}
