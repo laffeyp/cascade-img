@@ -20,6 +20,7 @@ from cascade_img.mcp_server import (
     crop_grid,
     imagine,
     log_append,
+    mj_action,
     promote,
     read_prompt_log,
     score_grid,
@@ -50,6 +51,14 @@ class _FakeBackend:
 
     def health(self) -> dict:
         return {"discord_ready": True, "pending_grid": 0, "total_jobs": 0}
+
+    def action(self, job_id: str, action: str) -> dict:
+        return {
+            "job_id": job_id,
+            "action": action,
+            "custom_id": f"MJ::JOB::{action}::1::uuid::SOLO",
+            "message_id": 42,
+        }
 
 
 def _tags() -> list[str]:
@@ -206,6 +215,23 @@ async def test_wait_status_health_tools(monkeypatch):
     assert rs["ok"] is True and rs["result"]["status"] == "progress"
     rh = await bridge_health()
     assert rh["ok"] is True and rh["result"]["discord_ready"] is True
+
+
+@pytest.mark.asyncio
+async def test_mj_action_tool_envelope_and_signals(monkeypatch):
+    """mj_action drives a response-message button through the backend. Exercise
+    the envelope + signal pair against the stub (no live daemon)."""
+    from cascade_img import mcp_server
+
+    clear()
+    monkeypatch.setattr(mcp_server, "_backend", _FakeBackend())
+    r = await mj_action(job_id="job-1", action="vary_strong")
+    assert r["ok"] is True
+    assert r["result"]["action"] == "vary_strong"
+    assert r["result"]["message_id"] == 42
+    tags = _tags()
+    assert "MCP_TOOL_CALLED" in tags
+    assert "MCP_TOOL_COMPLETED" in tags
 
 
 @pytest.mark.asyncio

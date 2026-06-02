@@ -21,7 +21,7 @@
         "name": "bridge_session",
         "open_tag": "CASCADE_INIT",
         "close_tag": "BRIDGE_SHUTDOWN",
-        "framed_tags": ["CONFIG_VALIDATED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED"],
+        "framed_tags": ["CONFIG_VALIDATED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED", "MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED"],
         "persistent_attributes": ["package_version", "backend"]
       },
       {
@@ -58,7 +58,7 @@
   "operators": {
     "operators": [
       {"name": "MidjourneyDiscordBackend", "emits": ["BACKEND_HTTP_CALLED"], "consumes": "HTTP calls from the MCP server, CLI, or library consumers", "location": "cascade_img/backends/midjourney_discord/backend.py"},
-      {"name": "BridgeDaemon", "emits": ["CASCADE_INIT", "CONFIG_VALIDATED", "CONFIG_VALIDATION_FAILED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "BRIDGE_SHUTDOWN", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED", "BRIDGE_CHECKENV_RAN", "BRIDGE_DOCTOR_RAN"], "location": "cascade_img/backends/midjourney_discord/bridge.py"},
+      {"name": "BridgeDaemon", "emits": ["CASCADE_INIT", "CONFIG_VALIDATED", "CONFIG_VALIDATION_FAILED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "BRIDGE_SHUTDOWN", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED", "MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED", "BRIDGE_CHECKENV_RAN", "BRIDGE_DOCTOR_RAN"], "location": "cascade_img/backends/midjourney_discord/bridge.py"},
       {"name": "PromptComposer", "emits": ["PROMPT_COMPOSED"], "location": "cascade_img/composer.py"},
       {"name": "PromptLog", "emits": ["PROMPT_LOGGED"], "location": "cascade_img/log.py"},
       {"name": "CurationKit", "emits": ["CROP_QUADRANT", "ALPHA_KEY_APPLIED", "ASSET_PROMOTED", "CONTACT_SHEET_RENDERED", "AUTO_TRIM_APPLIED", "PALETTE_QUANTIZED", "SPRITE_SHEET_PACKED", "GRID_SCORED"], "location": "cascade_img/curation/"},
@@ -71,9 +71,10 @@
     "constraints": [
       {"target_tag": "JOB_FAILED", "target_field": "error_code", "enum": ["DISCORD_400_OUTDATED", "DISCORD_400_UNKNOWN_CHANNEL", "DISCORD_401", "DISCORD_NOT_READY", "GRID_DOWNLOAD_FAILED", "MJ_UUID_MISSING", "SUBMIT_FAILED", "UPSCALE_DOWNLOAD_FAILED", "UPSCALE_BUTTON_FAILED", "UPSCALE_ALL_BUTTONS_FAILED"], "enforceability": "mechanical"},
       {"target_tag": "CONFIG_VALIDATION_FAILED", "target_field": "code", "enum": ["MISSING_DISCORD_TOKEN", "MISSING_CHANNEL_ID", "INVALID_CHANNEL_ID", "MISSING_IMAGINE_VERSION", "INVALID_PORT"], "enforceability": "mechanical"},
-      {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["compose_prompt", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log", "contact_sheet", "auto_trim", "palette_quantize", "sprite_sheet", "score_grid"], "enforceability": "mechanical"},
+      {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["compose_prompt", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log", "contact_sheet", "auto_trim", "palette_quantize", "sprite_sheet", "score_grid", "mj_action"], "enforceability": "mechanical"},
       {"target_tag": "GRID_MATCHED", "target_field": "match_path", "enum": ["pending", "progress_fallback"], "enforceability": "mechanical"},
-      {"target_tag": "MCP_SERVER_STARTED", "target_field": "transport", "enum": ["stdio", "http"], "enforceability": "mechanical"}
+      {"target_tag": "MCP_SERVER_STARTED", "target_field": "transport", "enum": ["stdio", "http"], "enforceability": "mechanical"},
+      {"target_tag": "MJ_ACTION_REQUESTED|MJ_ACTION_FAILED", "target_field": "action", "enum": ["upscale_subtle", "upscale_creative", "vary_subtle", "vary_strong", "zoom_out_2x", "zoom_out_1_5x", "pan_left", "pan_right", "pan_up", "pan_down", "animate_high", "animate_low", "favorite"], "enforceability": "mechanical"}
     ]
   },
 
@@ -433,6 +434,22 @@
       "payload": ["count"],
       "optional_payload": [],
       "note": "Non-terminal jobs restored from the persistent store into the in-memory JOBS map at startup, so a bridge restart resumes tracking in-flight jobs instead of dropping them. count is the number rehydrated."
+    },
+    {
+      "name": "MJ_ACTION_REQUESTED",
+      "category": "job",
+      "stratum": "event",
+      "payload": ["job_id", "action", "custom_id", "message_id"],
+      "optional_payload": [],
+      "note": "A response-message button was pressed on a completed job's upscaled image (vary/zoom/pan/upscale-variant/animate/favorite). The bridge reads the live custom_id off the message and presses it — never hardcoded. action is the requested action name; message_id is the message the button lives on."
+    },
+    {
+      "name": "MJ_ACTION_FAILED",
+      "category": "job",
+      "stratum": "incident",
+      "payload": ["job_id", "action", "error_code", "error_message"],
+      "optional_payload": [],
+      "note": "A response-message action could not be pressed. error_code is NO_UPSCALED_IMAGE (the job has no upscaled image to act on), BUTTON_NOT_FOUND (no matching button on the live message), DISCORD_NOT_READY, or HTTP_<status>."
     }
   ]
 }
