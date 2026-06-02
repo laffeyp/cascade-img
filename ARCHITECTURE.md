@@ -57,6 +57,7 @@ The bridge exposes:
 | `POST /imagine` | Submit a prompt; returns a `job_id`. |
 | `GET /status/<job_id>` | Non-blocking job state read. |
 | `GET /wait/<job_id>?timeout=<s>` | Long-poll until the job is terminal or the timeout fires. |
+| `POST /action/<job_id>` | Press a response-message button (vary / zoom / pan / re-upscale / animate / favorite) on the job's upscaled image. |
 | `GET /jobs` | All tracked jobs (diagnostics). |
 | `GET /health` | Daemon up + Discord WebSocket connected. |
 
@@ -106,6 +107,21 @@ concurrently on a thread pool. To prevent two threads from both downloading and
 upscaling the same grid (a double-bill), the grid is claimed exactly once: a
 thread reserves `grid_path` under the lock before any download, and a
 concurrent edit that finds it already reserved returns early.
+
+## Response-message actions
+
+A finished upscale (a "SOLO" image) carries the buttons a human clicks in
+Discord: re-upscale (subtle/creative), vary (subtle/strong), zoom-out, pan,
+animate (image→video), favorite. `POST /action/<job_id>` drives them without a
+click. The bridge records the SOLO message's id when an upscale lands
+(`Job.upscale_message_id`), then on an action request it fetches that message,
+reads the target button's **live** `custom_id` off the component, and presses
+it via the same interaction primitive used for `U1`–`U4`. The uuid-bearing
+`custom_id` is never reconstructed — a captured marker substring only *locates*
+the button. A missing button returns `BUTTON_NOT_FOUND` rather than a wrong
+press; a grid-only job returns `NO_UPSCALED_IMAGE`. The derived result (a new
+grid, or a video for `animate_*`) lands back in the channel as a fresh MJ
+message; v0.1 does not yet route it to a child job.
 
 ## Resilience
 

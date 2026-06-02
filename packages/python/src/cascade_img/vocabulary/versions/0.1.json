@@ -337,7 +337,7 @@
       "stratum": "event",
       "payload": ["tool"],
       "optional_payload": [],
-      "note": "An MCP tool invocation began. tool is one of: compose_prompt, imagine, wait, status, bridge_health, crop_grid, alpha_key, promote, log_append, read_prompt_log, contact_sheet, auto_trim, palette_quantize, sprite_sheet."
+      "note": "An MCP tool invocation began. tool is one of the names in the MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED evidence-constraint enum (the authoritative list): compose_prompt, imagine, wait, status, bridge_health, crop_grid, alpha_key, promote, log_append, read_prompt_log, contact_sheet, auto_trim, palette_quantize, sprite_sheet, score_grid, mj_action."
     },
     {
       "name": "MCP_TOOL_COMPLETED",

@@ -29,7 +29,7 @@ Drop this in your Claude Desktop, Cursor, or Cline MCP config:
 }
 ```
 
-After installing the package and starting the bridge daemon (see below), ask your agent to generate a sprite. The agent gets ten tools — `compose_prompt`, `imagine`, `wait`, `status`, `bridge_health`, `crop_grid`, `alpha_key`, `promote`, `log_append`, `read_prompt_log` — with JSON schemas it can introspect. [AGENTS.md](./AGENTS.md) is the operator's guide an agent reads once.
+After installing the package and starting the bridge daemon (see below), ask your agent to generate a sprite. The agent gets sixteen tools with JSON schemas it can introspect — generation (`imagine`, `wait`, `status`, `bridge_health`, `mj_action`), composition (`compose_prompt`), curation (`crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `promote`), and working memory (`log_append`, `read_prompt_log`). [AGENTS.md](./AGENTS.md) is the operator's guide an agent reads once.
 
 ## 60-second quickstart for a human
 
