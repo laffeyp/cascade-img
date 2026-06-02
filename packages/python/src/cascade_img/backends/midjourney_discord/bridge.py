@@ -42,7 +42,7 @@ from pathlib import Path
 
 import discord  # discord.py-self
 import requests
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from flask import Flask, jsonify, request
 
 from cascade_img.backends.midjourney_discord.job_store import JobStore
@@ -118,7 +118,20 @@ class Config:
     @classmethod
     def from_env(cls) -> Config:
         """Read and validate every env var; raise MissingEnvError on the first gap."""
-        load_dotenv()
+        # Load the .env from the daemon's *working directory*. Bare
+        # ``load_dotenv()`` delegates to python-dotenv's ``find_dotenv()``,
+        # which — when the bridge runs via its console-script entry point
+        # (``cascade-mj-bridge``) rather than ``-c`` — walks up from the
+        # importing module's directory (the installed package), NOT the cwd.
+        # That silently defeats the documented "launch with cwd = the .env
+        # directory" contract: the file is never found and every secret reads
+        # as missing. ``CASCADE_DOTENV`` lets an operator point at the file
+        # explicitly; otherwise we force the cwd-anchored search.
+        dotenv_override = os.environ.get("CASCADE_DOTENV")
+        if dotenv_override:
+            load_dotenv(dotenv_override)
+        else:
+            load_dotenv(find_dotenv(usecwd=True))
 
         def _require(name: str, code: str, remediation: str) -> str:
             val = os.environ.get(name)
@@ -298,6 +311,12 @@ class Job:
     # matched after the job was already in PROGRESS (happens when MJ posts the
     # final grid as a new message instead of editing the initial preamble).
     match_path: str | None = None
+    # Wave F receive side: derived results (vary / zoom / pan / upscale-variant /
+    # animation) pressed on this job's SOLO upscaled image. MJ posts each as a
+    # Discord reply to upscale_message_id; the bridge downloads it and appends an
+    # entry {action_kind, mj_uuid, message_id, path, url, content_type, width,
+    # height, bytes}. Additive — the job is already DONE when these arrive.
+    derived: list[dict] = field(default_factory=list)
 
     def tagged_prompt(self) -> str:
         """Outbound prompt with a per-job token MJ echoes back, used by
@@ -684,13 +703,264 @@ def _find_action_custom_id(message, action: str) -> str | None:
     return None
 
 
-def _ingest_message(message):
-    """Update job state from an MJ message (new or edited)."""
+# ---------------------------------------------------------------------------
+# Wave F raw-capture hook (observation-only; env-gated; OFF by default).
+# When CASCADE_CAPTURE_RAW points at a path, _ingest_message appends one JSON
+# line per MJ-bot message in the watched channel — structure only, NO
+# interpretation — so derived results (vary / zoom / pan / animate / favorite)
+# that the bridge cannot route to a tracked job are still recorded verbatim for
+# the receive-side matchers. Wrapped so a capture failure never breaks the live
+# path. Remove (or leave gated) once the matchers are built.
+# ---------------------------------------------------------------------------
+def _capture_raw_message(message, event: str) -> None:
+    """Append a structure-only JSON line describing ``message`` to the path in
+    CASCADE_CAPTURE_RAW. No-op when the env var is unset. Best-effort: any
+    failure is logged and swallowed so it can never disturb live ingestion.
+    """
+    capture_path = os.environ.get("CASCADE_CAPTURE_RAW")
+    if not capture_path:
+        return
+    try:
+        import json as _json
+
+        # Timestamps: record whichever discord.py-self exposes and tag which.
+        created_at = getattr(message, "created_at", None)
+        edited_at = getattr(message, "edited_at", None)
+        ref = getattr(message, "reference", None)
+        ref_id = getattr(ref, "message_id", None) if ref is not None else None
+
+        attachments = []
+        for a in getattr(message, "attachments", None) or []:
+            attachments.append(
+                {
+                    "filename": getattr(a, "filename", None),
+                    "url": getattr(a, "url", None),
+                    "content_type": getattr(a, "content_type", None),
+                    "size": getattr(a, "size", None),
+                    "width": getattr(a, "width", None),
+                    "height": getattr(a, "height", None),
+                    "duration": getattr(a, "duration", None),
+                }
+            )
+
+        components = []
+        for row in getattr(message, "components", None) or []:
+            for child in getattr(row, "children", None) or []:
+                style = getattr(child, "style", None)
+                components.append(
+                    {
+                        "type": getattr(getattr(child, "type", None), "value", None)
+                        or str(getattr(child, "type", None)),
+                        "custom_id": getattr(child, "custom_id", None),
+                        "label": getattr(child, "label", None),
+                        "style": getattr(style, "value", None) or str(style)
+                        if style is not None
+                        else None,
+                    }
+                )
+
+        record = {
+            "event": event,
+            "id": getattr(message, "id", None),
+            "channel_id": getattr(getattr(message, "channel", None), "id", None),
+            "author_id": getattr(getattr(message, "author", None), "id", None),
+            "created_at": created_at.isoformat() if created_at is not None else None,
+            "edited_at": edited_at.isoformat() if edited_at is not None else None,
+            "content": message.content or "",
+            "message_reference": ref_id,
+            "attachments": attachments,
+            "components": components,
+        }
+        line = _json.dumps(record, default=str)
+        with open(capture_path, "a") as f:
+            f.write(line + "\n")
+    except Exception as e:  # capture is observation-only; never break live path
+        log.warning(f"raw-capture failed: {type(e).__name__}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Wave F receive side: route derived results (vary / zoom / pan / upscale-variant
+# / animation) back to the parent job. Grounded entirely in the 2026-06-02 live
+# capture (reviews/wave-f-receive-capture.md): MJ posts each derived result as a
+# Discord reply whose message_reference is the SOLO upscaled-image message id
+# (== Job.upscale_message_id). That reference is the ONLY signal present on every
+# family; the channel is shared, so recency/adjacency matching is unsafe — a
+# foreign job's animate interleaved into the capture window and would mis-route.
+# ---------------------------------------------------------------------------
+
+# Any MJ job uuid (8-4-4-4-12 hex). The NEW uuid minted for a derived result
+# appears in its attachment filename and its midjourney.com/jobs/<uuid> link.
+_MJ_UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+# action_kind classified from MJ's content suffix. Substrings chosen to cover
+# every sibling of each family ("Pan " matches Pan Left/Right/Up/Down;
+# "Variations" matches Subtle/Strong) — routing never depends on this label, so a
+# wording drift downgrades the label, it does not misroute. animation is checked
+# first (its content carries no "by" suffix, only the rewritten --video prompt).
+_DERIVED_KIND_MARKERS: tuple[tuple[str, str], ...] = (
+    ("--video", "animation"),
+    ("Upscaled by", "upscale"),
+    ("Variations", "variation"),
+    ("Zoom Out", "zoom"),
+    ("Pan ", "pan"),
+)
+
+
+def _job_by_upscale_message_id(message_id: int) -> Job | None:
+    with LOCK:
+        for j in JOBS.values():
+            if j.upscale_message_id == message_id:
+                return j
+    return None
+
+
+def _classify_derived(content: str) -> str:
+    for marker, kind in _DERIVED_KIND_MARKERS:
+        if marker in content:
+            return kind
+    return "variation"  # a bare grid result with no recognized suffix
+
+
+def _extract_derived_uuid(message) -> str | None:
+    """The NEW MJ uuid minted for a derived result — read from the attachment
+    filename (always present) with a content fallback (the jobs link)."""
+    atts = getattr(message, "attachments", None) or []
+    if atts:
+        m = _MJ_UUID_RE.search(getattr(atts[0], "filename", "") or "")
+        if m:
+            return m.group(0)
+    m = _MJ_UUID_RE.search(message.content or "")
+    return m.group(0) if m else None
+
+
+def _has_result_button(message) -> bool:
+    """True if the message carries a real result button (U/V / upscale-variant /
+    video), as opposed to a progress tracker's lone ``Cancel Job`` button or no
+    buttons. This is the decisive final-vs-progress signal: MJ streams low-res
+    progress frames (256x256 / 512x512) on a Cancel-only message, then the
+    full-size final on a message bearing the action buttons (captured 2026-06-02)."""
+    for row in getattr(message, "components", None) or []:
+        for c in getattr(row, "children", []) or []:
+            cid = getattr(c, "custom_id", "") or ""
+            if cid and "CancelJob" not in cid:
+                return True
+    return False
+
+
+def _ingest_derived(parent: Job, message) -> None:
+    """Download a derived result (vary/zoom/pan/upscale/animation) and attach it
+    to its parent job. Skips progress frames and the favorite confirmation (which
+    carry no full result). Claims each derived result once by its message id so a
+    later edit of the same final does not re-download."""
+    content = message.content or ""
+    # Only the final carries a full-size attachment AND a result button with no
+    # "(Waiting)"/"(N%)" marker. A favorite confirmation has no attachment; a
+    # progress edit has only a Cancel button (or none) and a low-res preview.
+    if not message.attachments:
+        return
+    if not _has_result_button(message):
+        return
+    if PCT_RE.search(content) or "(Waiting to start)" in content:
+        return
+
+    c = _cfg()
+    att = message.attachments[0]
+    parent_message_id = getattr(getattr(message, "reference", None), "message_id", None)
+    with LOCK:
+        if any(d.get("message_id") == message.id for d in parent.derived):
+            return  # already claimed/downloaded this derived result
+        kind = _classify_derived(content)
+        mj_uuid = _extract_derived_uuid(message) or ""
+        # Reserve under LOCK (path="" sentinel) so a concurrent edit-dispatch of
+        # the same final short-circuits at the membership check above.
+        entry: dict = {
+            "action_kind": kind,
+            "mj_uuid": mj_uuid,
+            "message_id": message.id,
+            "path": "",
+            "url": att.url,
+            "content_type": getattr(att, "content_type", None),
+            "width": getattr(att, "width", None),
+            "height": getattr(att, "height", None),
+            "bytes": 0,
+        }
+        parent.derived.append(entry)
+
+    ext = os.path.splitext(getattr(att, "filename", "") or "")[1] or ".png"
+    uuid8 = mj_uuid[:8] if mj_uuid else "result"
+    out_path = _safe_output_path(
+        output_dir=c.output_dir,
+        asset_id=parent.asset_id,
+        suffix=f"_{kind}_{uuid8}",
+        ext=ext,
+        request_token=parent.request_token,
+        kind="derived",
+        job_id=parent.job_id,
+    )
+    try:
+        nbytes = _download_to(att.url, out_path)
+    except Exception as e:
+        with LOCK:
+            # Release the reservation so a later edit of the final can retry.
+            parent.derived = [d for d in parent.derived if d.get("message_id") != message.id]
+        emit(
+            "MJ_DERIVED_FAILED",
+            asset_id=parent.asset_id,
+            job_id=parent.job_id,
+            parent_message_id=parent_message_id,
+            action_kind=kind,
+            error_code=type(e).__name__,
+            error_message=str(e)[:300],
+        )
+        log.error(f"[{parent.asset_id}] derived {kind} download failed: {e}")
+        return
+
+    with LOCK:
+        entry["path"] = str(out_path)
+        entry["bytes"] = nbytes
+        parent.touch()
+    log.info(f"[{parent.asset_id}] saved derived {kind} -> {out_path}")
+    emit(
+        "MJ_DERIVED_RECEIVED",
+        asset_id=parent.asset_id,
+        job_id=parent.job_id,
+        parent_message_id=parent_message_id,
+        action_kind=kind,
+        mj_uuid=mj_uuid,
+        path=str(out_path),
+        bytes=nbytes,
+        content_type=getattr(att, "content_type", None) or "",
+    )
+
+
+def _ingest_message(message, event: str = "message"):
+    """Update job state from an MJ message. ``event`` is "message" for a fresh
+    message and "edit" when dispatched from ``on_message_edit`` — used only to
+    tag the Wave F raw capture (``discord.Message`` is ``__slots__``-based, so
+    the event cannot ride on the object; it must be passed as an argument)."""
     c = _cfg()
     if message.author.id != MJ_BOT_ID or message.channel.id != c.channel_id:
         return
 
+    # Wave F: capture every MJ-bot message in the watched channel, verbatim,
+    # BEFORE any routing return can drop it. on_message_edit funnels through
+    # here too (it passes the AFTER message) with event="edit".
+    _capture_raw_message(message, event)
+
     content = message.content or ""
+
+    # Wave F receive side: a derived result (vary/zoom/pan/upscale/animation) is a
+    # Discord reply to the SOLO upscaled-image message it was launched from. Route
+    # by message_reference == a tracked job's upscale_message_id — the only signal
+    # present on every family; recency is unsafe (shared channel). Handled and
+    # returned here so it never reaches the grid/upscale matchers (the original
+    # SOLO and grid messages reference other ids, so they fall through untouched).
+    ref_id = getattr(getattr(message, "reference", None), "message_id", None)
+    if ref_id is not None:
+        derived_parent = _job_by_upscale_message_id(ref_id)
+        if derived_parent is not None:
+            _ingest_derived(derived_parent, message)
+            return
 
     job = _job_by_message_id(message.id)
     if job is None:
@@ -966,7 +1236,10 @@ async def on_message(message):
 @client.event
 async def on_message_edit(before, after):
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, _ingest_message, after)
+    # Pass event="edit" so the Wave F raw capture distinguishes MJ's in-place
+    # progress edits from fresh messages. discord.Message is __slots__-based,
+    # so the tag rides as a call argument, not an attribute.
+    await loop.run_in_executor(None, _ingest_message, after, "edit")
 
 
 async def _post_interaction(payload: dict) -> requests.Response:

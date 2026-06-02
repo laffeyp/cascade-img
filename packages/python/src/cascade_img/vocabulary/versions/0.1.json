@@ -21,7 +21,7 @@
         "name": "bridge_session",
         "open_tag": "CASCADE_INIT",
         "close_tag": "BRIDGE_SHUTDOWN",
-        "framed_tags": ["CONFIG_VALIDATED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED", "MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED"],
+        "framed_tags": ["CONFIG_VALIDATED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED", "MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED", "MJ_DERIVED_RECEIVED", "MJ_DERIVED_FAILED"],
         "persistent_attributes": ["package_version", "backend"]
       },
       {
@@ -58,7 +58,7 @@
   "operators": {
     "operators": [
       {"name": "MidjourneyDiscordBackend", "emits": ["BACKEND_HTTP_CALLED"], "consumes": "HTTP calls from the MCP server, CLI, or library consumers", "location": "cascade_img/backends/midjourney_discord/backend.py"},
-      {"name": "BridgeDaemon", "emits": ["CASCADE_INIT", "CONFIG_VALIDATED", "CONFIG_VALIDATION_FAILED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "BRIDGE_SHUTDOWN", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED", "MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED", "BRIDGE_CHECKENV_RAN", "BRIDGE_DOCTOR_RAN"], "location": "cascade_img/backends/midjourney_discord/bridge.py"},
+      {"name": "BridgeDaemon", "emits": ["CASCADE_INIT", "CONFIG_VALIDATED", "CONFIG_VALIDATION_FAILED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "BRIDGE_SHUTDOWN", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED", "MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED", "MJ_DERIVED_RECEIVED", "MJ_DERIVED_FAILED", "BRIDGE_CHECKENV_RAN", "BRIDGE_DOCTOR_RAN"], "location": "cascade_img/backends/midjourney_discord/bridge.py"},
       {"name": "PromptComposer", "emits": ["PROMPT_COMPOSED"], "location": "cascade_img/composer.py"},
       {"name": "PromptLog", "emits": ["PROMPT_LOGGED"], "location": "cascade_img/log.py"},
       {"name": "CurationKit", "emits": ["CROP_QUADRANT", "ALPHA_KEY_APPLIED", "ASSET_PROMOTED", "CONTACT_SHEET_RENDERED", "AUTO_TRIM_APPLIED", "PALETTE_QUANTIZED", "SPRITE_SHEET_PACKED", "GRID_SCORED"], "location": "cascade_img/curation/"},
@@ -74,7 +74,8 @@
       {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["compose_prompt", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log", "contact_sheet", "auto_trim", "palette_quantize", "sprite_sheet", "score_grid", "mj_action"], "enforceability": "mechanical"},
       {"target_tag": "GRID_MATCHED", "target_field": "match_path", "enum": ["pending", "progress_fallback"], "enforceability": "mechanical"},
       {"target_tag": "MCP_SERVER_STARTED", "target_field": "transport", "enum": ["stdio", "http"], "enforceability": "mechanical"},
-      {"target_tag": "MJ_ACTION_REQUESTED|MJ_ACTION_FAILED", "target_field": "action", "enum": ["upscale_subtle", "upscale_creative", "vary_subtle", "vary_strong", "zoom_out_2x", "zoom_out_1_5x", "pan_left", "pan_right", "pan_up", "pan_down", "animate_high", "animate_low", "favorite"], "enforceability": "mechanical"}
+      {"target_tag": "MJ_ACTION_REQUESTED|MJ_ACTION_FAILED", "target_field": "action", "enum": ["upscale_subtle", "upscale_creative", "vary_subtle", "vary_strong", "zoom_out_2x", "zoom_out_1_5x", "pan_left", "pan_right", "pan_up", "pan_down", "animate_high", "animate_low", "favorite"], "enforceability": "mechanical"},
+      {"target_tag": "MJ_DERIVED_RECEIVED|MJ_DERIVED_FAILED", "target_field": "action_kind", "enum": ["variation", "zoom", "pan", "upscale", "animation"], "enforceability": "mechanical"}
     ]
   },
 
@@ -450,6 +451,22 @@
       "payload": ["job_id", "action", "error_code", "error_message"],
       "optional_payload": [],
       "note": "A response-message action could not be pressed. error_code is NO_UPSCALED_IMAGE (the job has no upscaled image to act on), BUTTON_NOT_FOUND (no matching button on the live message), DISCORD_NOT_READY, or HTTP_<status>."
+    },
+    {
+      "name": "MJ_DERIVED_RECEIVED",
+      "category": "job",
+      "stratum": "event",
+      "payload": ["asset_id", "job_id", "parent_message_id", "action_kind", "mj_uuid", "path", "bytes", "content_type"],
+      "optional_payload": [],
+      "note": "A derived result produced by an mj_action press landed and was downloaded to the parent asset. Routed by Discord message_reference == the SOLO upscaled-image message id (upscale_message_id) — the only signal present on every family; recency is unsafe because the MJ channel is shared. action_kind is the family classified from MJ's content suffix (variation/zoom/pan/upscale/animation). animation lands as an ANIMATED WEBP (content_type image/webp, NOT video/mp4). mj_uuid is the NEW MJ job uuid minted for the derived result. favorite presses produce no artifact and emit nothing here."
+    },
+    {
+      "name": "MJ_DERIVED_FAILED",
+      "category": "job",
+      "stratum": "incident",
+      "payload": ["asset_id", "job_id", "parent_message_id", "action_kind", "error_code", "error_message"],
+      "optional_payload": [],
+      "note": "A derived result was matched to its parent job but could not be downloaded. The parent job stays DONE — a derived result is additive, so a download failure is an incident on the derived artifact, not a job failure. error_code is the exception class or HTTP status."
     }
   ]
 }
