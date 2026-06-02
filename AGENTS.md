@@ -70,7 +70,7 @@ A finished upscale carries the buttons a human would otherwise click in Discord.
 - **Animate** (image → video): `animate_high`, `animate_low`
 - **Favorite**: `favorite`
 
-The pressed action's result — a new grid for vary/zoom/pan, a short video for `animate_*` — lands back in the Discord channel as a fresh Midjourney message. At v0.1 the bridge does not route that derived result to a new tracked job, so read it from the channel/output directory directly; child-job routing is the Wave F receive-side deliverable.
+The pressed action's result — a new grid for vary/zoom/pan, a single image for `upscale_*`, a short animation for `animate_*` — is routed back to the originating job automatically: the bridge downloads it and appends an entry to the job's `derived` list (`{action_kind, mj_uuid, path, content_type, ...}`), which you read via `status(job_id)`. `animate_*` arrives as an animated WebP (`image/webp`, ~125 frames), not an mp4. `favorite` only rates the image — it produces no artifact, so nothing lands in `derived`. (Known v0.1 limit: with `upscale="all"` only the most recent upscaled image's derived results are tracked; a derived grid is recorded but not re-tracked for further button presses.)
 
 ## V7 facets
 

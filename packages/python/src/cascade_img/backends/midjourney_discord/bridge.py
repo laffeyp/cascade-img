@@ -1340,7 +1340,9 @@ async def _fetch_message(message_id: int):
     """
     c = _cfg()
     channel = client.get_channel(c.channel_id) or await client.fetch_channel(c.channel_id)
-    return await channel.fetch_message(message_id)
+    # The configured channel is a messageable text channel; the get/fetch return
+    # type is the full channel union (some members lack fetch_message).
+    return await channel.fetch_message(message_id)  # type: ignore[union-attr]
 
 
 # ---------------------------------------------------------------------------
