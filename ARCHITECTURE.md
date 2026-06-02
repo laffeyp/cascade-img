@@ -119,9 +119,23 @@ reads the target button's **live** `custom_id` off the component, and presses
 it via the same interaction primitive used for `U1`–`U4`. The uuid-bearing
 `custom_id` is never reconstructed — a captured marker substring only *locates*
 the button. A missing button returns `BUTTON_NOT_FOUND` rather than a wrong
-press; a grid-only job returns `NO_UPSCALED_IMAGE`. The derived result (a new
-grid, or a video for `animate_*`) lands back in the channel as a fresh MJ
-message; v0.1 does not yet route it to a child job.
+press; a grid-only job returns `NO_UPSCALED_IMAGE`.
+
+**Routing the result back.** Midjourney posts each derived result as a Discord
+*reply* whose `message_reference` is the SOLO message id — the one signal
+present on every family (vary/zoom/pan/upscale echo the routing token too;
+animate and favorite do not). The bridge matches on that reference
+(`_job_by_upscale_message_id`), distinguishes the final from MJ's progress
+edits (a final carries a real result button, not a lone *Cancel Job*), downloads
+it to `<asset_id>_<kind>_<uuid8>`, appends an entry to `Job.derived`, and emits
+`MJ_DERIVED_RECEIVED`. Recency is deliberately **not** used — the channel is
+shared, and a foreign job's result interleaving the window would mis-route.
+`animate_*` lands as an animated WebP (`image/webp`), not an mp4; `favorite`
+produces no artifact and is a no-op. This is grounded in a live capture
+(`reviews/wave-f-receive-capture.md`), not guessed. Known v0.1 limit: for
+`upscale="all"` only the last SOLO's derived results route (one
+`upscale_message_id` is retained), and a derived grid is recorded but not itself
+re-tracked for further actions.
 
 ## Resilience
 
