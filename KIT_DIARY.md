@@ -15,6 +15,28 @@
 
 ## Entries
 
+### 2026-06-02 — Sprint 003 (code-review remediation) closed
+
+**What happened:** An external reviewer surfaced six in-scope fixes and four v0.2-scope smells in the v0.1.0a1 codebase. The Agent landed the six fixes (test JSONL bug, capture docstring, capture test coverage, logging.basicConfig at module top, dead SSE import, root-vs-package vocabulary divergence test) in one focused sprint. The four v0.2 smells went to BLACKBOARD ## Deferred with concrete remediation pointers (LRU+TTL eviction for JOBS, SSE/callback for /wait, httpx port for backend async, LOCK around _ingest_message mutations). Ladder 64/64 green.
+
+**What worked:**
+
+- The reviewer's praise of `match_path` on `GRID_MATCHED` and the structured error codes confirms that SDD-discipline-from-the-start (not retrofitted) is what makes the codebase legible to an outside reader. The reviewer identified the design as "well-executed" specifically on the points where the kit's discipline drove the structure.
+- The fixes were genuinely small. Two of the six were docstring/dead-code at most. Two were one-line code corrections (the JSONL parse, the dead import). Two added test coverage. The discipline ladder caught no regressions on rebuild — exactly the failure-mode-prevention story the kit promises.
+- The two bugs the reviewer caught (JSONL parse, docstring contract) had existed since their respective sprints but had not been caught by the existing tests. The new tests in `test_capture_and_vocab_sync.py` would catch them on recurrence.
+
+**What got in the way:**
+
+- The capture() context manager was kit-conformant API surface but had zero test coverage and a wrong docstring — the kind of gap that a parity tool over emit() doesn't catch because emit() and capture() are different surfaces. **Kit-level note:** the parity discipline should be paired with an API-surface coverage gate: every exported name in the package's `__all__` (or equivalent) needs at least one test that references it.
+- The two-copy vocabulary (root `signals/0.1.json` + package-data `signals/versions/0.1.json`) is structurally fragile. The fix (test asserting byte-equal) closes the immediate drift surface but doesn't eliminate the duplication. **Kit-level note:** the kit could prescribe ONE of the two patterns canonically: either the package-data copy is the only canonical (and the kit's "project root signals/0.1.json" convention is recognized as misleading for installable packages), OR the project-root file is the canonical and the package data is generated from it at build time. The current "both, kept in sync" works but is the worst of both worlds for a Python distributable.
+
+**What this says about the next kit version:**
+
+- **Finding 5.** The kit's vocabulary parity tool catches emit-vs-vocab drift but doesn't catch exported-API-surface coverage gaps. Recommend adding an "exported names without test reference" check to the discipline ladder, scoped to the package's `__init__.py` exports.
+- **Finding 6.** The kit's "project-root `signals/0.1.json`" convention assumes the project IS the root. For Python packages that ship a wheel, the package-data copy is the runtime canonical and the project-root copy is at best a kit-conformance mirror. The kit could acknowledge this explicitly with a "for installable packages" note that either picks the package-data copy as canonical OR prescribes a build-time copy step.
+
+---
+
 ### 2026-06-02 — Sprint 002 (sdd-kit-2 alignment) closed
 
 **What happened:** The Architect directed the Agent to make cascade-img conform to sdd-kit-2's conventions. The Agent had earlier read the kit in fragments rather than in full; the Architect surfaced this directly. The Agent then read foundations 01-04, grammar/PRINCIPLES + BOOTSTRAP, all templates, lib/sdd.py, and the example/ project. The Agent applied the kit by: copying sdd-kit-2 into the project as a read-only reference, upgrading `cascade_img.instrumentation.sdd` to validate at emit (matching the kit's commitment 2), locking the vocabulary at v0.1, adding BLACKBOARD/WORKING_AGREEMENT/KIT_DIARY/rationale at project root, and writing this entry.
