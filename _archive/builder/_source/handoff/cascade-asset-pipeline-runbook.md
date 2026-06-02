@@ -95,7 +95,7 @@ The button-press path (`_press_button`) already handles guild_id correctly — o
 Every time you start working:
 
 ```bash
-cd /Users/peterlaffey/Documents/Claude/Projects/Cascade/asset_pipeline
+cd /Users/<user>/Documents/Claude/Projects/Cascade/asset_pipeline
 /opt/homebrew/bin/python3.11 mj_bridge.py
 ```
 

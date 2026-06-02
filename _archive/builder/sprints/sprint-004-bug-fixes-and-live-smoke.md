@@ -24,7 +24,7 @@ Two pieces. First, end-to-end live smoke against the running Discord/Midjourney 
 ## prerequisites
 
 - Sprint 003 closed; discipline ladder at 64/64.
-- Live `.env` accessible at `/sessions/festive-zen-johnson/mnt/asset_pipeline/.env`.
+- Live `.env` accessible at `/sessions/<sandbox>/mnt/asset_pipeline/.env`.
 - Bridge code at v0.1.0a1.
 
 ---
@@ -128,7 +128,7 @@ Final `/status` payload:
 - `status: done`
 - `match_path: progress_fallback`
 - `grid_path: /tmp/smoke/generated/smoke_v1.webp`
-- `grid_url: https://cdn.discordapp.com/attachments/1502243953687265485/1511223372673974364/...`
+- `grid_url: https://cdn.discordapp.com/attachments/<channel-id>/<message-id>/...`
 - File on disk: 261986 bytes.
 
 ### Expected signals during live smoke

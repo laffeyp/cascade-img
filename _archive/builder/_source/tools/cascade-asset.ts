@@ -13,7 +13,7 @@
 // Use `--upscale grid` for the cheapest first preview.
 //
 // Requires the Cascade bridge running at http://127.0.0.1:5000.
-// Start it with: cd /Users/peterlaffey/Documents/Claude/Projects/Cascade/asset_pipeline && python mj_bridge.py
+// Start it with: cd /Users/<user>/Documents/Claude/Projects/Cascade/asset_pipeline && python mj_bridge.py
 //
 // Appends an entry to handoff/cascade-prompts/sprint-4.0.md for reproducibility.
 
@@ -31,7 +31,7 @@ const SREF_ENVIRONMENT = "https://cdn.midjourney.com/4afa7423-2ca6-4862-91db-f8b
 // MJ onto ONE bird rather than extracting averaged identity from a 2×2
 // grid of variants — eliminates the "different birds flickering" drift.
 // Used with --ow 400 for tight identity match (default 100 was too loose).
-const OREF_BIRD = "https://cdn.discordapp.com/attachments/1502243953687265485/1508801075270914118/bird.png";
+const OREF_BIRD = "https://cdn.discordapp.com/attachments/<channel-id>/<message-id>/bird.png";
 
 type AssetSpec = {
   subject: string;
@@ -294,7 +294,7 @@ async function checkHealth(): Promise<void> {
     res = await fetch(`${BRIDGE}/health`);
   } catch (e) {
     throw new Error(
-      `Cannot reach Cascade bridge at ${BRIDGE}. Start it with:\n  cd /Users/peterlaffey/Documents/Claude/Projects/Cascade/asset_pipeline && python mj_bridge.py`
+      `Cannot reach Cascade bridge at ${BRIDGE}. Start it with:\n  cd /Users/<user>/Documents/Claude/Projects/Cascade/asset_pipeline && python mj_bridge.py`
     );
   }
   if (!res.ok) throw new Error(`/health returned ${res.status}`);

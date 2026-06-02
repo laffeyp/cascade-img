@@ -25,8 +25,8 @@ import sys
 from pathlib import Path
 from PIL import Image
 
-CASCADE_GENERATED = Path("/Users/peterlaffey/Documents/Claude/Projects/Cascade/asset_pipeline/generated")
-KATYBIRD_ASSETS = Path("/Users/peterlaffey/Documents/Claude/Projects/Katybird/assets")
+CASCADE_GENERATED = Path("/Users/<user>/Documents/Claude/Projects/Cascade/asset_pipeline/generated")
+KATYBIRD_ASSETS = Path("/Users/<user>/Documents/Claude/Projects/Katybird/assets")
 
 PROMOTION = {
     "bird": "bird.png",

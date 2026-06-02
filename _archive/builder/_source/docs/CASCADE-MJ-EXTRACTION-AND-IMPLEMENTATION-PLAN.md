@@ -10,7 +10,7 @@
 
 ## 0. The non-negotiable safety rule
 
-**No file in `/Users/peterlaffey/Documents/Claude/Projects/Katybird/` is modified by this work. No file in `/Users/peterlaffey/Documents/Claude/Projects/Cascade/asset_pipeline/` is modified by this work.** Both projects keep working unchanged throughout the extraction. The new monorepo at `/Users/peterlaffey/Documents/Claude/Projects/cascade-mj/` is the only place files are written.
+**No file in `/Users/<user>/Documents/Claude/Projects/Katybird/` is modified by this work. No file in `/Users/<user>/Documents/Claude/Projects/Cascade/asset_pipeline/` is modified by this work.** Both projects keep working unchanged throughout the extraction. The new monorepo at `/Users/<user>/Documents/Claude/Projects/cascade-mj/` is the only place files are written.
 
 When extraction needs source from either project, the source is **copied**, then refactored in the new tree. The originals remain.
 
@@ -22,7 +22,7 @@ When the extracted code is verified to work standalone (Phase 6 gates), the orig
 
 Exhaustive list of every file the new package depends on, with current location and role.
 
-### From `/Users/peterlaffey/Documents/Claude/Projects/Cascade/asset_pipeline/`
+### From `/Users/<user>/Documents/Claude/Projects/Cascade/asset_pipeline/`
 
 | File | Lines | Role |
 |---|---|---|
@@ -31,7 +31,7 @@ Exhaustive list of every file the new package depends on, with current location 
 | `.env.example` | small | Config template — needs `MJ_GUILD_ID` added (the Sprint 4.0 trap). |
 | `README.md` | 353 | Upstream README; reference material for the new OPERATIONS.md but not copied verbatim. |
 
-### From `/Users/peterlaffey/Documents/Claude/Projects/Katybird/tools/`
+### From `/Users/<user>/Documents/Claude/Projects/Katybird/tools/`
 
 | File | Lines | Role | Disposition |
 |---|---|---|---|
@@ -43,7 +43,7 @@ Exhaustive list of every file the new package depends on, with current location 
 | `test-markup-decoder.py` | 160 | Test for the above. | **Skip**. |
 | `capture-*.ts`, `screenshot.ts`, `check-vocabulary-parity.ts` | various | Phaser/SDD harness. Unrelated. | **Skip**. |
 
-### From `/Users/peterlaffey/Documents/Claude/Projects/Katybird/handoff/`
+### From `/Users/<user>/Documents/Claude/Projects/Katybird/handoff/`
 
 | File | Lines | Role | Disposition |
 |---|---|---|---|
@@ -63,7 +63,7 @@ Exhaustive list of every file the new package depends on, with current location 
 ## 2. Destination layout
 
 ```
-/Users/peterlaffey/Documents/Claude/Projects/cascade-mj/
+/Users/<user>/Documents/Claude/Projects/cascade-mj/
 ├── README.md
 ├── AGENTS.md                       # the LLM-readable entry point
 ├── OPERATIONS.md                   # generalized runbook
@@ -202,7 +202,7 @@ Seven phases. Each phase has a gate — explicit, testable, no ambiguity about "
 Goal: empty monorepo with workspace tooling and license, no code yet.
 
 Steps:
-1. `mkdir -p /Users/peterlaffey/Documents/Claude/Projects/cascade-mj`
+1. `mkdir -p /Users/<user>/Documents/Claude/Projects/cascade-mj`
 2. `git init`. Commit the empty repo.
 3. Write `LICENSE` (MIT), `.gitignore` (Python + Node + IDE noise), `pnpm-workspace.yaml`, root `package.json` with workspace scripts only.
 4. Create the empty directory skeleton matching section 2.
@@ -331,7 +331,7 @@ Gate: v0.1.0 installable from both registries by a stranger with no insider know
 
 ## 5. Safety throughout
 
-- The Katybird and Cascade repos are read-only for the duration of this work. Verify with `git -C /Users/peterlaffey/Documents/Claude/Projects/Katybird status` and `git -C /Users/peterlaffey/Documents/Claude/Projects/Cascade status` showing no new uncommitted changes attributable to this work.
+- The Katybird and Cascade repos are read-only for the duration of this work. Verify with `git -C /Users/<user>/Documents/Claude/Projects/Katybird status` and `git -C /Users/<user>/Documents/Claude/Projects/Cascade status` showing no new uncommitted changes attributable to this work.
 - Every phase commits to the new `cascade-mj` repo separately. If a phase needs to be undone, `git reset` to the previous phase's commit; no impact on the originals.
 - Phase 2's verbatim copies are diff-verified against source. Phases 3–5 work only on the copies.
 - The published v0.1.0 is the first artifact that any external party sees. Until then, nothing leaks.
