@@ -69,10 +69,10 @@
 
   "evidence_constraints": {
     "constraints": [
-      {"target_tag": "JOB_FAILED", "target_field": "error_code", "enum": ["DISCORD_400_OUTDATED", "DISCORD_400_UNKNOWN_CHANNEL", "DISCORD_401", "DISCORD_NOT_READY", "GRID_DOWNLOAD_FAILED", "MJ_UUID_MISSING", "SUBMIT_FAILED", "UPSCALE_DOWNLOAD_FAILED", "UPSCALE_BUTTON_FAILED", "UPSCALE_ALL_BUTTONS_FAILED"], "enforceability": "mechanical"},
+      {"target_tag": "JOB_FAILED", "target_field": "error_code", "enum": ["DISCORD_400_OUTDATED", "DISCORD_400_UNKNOWN_CHANNEL", "DISCORD_401", "DISCORD_HTTP_ERROR", "DISCORD_NOT_READY", "GRID_DOWNLOAD_FAILED", "MJ_UUID_MISSING", "SUBMIT_FAILED", "UPSCALE_DOWNLOAD_FAILED", "UPSCALE_BUTTON_FAILED", "UPSCALE_ALL_BUTTONS_FAILED", "RESUBMIT_REQUIRED"], "enforceability": "mechanical"},
       {"target_tag": "CONFIG_VALIDATION_FAILED", "target_field": "code", "enum": ["MISSING_DISCORD_TOKEN", "MISSING_CHANNEL_ID", "INVALID_CHANNEL_ID", "MISSING_IMAGINE_VERSION", "INVALID_PORT"], "enforceability": "mechanical"},
       {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["compose_prompt", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log", "contact_sheet", "auto_trim", "palette_quantize", "sprite_sheet", "score_grid", "mj_action"], "enforceability": "mechanical"},
-      {"target_tag": "GRID_MATCHED", "target_field": "match_path", "enum": ["pending", "progress_fallback"], "enforceability": "mechanical"},
+      {"target_tag": "GRID_MATCHED", "target_field": "match_path", "enum": ["pending", "progress_fallback", "unknown"], "enforceability": "mechanical"},
       {"target_tag": "MCP_SERVER_STARTED", "target_field": "transport", "enum": ["stdio", "http"], "enforceability": "mechanical"},
       {"target_tag": "MJ_ACTION_REQUESTED|MJ_ACTION_FAILED", "target_field": "action", "enum": ["upscale_subtle", "upscale_creative", "vary_subtle", "vary_strong", "zoom_out_2x", "zoom_out_1_5x", "pan_left", "pan_right", "pan_up", "pan_down", "animate_high", "animate_low", "favorite"], "enforceability": "mechanical"},
       {"target_tag": "MJ_DERIVED_RECEIVED|MJ_DERIVED_FAILED", "target_field": "action_kind", "enum": ["variation", "zoom", "pan", "upscale", "animation"], "enforceability": "mechanical"}
@@ -234,7 +234,7 @@
       "stratum": "incident",
       "payload": ["asset_id", "job_id", "error_code", "error_message"],
       "optional_payload": [],
-      "note": "Job hit FAILED. error_code is a stable string; the evidence-constraints enum is canonical. Known values: DISCORD_400_OUTDATED, DISCORD_400_UNKNOWN_CHANNEL, DISCORD_401, DISCORD_NOT_READY (WebSocket dead at submit time), GRID_DOWNLOAD_FAILED, UPSCALE_DOWNLOAD_FAILED, MJ_UUID_MISSING, SUBMIT_FAILED, UPSCALE_BUTTON_FAILED (single-slot upscale press failed and was the only slot), UPSCALE_ALL_BUTTONS_FAILED (every requested upscale='all' slot's press failed)."
+      "note": "Job hit FAILED. error_code is a stable string and the evidence-constraints enum is canonical (validated at emit). Values: DISCORD_400_OUTDATED, DISCORD_400_UNKNOWN_CHANNEL, DISCORD_401, DISCORD_HTTP_ERROR (any other non-2xx from the Discord interaction; the status is in error_message), DISCORD_NOT_READY (WebSocket dead at submit time), GRID_DOWNLOAD_FAILED, UPSCALE_DOWNLOAD_FAILED, MJ_UUID_MISSING, SUBMIT_FAILED, UPSCALE_BUTTON_FAILED (single-slot upscale press failed and was the only slot), UPSCALE_ALL_BUTTONS_FAILED (every requested upscale='all' slot's press failed), RESUBMIT_REQUIRED (a pre-grid job was failed on daemon-restart rehydration because MJ's processing is unconfirmable across a restart; the operator should re-submit and verify rather than risk a double-bill)."
     },
     {
       "name": "BACKEND_HTTP_CALLED",

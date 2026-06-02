@@ -110,8 +110,10 @@ def test_roundtrip_through_disk_preserves_data(tmp_path):
 
 
 def test_bridge_rehydrates_nonterminal_jobs(monkeypatch, tmp_path):
-    """The bridge restores non-terminal jobs as typed Job objects, coerces the
-    JSON-lossy fields, and rebuilds PENDING_GRID for the pre-grid ones only."""
+    """The bridge restores non-terminal jobs as typed Job objects and coerces the
+    JSON-lossy fields. In-flight jobs (PROGRESS/UPSCALING, grid already seen)
+    resume intact; pre-grid jobs (QUEUED/SUBMITTED/...) are failed with
+    RESUBMIT_REQUIRED so they cannot linger as never-evicted phantoms."""
     from cascade_img.backends.midjourney_discord import bridge
     from cascade_img.backends.midjourney_discord.bridge import Status
 
@@ -133,15 +135,19 @@ def test_bridge_rehydrates_nonterminal_jobs(monkeypatch, tmp_path):
     monkeypatch.setattr(bridge, "PENDING_GRID", [])
 
     n = bridge._rehydrate_jobs()
-    assert n == 2  # terminal excluded
+    assert n == 2  # terminal excluded; both non-terminal rows restored into JOBS
     assert set(bridge.JOBS) == {"live1", "live2"}
 
     j2 = bridge.JOBS["live2"]
-    assert j2.status == Status.UPSCALING  # coerced back to the enum
+    assert j2.status == Status.UPSCALING  # coerced back to the enum, resumed
     assert j2.upscale_pending == [2, 4]
     assert j2.upscale_paths == {1: "/p/u1.png"}  # int key restored
 
-    # Pre-grid job rejoins the grid-match FIFO; the UPSCALING job does not.
-    assert "live1" in bridge.PENDING_GRID
+    # The pre-grid job is failed (terminal, hence TTL-evictable) rather than
+    # rejoining PENDING_GRID as a potential phantom; the in-flight one is not.
+    j1 = bridge.JOBS["live1"]
+    assert j1.status == Status.FAILED
+    assert j1.error_code == "RESUBMIT_REQUIRED"
+    assert "live1" not in bridge.PENDING_GRID
     assert "live2" not in bridge.PENDING_GRID
     store.close()

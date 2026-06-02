@@ -499,9 +499,19 @@ def _job_from_row(row: dict) -> Job:
 
 
 def _rehydrate_jobs() -> int:
-    """Restore non-terminal jobs from the store into JOBS + PENDING_GRID at
-    startup, so a restart resumes tracking in-flight jobs instead of dropping
-    them. Returns the count restored."""
+    """Restore non-terminal jobs from the store into JOBS at startup. Returns
+    the count restored.
+
+    PROGRESS / UPSCALING jobs have a grid (or upscale) genuinely in flight that
+    the message matchers can still claim after a restart, so they resume intact.
+
+    Pre-grid jobs (QUEUED / SUBMITTED / SUBMITTED_UNCONFIRMED) are NOT trusted:
+    across a daemon restart it is unknowable whether Midjourney processed the
+    /imagine, and a pre-grid job that no grid ever matches would sit non-terminal
+    forever — never TTL-evicted, a permanent phantom row. They are failed with
+    RESUBMIT_REQUIRED so they become terminal (hence evictable) and the operator
+    is told to re-submit and verify rather than the daemon silently re-firing
+    (which would double-bill if the original did process)."""
     if _store is None:
         return 0
     count = 0
@@ -513,12 +523,14 @@ def _rehydrate_jobs() -> int:
                 log.warning(f"skipping unrehydratable job row: {e}")
                 continue
             JOBS[job.job_id] = job
-            # Pre-grid jobs rejoin the grid-match FIFO. PROGRESS jobs are still
-            # matchable via _match_grid's progress_fallback scan and UPSCALING
-            # via _match_upscale's scan, so neither needs PENDING_GRID.
-            if job.status in (Status.QUEUED, Status.SUBMITTED, Status.SUBMITTED_UNCONFIRMED):
-                PENDING_GRID.append(job.job_id)
             count += 1
+            if job.status in (Status.QUEUED, Status.SUBMITTED, Status.SUBMITTED_UNCONFIRMED):
+                job._fail(
+                    "RESUBMIT_REQUIRED",
+                    "pre-grid job could not be resumed across a daemon restart "
+                    "(Midjourney processing unconfirmable); re-submit and verify.",
+                )
+                log.warning(f"[{job.asset_id}] rehydrated pre-grid job failed RESUBMIT_REQUIRED")
     return count
 
 
@@ -1523,7 +1535,9 @@ def http_imagine():
         elif "unknown channel" in text.lower():
             code = "DISCORD_400_UNKNOWN_CHANNEL"
         else:
-            code = f"DISCORD_{resp.status_code}"
+            # Any other non-2xx: a single bounded code (the status lives in the
+            # message) so error_code stays inside the locked JOB_FAILED enum.
+            code = "DISCORD_HTTP_ERROR"
         job._fail(code, f"discord {resp.status_code}: {text}")
         with LOCK:
             if job.job_id in PENDING_GRID:
