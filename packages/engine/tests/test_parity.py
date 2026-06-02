@@ -10,6 +10,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 # tools/ lives at the engine package root; surface it before importing the
 # parity checker. `noqa: E402` because the path-insert must precede the import.
 PKG_ROOT = Path(__file__).resolve().parent.parent
@@ -18,6 +20,7 @@ sys.path.insert(0, str(PKG_ROOT / "tools"))
 import check_vocabulary_parity  # type: ignore  # noqa: E402
 
 
+@pytest.mark.contract
 def test_parity_clean():
     rc = check_vocabulary_parity.main([])
     assert rc == 0, "vocabulary parity drift — see stdout for the offending emit() callsites"

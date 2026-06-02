@@ -24,9 +24,16 @@ The four gates each commit must pass (run from `packages/engine/`):
 
 ```bash
 ruff check .                                 # lint
-pytest                                       # unit tests
+ruff format --check .                        # formatting
+pytest                                       # fast suite: unit/integration/contract (live e2e skipped)
 python3 tools/check_vocabulary_parity.py     # every emit() uses a declared tag
 diff ../../vocabulary/0.1.json src/cascade_img/vocabulary/versions/0.1.json   # mirror in sync
+```
+
+Tests are tiered with pytest markers (`unit`, `integration`, `contract`, `smoke`, `e2e`). The default `pytest` run skips the live tiers, so CI and contributors stay green without credentials. To run the live end-to-end walk against a real Discord/Midjourney account (it fires a real `/imagine` and costs credits):
+
+```bash
+CASCADE_LIVE=1 CASCADE_ENV_FILE=/path/to/.env pytest -m e2e
 ```
 
 ## Structured-event discipline
