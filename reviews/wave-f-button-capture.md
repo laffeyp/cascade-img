@@ -47,12 +47,18 @@ routes a derived grid by: token present (lineage) + a NEW uuid (not the parent's
 + the action marker in content. vary_subtle / zoom_out / pan_* echo the same
 shape with their own markers ("Variations (Subtle)", "Zoom Out", "Pan").
 
-**animate_high → NO Discord echo within 340s (web-only).** The press fires the
-job (visible on midjourney.com via the job URL) but the video does not land as a
-Discord attachment in a reasonable window. SDD substrate-gap conclusion: Animate
-is **submit-only** over the bridge — press + surface the job URL; do NOT
-implement a Discord-side video matcher (don't fake-emit a result the substrate
-doesn't deliver). Revisit if MJ starts posting the video to the channel.
+**animate_high → video result, lands in Discord (~60s). [CORRECTED]** An earlier
+capture wrongly concluded "web-only"; that was a bug in the harness (a content
+gate on the parent token + too-short timeout), not MJ's behavior. Re-captured
+with no content gate: pressing Animate fires a video job MJ rewrites to
+`--motion high --video 1 --aspect <ar>` with a NEW job uuid (e.g. `aeebebb3-…`).
+Progress streams as `.jpeg` step-frames; the result message lands within ~60s
+with the video (plus its own action buttons and an "Open on website for full
+quality" link). KEY routing wrinkle: the result content does NOT echo the parent
+`--no cscidnocollide` token (`has_needle=false`), so it can't be routed by the
+parent token the way a derived grid is. Route an animate result by the rewritten
+`--motion/--video` content marker + a video/animated-webp attachment + recency
+relative to the press; link it to the parent via the press the bridge just made.
 
 ## Wave F implementation plan (now fully data-grounded)
 
@@ -62,6 +68,9 @@ doesn't deliver). Revisit if MJ starts posting the video to the channel.
   existing `_press_button` (custom_ids read off the live message, never hardcoded).
 - vary/zoom/pan create a CHILD job (parent_job_id set) awaiting a new grid; a new
   match path routes a derived grid (token + NEW uuid + action marker) to it.
-- animate is submit-only: press + return the job URL; no result matcher.
+- animate: the press fires a video job that DOES return to Discord (~60s) with a
+  rewritten `--motion/--video` prompt + new uuid and NO parent token. Route the
+  result by the `--video` content marker + video attachment + recency; expose the
+  video attachment and the job URL. (Not submit-only — corrected.)
 - favorite is a fire-and-forget toggle (no result message).
 - Custom Zoom / Vary (Region) stay deferred (modal / mask-upload primitives).
