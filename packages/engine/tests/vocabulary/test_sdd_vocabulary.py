@@ -24,8 +24,9 @@ def test_vocabulary_loads_from_package_data():
     v = vocabulary()
     assert v.version == "0.1"
     assert v.locked is True
-    # 27 tags as of v0.1.0a1
-    assert len(v.tags()) >= 27
+    # Pin the exact count: a tag added or dropped without updating the catalog
+    # (or a regression that loses tags) fails loudly here. Bump with the lock.
+    assert len(v.tags()) == 40
     assert "CASCADE_INIT" in v.tags()
 
 
