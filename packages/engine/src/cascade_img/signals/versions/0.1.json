@@ -1,0 +1,112 @@
+{
+  "vocabulary_version": "0.1",
+  "locked": false,
+  "locked_at": null,
+  "categories": ["session", "config", "bridge", "job", "discord", "backend"],
+  "tags": [
+    {
+      "name": "CASCADE_INIT",
+      "category": "session",
+      "stratum": "event",
+      "payload": ["package_version", "backend"],
+      "optional_payload": [],
+      "note": "Daemon process started; config loaded; backend selected."
+    },
+    {
+      "name": "CONFIG_VALIDATED",
+      "category": "config",
+      "stratum": "event",
+      "payload": ["port", "output_dir", "has_guild_id"],
+      "optional_payload": [],
+      "note": "Config.from_env() returned successfully. has_guild_id is bool — DM-only deployments may legitimately have it false."
+    },
+    {
+      "name": "CONFIG_VALIDATION_FAILED",
+      "category": "config",
+      "stratum": "incident",
+      "payload": ["code", "field", "remediation"],
+      "optional_payload": [],
+      "note": "MissingEnvError raised during Config.from_env(). Daemon will not start."
+    },
+    {
+      "name": "BRIDGE_HEALTHY",
+      "category": "bridge",
+      "stratum": "event",
+      "payload": ["discord_ready", "pending_grid", "total_jobs"],
+      "optional_payload": [],
+      "note": "GET /health returned. Use discord_ready to gate /imagine submissions."
+    },
+    {
+      "name": "DISCORD_CONNECTED",
+      "category": "discord",
+      "stratum": "event",
+      "payload": ["user_id"],
+      "optional_payload": [],
+      "note": "discord.py-self WebSocket handshake completed; on_ready fired."
+    },
+    {
+      "name": "IMAGINE_FIRED",
+      "category": "job",
+      "stratum": "event",
+      "payload": ["asset_id", "job_id", "prompt_chars", "upscale"],
+      "optional_payload": [],
+      "note": "POST /imagine accepted by the bridge and Discord interaction sent. upscale is null|'1'|'2'|'3'|'4'|'all'."
+    },
+    {
+      "name": "GRID_MATCHED",
+      "category": "job",
+      "stratum": "event",
+      "payload": ["asset_id", "job_id", "message_id", "match_path"],
+      "optional_payload": [],
+      "note": "MJ message matched to job. match_path is 'pending' (first-touch) or 'progress_fallback' (v7 grid-as-new-message — the the default patch path)."
+    },
+    {
+      "name": "GRID_RECEIVED",
+      "category": "job",
+      "stratum": "event",
+      "payload": ["asset_id", "job_id", "path", "bytes"],
+      "optional_payload": [],
+      "note": "Grid PNG downloaded to disk."
+    },
+    {
+      "name": "UPSCALE_REQUESTED",
+      "category": "job",
+      "stratum": "event",
+      "payload": ["asset_id", "job_id", "slot", "mj_job_uuid_prefix"],
+      "optional_payload": [],
+      "note": "Upscale button (U1-U4) pressed via Discord interaction. slot is 1-4."
+    },
+    {
+      "name": "UPSCALE_RECEIVED",
+      "category": "job",
+      "stratum": "event",
+      "payload": ["asset_id", "job_id", "slot", "path", "bytes"],
+      "optional_payload": [],
+      "note": "Single upscale PNG downloaded to disk."
+    },
+    {
+      "name": "JOB_COMPLETED",
+      "category": "job",
+      "stratum": "event",
+      "payload": ["asset_id", "job_id", "duration_ms", "upscales_completed"],
+      "optional_payload": [],
+      "note": "Job hit DONE — all expected artifacts on disk."
+    },
+    {
+      "name": "JOB_FAILED",
+      "category": "job",
+      "stratum": "incident",
+      "payload": ["asset_id", "job_id", "error_code", "error_message"],
+      "optional_payload": [],
+      "note": "Job hit FAILED. error_code is a stable string; known values: DISCORD_400_OUTDATED, DISCORD_401, DISCORD_400_UNKNOWN_CHANNEL, GRID_DOWNLOAD_FAILED, UPSCALE_DOWNLOAD_FAILED, MJ_UUID_MISSING, SUBMIT_FAILED."
+    },
+    {
+      "name": "BACKEND_HTTP_CALLED",
+      "category": "backend",
+      "stratum": "event",
+      "payload": ["method", "path", "status"],
+      "optional_payload": [],
+      "note": "MidjourneyDiscordBackend made an HTTP call to the bridge daemon. Useful for grading the client-side, not just the daemon."
+    }
+  ]
+}
