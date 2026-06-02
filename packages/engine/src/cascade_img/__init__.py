@@ -29,6 +29,7 @@ from cascade_img.curation import (
     crop_quadrant,
     palette_quantize,
     promote,
+    score_grid,
     sprite_sheet,
 )
 from cascade_img.log import AgentDecision, PromptLog
@@ -71,6 +72,7 @@ __all__ = [  # noqa: RUF022 — order is by concern, not alphabetical
     "auto_trim",
     "palette_quantize",
     "sprite_sheet",
+    "score_grid",
     "QUADRANT_OFFSETS",
     "DEFAULT_TOLERANCE",
     # log

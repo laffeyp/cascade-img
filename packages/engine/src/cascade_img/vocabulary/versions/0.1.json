@@ -61,7 +61,7 @@
       {"name": "BridgeDaemon", "emits": ["CASCADE_INIT", "CONFIG_VALIDATED", "CONFIG_VALIDATION_FAILED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "BRIDGE_SHUTDOWN", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED", "BRIDGE_CHECKENV_RAN", "BRIDGE_DOCTOR_RAN"], "location": "cascade_img/backends/midjourney_discord/bridge.py"},
       {"name": "PromptComposer", "emits": ["PROMPT_COMPOSED"], "location": "cascade_img/composer.py"},
       {"name": "PromptLog", "emits": ["PROMPT_LOGGED"], "location": "cascade_img/log.py"},
-      {"name": "CurationKit", "emits": ["CROP_QUADRANT", "ALPHA_KEY_APPLIED", "ASSET_PROMOTED", "CONTACT_SHEET_RENDERED", "AUTO_TRIM_APPLIED", "PALETTE_QUANTIZED", "SPRITE_SHEET_PACKED"], "location": "cascade_img/curation/"},
+      {"name": "CurationKit", "emits": ["CROP_QUADRANT", "ALPHA_KEY_APPLIED", "ASSET_PROMOTED", "CONTACT_SHEET_RENDERED", "AUTO_TRIM_APPLIED", "PALETTE_QUANTIZED", "SPRITE_SHEET_PACKED", "GRID_SCORED"], "location": "cascade_img/curation/"},
       {"name": "MCPServer", "emits": ["MCP_SERVER_STARTED", "MCP_SERVER_STOPPED", "MCP_TOOL_CALLED", "MCP_TOOL_COMPLETED", "MCP_TOOL_FAILED"], "location": "cascade_img/mcp_server.py"},
       {"name": "AssetCLI", "emits": ["CLI_ROLL_STARTED", "CLI_ROLL_COMPLETED", "CLI_ROLL_FAILED"], "location": "cascade_img/cli/mj.py"}
     ]
@@ -71,7 +71,7 @@
     "constraints": [
       {"target_tag": "JOB_FAILED", "target_field": "error_code", "enum": ["DISCORD_400_OUTDATED", "DISCORD_400_UNKNOWN_CHANNEL", "DISCORD_401", "DISCORD_NOT_READY", "GRID_DOWNLOAD_FAILED", "MJ_UUID_MISSING", "SUBMIT_FAILED", "UPSCALE_DOWNLOAD_FAILED", "UPSCALE_BUTTON_FAILED", "UPSCALE_ALL_BUTTONS_FAILED"], "enforceability": "mechanical"},
       {"target_tag": "CONFIG_VALIDATION_FAILED", "target_field": "code", "enum": ["MISSING_DISCORD_TOKEN", "MISSING_CHANNEL_ID", "INVALID_CHANNEL_ID", "MISSING_IMAGINE_VERSION", "INVALID_PORT"], "enforceability": "mechanical"},
-      {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["compose_prompt", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log", "contact_sheet", "auto_trim", "palette_quantize", "sprite_sheet"], "enforceability": "mechanical"},
+      {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["compose_prompt", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log", "contact_sheet", "auto_trim", "palette_quantize", "sprite_sheet", "score_grid"], "enforceability": "mechanical"},
       {"target_tag": "GRID_MATCHED", "target_field": "match_path", "enum": ["pending", "progress_fallback"], "enforceability": "mechanical"},
       {"target_tag": "MCP_SERVER_STARTED", "target_field": "transport", "enum": ["stdio", "http"], "enforceability": "mechanical"}
     ]
@@ -297,6 +297,14 @@
       "payload": ["dest", "count", "layout", "w", "h"],
       "optional_payload": [],
       "note": "sprite_sheet() packed N curated sprites into one atlas plus a JSON frame map written alongside it. layout is 'grid', 'row', or 'column'; count is the number of frames; w/h are the atlas dimensions."
+    },
+    {
+      "name": "GRID_SCORED",
+      "category": "curation",
+      "stratum": "event",
+      "payload": ["src", "tiles", "top_slot"],
+      "optional_payload": [],
+      "note": "score_grid() ranked the four quadrants of a 2x2 grid on sharpness/contrast/edge-density so an agent picks on evidence instead of a blind quadrant int. tiles is the number scored (4); top_slot (1-4) is the highest composite score. Advisory — the agent still confirms with vision."
     },
     {
       "name": "PROMPT_COMPOSED",

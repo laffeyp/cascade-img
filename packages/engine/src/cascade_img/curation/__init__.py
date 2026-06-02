@@ -11,6 +11,7 @@
 * :func:`auto_trim` crops an image to its content bounding box.
 * :func:`palette_quantize` reduces an image to a fixed palette.
 * :func:`sprite_sheet` packs several sprites into one atlas plus a frame map.
+* :func:`score_grid` ranks a grid's quadrants for selection (pure-PIL).
 * :func:`promote` copies a curated image into the consumer's asset tree.
 """
 
@@ -20,6 +21,7 @@ from cascade_img.curation.contact_sheet import contact_sheet
 from cascade_img.curation.crop_grid import QUADRANT_OFFSETS, crop_quadrant
 from cascade_img.curation.palette_quantize import palette_quantize
 from cascade_img.curation.promote import promote
+from cascade_img.curation.score_grid import score_grid
 from cascade_img.curation.sprite_sheet import sprite_sheet
 
 __all__ = [
@@ -31,5 +33,6 @@ __all__ = [
     "crop_quadrant",
     "palette_quantize",
     "promote",
+    "score_grid",
     "sprite_sheet",
 ]
