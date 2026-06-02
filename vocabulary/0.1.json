@@ -2,7 +2,7 @@
   "vocabulary_version": "0.1",
   "locked": true,
   "locked_at": "2026-06-02",
-  "locked_by": "Architect (Peter Laffey, Green Rose Systems) via cascade-img v0.1.0a1 ship",
+  "locked_by": "Green Rose Systems",
   "prior_version": null,
   "categories": ["session", "config", "bridge", "job", "discord", "backend", "curation", "composer", "log", "mcp", "cli"],
 
@@ -288,7 +288,7 @@
       "stratum": "event",
       "payload": ["transport"],
       "optional_payload": [],
-      "note": "cascade-mj-mcp process started. transport is 'stdio' (default — Claude Desktop / Cursor) or 'http'."
+      "note": "cascade-mcp process started. transport is 'stdio' (default — Claude Desktop / Cursor) or 'http'."
     },
     {
       "name": "MCP_TOOL_CALLED",

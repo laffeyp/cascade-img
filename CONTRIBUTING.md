@@ -12,16 +12,33 @@ cascade-img is a small project. Contributions are welcome; the rules are short.
 - New MCP tools include input schemas derived from typed signatures and follow the `{ok, result | error: {code, message, remediation?}}` envelope.
 - Working-memory primitives (the prompt log especially) are append-only and structured. A new log format that returns markdown text from `read_prompt_log` is the wrong shape — `render_markdown` is a separate, optional view.
 
-## The the event system discipline
+## Dev environment
 
-Every load-bearing state transition emits a vocabulary tag. The vocabulary is locked at `packages/engine/src/cascade_img/signals/versions/0.1.json`. Workflow for a code change:
+```bash
+git clone https://github.com/greenrosesystems/cascade-img.git
+cd cascade-img/packages/engine
+pip install -e '.[dev]'      # editable install + ruff + pytest + mypy
+```
+
+The four gates each commit must pass (run from `packages/engine/`):
+
+```bash
+ruff check .                                 # lint
+pytest                                       # unit tests
+python3 tools/check_vocabulary_parity.py     # every emit() uses a declared tag
+diff ../../vocabulary/0.1.json src/cascade_img/vocabulary/versions/0.1.json   # mirror in sync
+```
+
+## Structured-event discipline
+
+Every important state change emits a vocabulary tag. The vocabulary is locked at `packages/engine/src/cascade_img/vocabulary/versions/0.1.json` (with a byte-identical mirror at `vocabulary/0.1.json` at the repo root). Workflow for a code change that introduces a new state transition:
 
 1. Identify the new state transitions the change introduces.
-2. Add the new tags to the vocabulary JSON with `payload`, `category`, `stratum`, and a `note` field.
+2. Add the new tags to the vocabulary JSON with `payload`, `category`, `stratum`, and a `note` field. Mirror the change to the repo-root copy.
 3. Add the `emit(...)` callsites.
-4. Run the parity tool: `python3 tools/check_vocabulary_parity.py` (from `packages/engine/`).
-5. Add behavior-contract tests that assert both the function output AND the emitted signal sequence.
-6. Run the test suite: `pytest tests/ -v`.
+4. Run the parity tool: `python3 tools/check_vocabulary_parity.py`.
+5. Add behavior-contract tests that assert both the function output AND the emitted event sequence.
+6. Run the full suite: `pytest`.
 
 Vocabulary changes are treated as breaking — minor bump on the package version. Don't drop or rename existing tags without a deprecation note.
 
@@ -30,8 +47,8 @@ Vocabulary changes are treated as breaking — minor bump on the package version
 - Python 3.10+. Type annotations on every public function. `from __future__ import annotations` at the top of every module.
 - No emojis in any committed file (including this one) unless the maintainer explicitly requests them.
 - No "made with AI" footers in commits, PRs, or generated artifacts.
-- `ruff` for lint and format (configured in `pyproject.toml`).
-- One concern per PR; commits should match the test suite shape — every commit's diff should leave the test suite green.
+- `ruff check .` for lint, `ruff format .` for format. Both configured in `pyproject.toml`.
+- One concern per PR; every commit's diff leaves the test suite passing.
 
 ## What's in scope
 

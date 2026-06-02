@@ -5,7 +5,7 @@ agent host (Claude Desktop, Cursor, Cline, Continue, custom frameworks) can
 invoke directly. Every tool returns a structured dict; agents parse the shape
 without scraping prose.
 
-Start it with the ``cascade-mj-mcp`` console script. Stdio transport by
+Start it with the ``cascade-mcp`` console script. Stdio transport by
 default — the convention for Claude Desktop and Cursor. Pass ``--http <port>``
 to run HTTP transport instead.
 

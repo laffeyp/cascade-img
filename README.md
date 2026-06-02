@@ -28,7 +28,7 @@ After installing the package and starting the bridge daemon (see below), ask you
 
 ```bash
 pip install cascade-img
-cp $(python -c "import cascade_img; print(cascade_img.__path__[0])")/backends/midjourney_discord/.env.example .env
+cp "$(python -c 'import cascade_img, pathlib; print(pathlib.Path(cascade_img.__path__[0]) / ".env.example")')" .env
 # Fill in DISCORD_USER_TOKEN, MJ_CHANNEL_ID, MJ_GUILD_ID, MJ_IMAGINE_VERSION
 # See OPERATIONS.md for the capture procedure.
 
