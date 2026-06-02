@@ -3,8 +3,9 @@
 Two algorithms share the same entry point:
 
 ``method="flood"`` (default) — flood-fills from the four corners using PIL's
-4-connected flood-fill with a per-channel tolerance threshold. Only pixels
-reachable from a corner by a path of color-similar neighbors are keyed.
+4-connected flood-fill: a pixel is keyed when its L1 colour distance from the
+corner seed is within ``tolerance``. Only pixels reachable from a corner by a
+path of colour-similar neighbours are keyed.
 Subject regions whose color is close to the background but are surrounded by
 a darker outline (a white penguin belly inside a black outline on a white
 background) stay opaque because the outline blocks the flood. This is the
@@ -107,32 +108,40 @@ def _alpha_key_threshold(rgba: Image.Image, tolerance: int) -> tuple[Image.Image
     return rgba, keyed
 
 
-def _flood_from_corners_bfs(rgb: Image.Image, tolerance: int) -> set[tuple[int, int]]:
-    """Pure-Python BFS flood-fill from the four corners.
+def _color_l1(a: tuple[int, ...], b: tuple[int, ...]) -> int:
+    """L1 (sum-of-absolute-per-channel) RGB distance — the same metric PIL's
+    ImageDraw.floodfill uses for its ``thresh`` comparison."""
+    return abs(a[0] - b[0]) + abs(a[1] - b[1]) + abs(a[2] - b[2])
 
-    Used as a fallback when PIL's ImageDraw.floodfill collides with the
-    sentinel (the source image already contains the sentinel color). Returns
-    the set of (x, y) coordinates classified as background.
-    """
+
+def _flood_from_corners_bfs(rgb: Image.Image, tolerance: int) -> set[tuple[int, int]]:
+    """Pure-Python flood-fill from the four corners, **matching PIL's
+    ImageDraw.floodfill semantics** so the fallback keys identically to the fast
+    path: from each corner's seed pixel, a 4-connected pixel joins the
+    background when its L1 colour distance from THAT seed is <= ``tolerance``.
+
+    Used only when the source already contains the flood sentinel colour (so the
+    sentinel-mark fast path would mis-classify). Returns the background coords.
+    Previously this compared each pixel to the corner-*average* with a
+    per-channel test — a different metric and anchor than the fast path, so the
+    same image keyed differently depending on which path ran (now fixed)."""
     w, h = rgb.size
     px = _pixels(rgb)
-    bg_r, bg_g, bg_b = _sample_bg(rgb.convert("RGBA"))
-    visited: set[tuple[int, int]] = set()
-    queue: deque[tuple[int, int]] = deque()
-    for xy in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
-        queue.append(xy)
-        visited.add(xy)
-    while queue:
-        x, y = queue.popleft()
-        r, g, b = px[x, y][:3]
-        if abs(r - bg_r) > tolerance or abs(g - bg_g) > tolerance or abs(b - bg_b) > tolerance:
-            visited.discard((x, y))
-            continue
-        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
-            if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in visited:
-                visited.add((nx, ny))
-                queue.append((nx, ny))
-    return visited
+    background: set[tuple[int, int]] = set()
+    for sx, sy in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
+        seed = px[sx, sy][:3]
+        enqueued = {(sx, sy)}
+        queue: deque[tuple[int, int]] = deque([(sx, sy)])
+        while queue:
+            x, y = queue.popleft()
+            if _color_l1(px[x, y][:3], seed) > tolerance:
+                continue  # a wall (outside tolerance of this seed) — not background
+            background.add((x, y))
+            for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in enqueued:
+                    enqueued.add((nx, ny))
+                    queue.append((nx, ny))
+    return background
 
 
 def _alpha_key_flood(rgba: Image.Image, tolerance: int) -> tuple[Image.Image, int]:
@@ -217,10 +226,12 @@ def alpha_key_corners(
 
     Args:
         img: PIL Image (any mode; converted to RGBA internally).
-        tolerance: Per-channel tolerance band around the sampled background.
-            For flood mode, the maximum per-channel step the flood will
-            tolerate between neighbors. For threshold mode, the global
-            distance from the corner-average color that counts as background.
+        tolerance: For flood mode, the maximum L1 colour distance (sum of the
+            per-channel absolute differences) a pixel may be from a corner's
+            seed colour to be flooded as background — PIL's connected
+            flood-fill, matched by the BFS fallback. For threshold mode, the
+            per-channel band around the corner-average color that counts as
+            background.
         method: ``"flood"`` (default; corner-anchored 4-connected flood-fill),
             ``"threshold"`` (global per-pixel distance check), or ``"rembg"``
             (ML background removal; needs the ``[ml]`` extra). ``tolerance`` is
