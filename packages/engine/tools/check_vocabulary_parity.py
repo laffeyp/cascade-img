@@ -8,7 +8,7 @@ Exits non-zero with a structured drift report on mismatch.
 
 Usage:
     python3 tools/check_vocabulary_parity.py
-    python3 tools/check_vocabulary_parity.py --vocab src/cascade_img/signals/versions/0.1.json
+    python3 tools/check_vocabulary_parity.py --vocab src/cascade_img/vocabulary/versions/0.1.json
 
 Run as part of the package's CI before every release. A drift is a defect
 on equal footing with a failing test — the daemon's contract is what it
@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser()
     p.add_argument(
         "--vocab",
-        default="src/cascade_img/signals/versions/0.1.json",
+        default="src/cascade_img/vocabulary/versions/0.1.json",
         help="path to the locked vocabulary JSON",
     )
     p.add_argument(

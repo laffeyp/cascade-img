@@ -1,21 +1,8 @@
-"""Signal-Driven Development instrumentation for cascade-img.
+"""Implementation of the vocabulary runtime.
 
-Port of ``sdd-kit-2/lib/sdd.py``. The kit's discipline says schema enforced at
-the speaker's mouth (per ``grammar/PRINCIPLES.md`` commitment 2): unknown tags
-raise, missing required payload fields raise. The vocabulary is the contract;
-emit() validates against it.
-
-Loaded once at import: the package-bundled ``signals/versions/0.1.json`` is
-parsed into a :class:`SignalVocabulary`. The module-level :func:`emit`,
-:func:`snapshot`, :func:`clear`, :func:`flush_to_file`, :func:`assert_signal`,
-:func:`assert_no_signal`, and :func:`format_for_ai` operate against the
-default emitter.
-
-The strict-validation default may be relaxed in production by setting
-``CASCADE_STRICT_SIGNALS=false`` in the environment — useful when a drift
-makes its way to a deployed daemon and you want it to keep running while the
-vocabulary catches up. Drift is still a defect; the env var is a release
-valve, not a permission slip.
+The public surface is re-exported from :mod:`cascade_img.vocabulary`; this
+module exists so the package directory can also hold the versioned JSON
+under ``versions/``. Consumers should not import from here directly.
 """
 
 from __future__ import annotations
@@ -35,16 +22,10 @@ from typing import Any
 VOCAB_VERSION = "0.1"
 
 
-# ---------------------------------------------------------------------------
-# Vocabulary
-# ---------------------------------------------------------------------------
+class Vocabulary:
+    """The set of tags the program is allowed to emit.
 
-
-class SignalVocabulary:
-    """The stable, typed API of things cascade-img can say.
-
-    Loaded from the locked JSON at ``cascade_img/signals/versions/0.1.json``.
-    Schema shape matches the kit's:
+    Loaded from ``cascade_img/vocabulary/versions/0.1.json``. Schema:
 
         {
           "vocabulary_version": "0.1",
@@ -68,31 +49,29 @@ class SignalVocabulary:
         }
 
     @classmethod
-    def from_package_data(cls) -> SignalVocabulary:
+    def from_package_data(cls) -> Vocabulary:
         """Load the vocabulary bundled inside the cascade_img package."""
-        ref = files("cascade_img.signals.versions") / "0.1.json"
+        ref = files("cascade_img.vocabulary.versions") / "0.1.json"
         with ref.open("r", encoding="utf-8") as f:
             return cls(json.load(f))
 
     @classmethod
-    def from_path(cls, path: Path | str) -> SignalVocabulary:
+    def from_path(cls, path: Path | str) -> Vocabulary:
         return cls(json.loads(Path(path).read_text(encoding="utf-8")))
 
     def validate(self, tag: str, payload: dict[str, Any]) -> None:
-        """Raise on unknown tag or missing required field."""
+        """Raise on unknown tag or missing required payload field."""
         spec = self._tag_index.get(tag)
         if spec is None:
             raise ValueError(
-                f"Unknown signal tag '{tag}'. Define it in signals/versions/"
-                f"{self.version}.json before emitting, or extend the "
-                f"vocabulary via the supervised-grammar-evolution proposal "
-                f"taxonomy in sdd-kit-2/grammar/PRINCIPLES.md."
+                f"Unknown event tag {tag!r}. Add it to "
+                f"vocabulary/versions/{self.version}.json before emitting."
             )
         required = spec.get("payload", []) or []
         missing = [f for f in required if f not in payload]
         if missing:
             raise ValueError(
-                f"Signal '{tag}' missing required payload fields: {missing}. "
+                f"Event {tag!r} missing required payload fields: {missing}. "
                 f"Required by vocabulary: {required}"
             )
 
@@ -106,19 +85,16 @@ class SignalVocabulary:
         return list(self._tag_index.keys())
 
 
-# ---------------------------------------------------------------------------
-# Signal record
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class Signal:
+    """One emitted record."""
+
     tag: str
     category: str
     stratum: str
     payload: dict[str, Any]
     t: float  # seconds since session start (time.monotonic delta)
-    wall_ts: float = field(default_factory=time.time)  # wall-clock for JSONL
+    wall_ts: float = field(default_factory=time.time)  # wall-clock timestamp
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -132,17 +108,12 @@ class Signal:
         }
 
 
-# ---------------------------------------------------------------------------
-# Emitter
-# ---------------------------------------------------------------------------
-
-
-class SignalEmitter:
+class Emitter:
     """Validates against the vocabulary at emit time. Thread-safe."""
 
     def __init__(
         self,
-        vocabulary: SignalVocabulary,
+        vocabulary: Vocabulary,
         max_buffer: int = 5000,
         strict: bool = True,
     ):
@@ -155,7 +126,6 @@ class SignalEmitter:
     def emit(self, tag: str, **payload: Any) -> Signal:
         if self.strict:
             self._vocab.validate(tag, payload)
-        # In non-strict mode, unknown tag still gets a default category.
         try:
             cat = self._vocab.category_of(tag)
             stratum = self._vocab.stratum_of(tag)
@@ -193,16 +163,13 @@ class SignalEmitter:
         return len(records)
 
     def format_for_ai(self, context: str = "") -> str:
-        """Compact human/LLM-readable digest of the buffer, grouped by
-        category. Matches the kit reference's ``format_for_ai`` shape so
-        captures from cascade-img look like captures from any kit-conformant
-        project."""
+        """Compact text digest of the buffer, grouped by category."""
         records = self.snapshot()
-        lines: list[str] = ["## Signal Capture"]
+        lines: list[str] = ["## Event Capture"]
         if context:
             lines.append(f"Context: {context}")
         lines.append(f"Vocabulary: {self._vocab.version}")
-        lines.append(f"Total signals: {len(records)}")
+        lines.append(f"Total events: {len(records)}")
         lines.append("")
         by_cat: dict[str, list[Signal]] = {}
         for s in records:
@@ -216,15 +183,16 @@ class SignalEmitter:
         return "\n".join(lines)
 
     def assert_signal(self, tag: str, **partial_payload: Any) -> Signal:
-        """Test primitive (kit Section 1 technique #38). Returns the first
-        matching record, raises AssertionError if none."""
+        """Return the first record matching ``tag`` (and any partial payload
+        keys/values). Raise :class:`AssertionError` if none match."""
         for s in self.snapshot():
             if s.tag != tag:
                 continue
             if all(s.payload.get(k) == v for k, v in partial_payload.items()):
                 return s
         raise AssertionError(
-            f"expected signal {tag!r}{(' with ' + str(partial_payload)) if partial_payload else ''}; "
+            f"expected event {tag!r}"
+            f"{(' with ' + str(partial_payload)) if partial_payload else ''}; "
             f"got tags: {[s.tag for s in self.snapshot()]}"
         )
 
@@ -232,21 +200,18 @@ class SignalEmitter:
         for s in self.snapshot():
             if s.tag == tag:
                 raise AssertionError(
-                    f"expected no {tag!r} but found one at t={s.t:.3f} payload={s.payload}"
+                    f"expected no {tag!r} but found one at t={s.t:.3f} "
+                    f"payload={s.payload}"
                 )
 
 
-# ---------------------------------------------------------------------------
-# Module-level default emitter
-# ---------------------------------------------------------------------------
-
 _STRICT = os.environ.get("CASCADE_STRICT_SIGNALS", "true").lower() not in ("0", "false", "no")
-_VOCAB = SignalVocabulary.from_package_data()
-_EMITTER = SignalEmitter(_VOCAB, strict=_STRICT)
+_VOCAB = Vocabulary.from_package_data()
+_EMITTER = Emitter(_VOCAB, strict=_STRICT)
 
 
 def emit(tag: str, **payload: Any) -> dict[str, Any]:
-    """Append a signal to the in-process buffer; return its dict form."""
+    """Append an event to the in-process buffer; return its dict form."""
     return _EMITTER.emit(tag, **payload).to_dict()
 
 
@@ -274,26 +239,14 @@ def assert_no_signal(tag: str) -> None:
     _EMITTER.assert_no_signal(tag)
 
 
-def vocabulary() -> SignalVocabulary:
+def vocabulary() -> Vocabulary:
     return _VOCAB
 
 
 @contextmanager
-def capture(context: str = "") -> Iterator[SignalEmitter]:
-    """Context manager for a bounded signal session.
-
-    Clears the buffer **at enter only** (so the captured slice begins at the
-    with-block start). The buffer is intentionally left intact at exit so the
-    caller can inspect, assert against, or `format_for_ai()` the captured
-    records after the block. Re-entering :func:`capture` clears the prior
-    capture's records.
-
-    Yields the module-level emitter so callers can format/assert against it
-    without referencing the singleton directly.
-    """
+def capture(context: str = "") -> Iterator[Emitter]:
+    """Context manager that clears the buffer on enter and leaves it intact
+    on exit, so callers can inspect, assert, or :func:`format_for_ai` the
+    captured slice after the with-block."""
     clear()
-    try:
-        yield _EMITTER
-    finally:
-        # Buffer left intact at exit — see docstring.
-        pass
+    yield _EMITTER

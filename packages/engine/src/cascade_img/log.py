@@ -33,7 +33,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
-from cascade_img.instrumentation.sdd import emit
+from cascade_img.vocabulary import emit
 
 
 class AgentDecision(str, Enum):

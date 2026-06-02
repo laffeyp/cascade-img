@@ -18,7 +18,7 @@ import pytest
 
 from cascade_img.cli.mj import run
 from cascade_img.cli.registry import AssetEntry, load_registry
-from cascade_img.instrumentation.sdd import clear, snapshot
+from cascade_img.vocabulary import clear, snapshot
 
 REGISTRY_BIRD = {
     "bird": {

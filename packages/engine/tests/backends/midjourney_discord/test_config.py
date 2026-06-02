@@ -18,7 +18,7 @@ from __future__ import annotations
 import pytest
 
 from cascade_img.backends.midjourney_discord.bridge import Config, MissingEnvError
-from cascade_img.instrumentation.sdd import clear, snapshot
+from cascade_img.vocabulary import clear, snapshot
 
 VALID_ENV = {
     "DISCORD_USER_TOKEN": "MTU.fake.token",

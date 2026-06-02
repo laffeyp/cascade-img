@@ -20,7 +20,7 @@ from __future__ import annotations
 import requests
 
 from cascade_img.backends.base import BackendCapabilities, ImageGenerationBackend
-from cascade_img.instrumentation.sdd import emit
+from cascade_img.vocabulary import emit
 
 MIDJOURNEY_DISCORD_CAPABILITIES = BackendCapabilities(
     facets=["moodboard", "sref", "oref", "ow", "style_raw", "stylize"],

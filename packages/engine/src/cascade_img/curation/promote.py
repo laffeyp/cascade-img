@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from cascade_img.instrumentation.sdd import emit
+from cascade_img.vocabulary import emit
 
 
 def promote(src: str | Path, dest: str | Path) -> Path:

@@ -11,7 +11,7 @@ to run HTTP transport instead.
 
 Every tool call emits ``MCP_TOOL_CALLED`` (before) and ``MCP_TOOL_COMPLETED``
 or ``MCP_TOOL_FAILED`` (after). The locked vocabulary in
-``signals/versions/0.1.json`` is the contract.
+``vocabulary/versions/0.1.json`` is the contract.
 """
 
 from __future__ import annotations
@@ -40,8 +40,8 @@ from cascade_img.curation import (
 from cascade_img.curation import (
     promote as curation_promote,
 )
-from cascade_img.instrumentation.sdd import emit
 from cascade_img.log import PromptLog
+from cascade_img.vocabulary import emit
 
 # ---------------------------------------------------------------------------
 # Module-level state
@@ -75,9 +75,8 @@ async def _run_tool(name: str, fn, **kwargs) -> dict[str, Any]:
         if _is_coro(fn):
             result = await fn(**kwargs)
         else:
-            # Sync callable — run on a worker thread so the asyncio loop
-            # stays responsive for concurrent tool calls. Matches the
-            # backend's synchronous-by-design contract (Sprint 008).
+            # Sync callable: run on a worker thread so the asyncio loop stays
+            # responsive while concurrent tool calls execute.
             import asyncio as _asyncio
             result = await _asyncio.to_thread(lambda: fn(**kwargs))
         emit(

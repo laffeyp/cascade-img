@@ -39,8 +39,8 @@ from cascade_img.composer import (
     StyleStack,
     Subject,
 )
-from cascade_img.instrumentation.sdd import emit
 from cascade_img.log import PromptLog
+from cascade_img.vocabulary import emit
 
 
 def _compose(entry: AssetEntry) -> str:
@@ -134,7 +134,7 @@ async def run(
 
     job_id = submitted["job_id"]
 
-    # Pick a timeout band based on upscale mode (matches Sprint 4.0 calibration).
+    # Calibrated upper bounds: grid 180s, single upscale 360s, all four 600s.
     timeout = 600 if upscale == "all" else (360 if upscale in {"1", "2", "3", "4"} else 180)
 
     try:

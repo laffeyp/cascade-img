@@ -1,18 +1,11 @@
-"""Curation utilities for MJ grid outputs.
+"""Curation utilities for Midjourney grid outputs.
 
-Three independently usable functions:
-
-* :func:`crop_quadrant` — pull one of the four 2x2 grid panels out as a
-  standalone image. ``quadrant=0`` returns the whole image (for the
-  ``--upscale 1`` path that bypasses the grid).
-* :func:`alpha_key_corners` — four-corner-average background detection and
-  alpha-keying. The practical fix for MJ ignoring "transparent background"
-  about half the time on sprite-style art.
-* :func:`promote` — move a curated winner from a staging path into the
-  consumer's asset tree.
-
-The library is project-agnostic. Katybird's ``PROMOTION`` and ``ALPHA_KEY``
-maps live in ``examples/katybird/curation_config.py``, not here.
+* :func:`crop_quadrant` extracts one of the four 2x2 grid panels.
+  ``quadrant=0`` returns the whole image (used for the ``--upscale 1`` path
+  that bypasses the grid).
+* :func:`alpha_key_corners` performs four-corner-average background
+  detection and alpha-keying for sprite-style outputs.
+* :func:`promote` copies a curated image into the consumer's asset tree.
 """
 
 from cascade_img.curation.alpha_key import DEFAULT_TOLERANCE, alpha_key_corners

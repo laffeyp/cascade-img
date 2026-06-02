@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from cascade_img.instrumentation.sdd import (
-    SignalEmitter,
+from cascade_img.vocabulary import (
+    Emitter,
     assert_no_signal,
     assert_signal,
     clear,
@@ -31,7 +31,7 @@ def test_vocabulary_loads_from_package_data():
 
 def test_unknown_tag_raises_at_emit():
     clear()
-    with pytest.raises(ValueError, match="Unknown signal tag 'NOT_A_REAL_TAG'"):
+    with pytest.raises(ValueError, match="Unknown event tag 'NOT_A_REAL_TAG'"):
         emit("NOT_A_REAL_TAG", asset_id="x")
 
 
@@ -60,7 +60,7 @@ def test_assert_signal_partial_payload_match():
 
 def test_assert_signal_raises_when_missing():
     clear()
-    with pytest.raises(AssertionError, match="expected signal 'CASCADE_INIT'"):
+    with pytest.raises(AssertionError, match="expected event 'CASCADE_INIT'"):
         assert_signal("CASCADE_INIT")
 
 
@@ -82,7 +82,7 @@ def test_format_for_ai_groups_by_category():
     emit("CASCADE_INIT", package_version="0.1.0a1", backend="midjourney_discord")
     emit("CONFIG_VALIDATED", port=5000, output_dir="/tmp", has_guild_id=False)
     out = format_for_ai(context="QA: boot sequence")
-    assert "## Signal Capture" in out
+    assert "## Event Capture" in out
     assert "Context: QA: boot sequence" in out
     assert "Vocabulary: 0.1" in out
     assert "### session" in out  # CASCADE_INIT's category
@@ -94,7 +94,7 @@ def test_format_for_ai_groups_by_category():
 def test_strict_mode_can_be_disabled_per_emitter():
     """An emitter with strict=False does not raise on unknown tags."""
     v = vocabulary()
-    e = SignalEmitter(v, strict=False)
+    e = Emitter(v, strict=False)
     sig = e.emit("NOT_A_REAL_TAG", x=1)
     assert sig.tag == "NOT_A_REAL_TAG"
     assert sig.category == "unknown"

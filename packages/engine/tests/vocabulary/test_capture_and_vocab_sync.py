@@ -5,7 +5,7 @@ Both items surfaced in the 2026-06-02 external review:
 
 * ``capture()`` was exported from sdd.py but had no test (reviewer-flagged).
 * ``signals/0.1.json`` at project root must remain identical to the
-  package-bundled ``packages/engine/src/cascade_img/signals/versions/0.1.json``
+  package-bundled ``packages/engine/src/cascade_img/vocabulary/versions/0.1.json``
   (the runtime canonical). A divergence test catches drift before it ships.
 """
 
@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from cascade_img.instrumentation.sdd import (
+from cascade_img.vocabulary import (
     capture,
     emit,
     snapshot,
@@ -69,24 +69,19 @@ def test_capture_with_context_in_format_for_ai():
 
 
 def test_root_and_package_vocab_files_are_identical():
-    """Per WORKING_AGREEMENT.md vocabulary discipline: the project-root
-    ``signals/0.1.json`` is kept identical to the package-data copy at
-    ``packages/engine/src/cascade_img/signals/versions/0.1.json``. The
-    runtime and the parity tool both read the package copy; the root copy
-    is the kit-conformant canonical and must not silently diverge.
+    """The project-root ``vocabulary/0.1.json`` must match the package-data
+    copy at ``packages/engine/src/cascade_img/vocabulary/versions/0.1.json``.
     """
-    # Walk up from this test file to the repo root.
-    # tests/instrumentation/<this> -> tests/ -> packages/engine/
-    pkg_root = Path(__file__).resolve().parents[2]            # packages/engine/
-    repo_root = pkg_root.parents[1]                           # cascade-img/
-    root_vocab = repo_root / "signals" / "0.1.json"
-    pkg_vocab = pkg_root / "src" / "cascade_img" / "signals" / "versions" / "0.1.json"
+    # tests/vocabulary/<this> -> tests/ -> packages/engine/
+    pkg_root = Path(__file__).resolve().parents[2]
+    repo_root = pkg_root.parents[1]
+    root_vocab = repo_root / "vocabulary" / "0.1.json"
+    pkg_vocab = pkg_root / "src" / "cascade_img" / "vocabulary" / "versions" / "0.1.json"
     if not root_vocab.exists():
         pytest.skip(
-            "Project-root signals/0.1.json not present in this checkout "
-            "(typical when running the test against an installed wheel)."
+            "Project-root vocabulary/0.1.json not present (typical when running "
+            "against an installed wheel)."
         )
     assert json.loads(root_vocab.read_text()) == json.loads(pkg_vocab.read_text()), (
-        "signals/0.1.json at project root has diverged from the package-data "
-        "copy. Re-sync per WORKING_AGREEMENT.md vocabulary discipline."
+        "vocabulary/0.1.json at project root has diverged from the package-data copy."
     )

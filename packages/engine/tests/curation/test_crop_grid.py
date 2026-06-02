@@ -8,7 +8,7 @@ import pytest
 from PIL import Image
 
 from cascade_img.curation import crop_quadrant
-from cascade_img.instrumentation.sdd import clear, snapshot
+from cascade_img.vocabulary import clear, snapshot
 
 
 def _make_quadranted_grid(tmp_path: Path) -> Path:

@@ -16,7 +16,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from cascade_img.instrumentation.sdd import emit
+from cascade_img.vocabulary import emit
 
 # MJ grid layout (top-left origin). Each tuple is (column_fraction, row_fraction).
 QUADRANT_OFFSETS: dict[int, tuple[int, int]] = {
