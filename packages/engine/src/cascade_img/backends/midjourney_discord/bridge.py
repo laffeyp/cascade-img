@@ -238,6 +238,26 @@ class Status(str, Enum):
     FAILED = "failed"
 
 
+_NO_CLAUSE_RE = re.compile(r"--no\s+(.+?)\s*$")
+
+
+def _merge_no_clause(prompt: str, token: str) -> str:
+    """Weave the per-job routing needle into the prompt's ``--no`` clause.
+
+    The bridge routes MJ's echoed messages by finding ``cscidnocollide{token}``
+    as a substring. If the composed prompt already ends with a user ``--no``
+    clause (a negative prompt), append the needle to that one clause — MJ wants
+    a single comma-separated ``--no`` list, and a second ``--no`` would break
+    its parsing. Otherwise add a fresh trailing ``--no`` clause. Either way the
+    needle appears verbatim, so the matchers are unaffected.
+    """
+    needle = f"cscidnocollide{token}"
+    m = _NO_CLAUSE_RE.search(prompt)
+    if m:
+        return f"{prompt[:m.start()]}--no {m.group(1)}, {needle}"
+    return f"{prompt} --no {needle}"
+
+
 @dataclass
 class Job:
     job_id: str
@@ -279,7 +299,7 @@ class Job:
         """Outbound prompt with a per-job token MJ echoes back, used by
         :func:`_match_grid` to route MJ's messages without prefix collisions.
         """
-        return f"{self.prompt} --no cscidnocollide{self.request_token}"
+        return _merge_no_clause(self.prompt, self.request_token)
 
     def touch(self) -> None:
         self.updated_at = time.time()

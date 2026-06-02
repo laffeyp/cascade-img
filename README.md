@@ -171,6 +171,8 @@ not documentation.
 | v0.4 | Imagen, Ideogram, Recraft backends |
 | v1.0 | API stable across two minor releases, three backends in production |
 
+Because every backend implements one interface, a later release can chain them: generate on one provider, refine or instruction-edit on a second (e.g. Flux Kontext), then upscale or restyle on a third — passing each image as the next step's input. cascade-img becomes the relay that moves an image between providers, using each for what it does best.
+
 The HTTP contract between the bridge and the client is the main seam between the two packages; changes there are coordinated across both.
 
 ## License

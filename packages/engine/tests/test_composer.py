@@ -6,8 +6,11 @@ the consumer can build, plus the signal payload on each.
 
 from __future__ import annotations
 
+import pytest
+
 from cascade_img.composer import (
     IdentityStack,
+    ParamStack,
     PromptComposer,
     StyleStack,
     Subject,
@@ -103,3 +106,78 @@ def test_subject_rejects_empty_text():
         Subject(text="   \t  ")
     with _pytest.raises(ValueError, match="non-empty description"):
         Subject(text="\n")
+
+
+def test_negatives_emit_single_no_clause():
+    clear()
+    p = PromptComposer().compose(
+        Subject(text="a finch", negatives=["text", "watermark", "human hands"])
+    )
+    # One --no clause, comma-joined, and it is the final flag (the bridge's
+    # routing-token merge depends on --no being last).
+    assert p.count("--no") == 1
+    assert p.rstrip().endswith("--no text, watermark, human hands")
+    rec = snapshot()[-1]
+    assert rec["tag"] == "PROMPT_COMPOSED"
+    assert "negatives" in rec["payload"]["prompt_parts_used"]
+
+
+def test_param_stack_flags_and_signal():
+    clear()
+    p = PromptComposer().compose(
+        Subject(text="x"),
+        params=ParamStack(tile=True, chaos=50, weird=250, stop=80, quality=2, seed=12345),
+    )
+    for frag in ["--tile", "--chaos 50", "--weird 250", "--stop 80", "--q 2", "--seed 12345"]:
+        assert frag in p
+    used = set(snapshot()[-1]["payload"]["prompt_parts_used"])
+    assert {"tile", "chaos", "weird", "stop", "quality", "seed"} <= used
+
+
+def test_param_stack_validates_ranges_at_construction():
+    for kw in (
+        {"chaos": 150}, {"chaos": -1}, {"weird": 3001}, {"stop": 5},
+        {"stop": 101}, {"quality": 3}, {"seed": 4294967296},
+    ):
+        with pytest.raises(ValueError):
+            ParamStack(**kw)
+    # boundaries accepted
+    ParamStack(chaos=0)
+    ParamStack(chaos=100)
+    ParamStack(weird=3000)
+    ParamStack(stop=10)
+    ParamStack(quality=4)
+    ParamStack(seed=0)
+    ParamStack(seed=4294967295)
+
+
+def test_image_prompts_lead_prompt_with_iw():
+    clear()
+    p = PromptComposer().compose(
+        Subject(
+            text="a finch",
+            image_prompts=["https://cdn/ref1.png", "https://cdn/ref2.png"],
+            image_weight=2.0,
+        )
+    )
+    assert p.startswith("https://cdn/ref1.png https://cdn/ref2.png a finch")
+    assert "--iw 2.0" in p
+    used = set(snapshot()[-1]["payload"]["prompt_parts_used"])
+    assert {"image_prompt", "image_weight"} <= used
+
+
+def test_image_weight_requires_image_prompts_and_range():
+    with pytest.raises(ValueError, match="image_weight"):
+        Subject(text="x", image_weight=1.5)  # no image_prompts
+    with pytest.raises(ValueError, match="0-3"):
+        Subject(text="x", image_prompts=["https://cdn/a.png"], image_weight=4.0)
+
+
+def test_multi_part_prompt_keeps_no_clause_last():
+    clear()
+    p = PromptComposer().compose(
+        Subject(text="a finch", negatives=["text"]),
+        style=StyleStack(moodboard="m1", stylize=50),
+        params=ParamStack(chaos=10, seed=7),
+    )
+    assert p.rstrip().endswith("--no text")
