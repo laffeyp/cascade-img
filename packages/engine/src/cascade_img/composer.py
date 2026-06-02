@@ -29,16 +29,16 @@ class Subject:
 
 @dataclass
 class StyleStack:
-    """Style facets. None values are omitted from the prompt.
+    """Style parts. None values are omitted from the prompt.
 
-    - ``moodboard`` is MJ's ``--p`` personalization profile code (e.g.
-      ``m7458053701014388751``). Pass the code only, without the leading ``m``
-      if MJ requires it stripped, or with — the composer doesn't enforce a
-      prefix convention.
-    - ``sref`` is MJ's ``--sref`` style-reference URL or integer code.
-    - ``stylize`` is MJ's ``--s`` (0-1000); default 100 if omitted in MJ.
-    - ``style_raw`` toggles the ``--style raw`` flag that suppresses MJ's
-      default opinion injection; True for cascade-img's locked-style use case.
+    - ``moodboard`` is Midjourney's ``--p`` personalization profile code
+      (e.g. ``m7458053701014388751``). The composer doesn't enforce a
+      prefix convention; pass the code as-is.
+    - ``sref`` is Midjourney's ``--sref`` style-reference URL or integer code.
+    - ``stylize`` is Midjourney's ``--s`` value. Midjourney accepts 0-1000;
+      validated at construction. Default 100 if omitted at Midjourney's end.
+    - ``style_raw`` toggles the ``--style raw`` flag that suppresses
+      Midjourney's default opinion injection.
     """
 
     moodboard: str | None = None
@@ -46,17 +46,31 @@ class StyleStack:
     stylize: int | None = None
     style_raw: bool = True
 
+    def __post_init__(self) -> None:
+        if self.stylize is not None and not 0 <= self.stylize <= 1000:
+            raise ValueError(
+                f"StyleStack.stylize must be 0-1000 per Midjourney's --s "
+                f"range; got {self.stylize!r}."
+            )
+
 
 @dataclass
 class IdentityStack:
-    """Omni-reference identity lock (V7's ``--oref``/``--ow``).
+    """Omni-reference identity lock (Midjourney v7's ``--oref``/``--ow``).
 
-    ``ow`` is omni-weight (0-1000). 100 is loose, 400 is tight identity
-    match, 1000 is maximum.
+    ``ow`` is omni-weight. Midjourney accepts 0-1000; validated at
+    construction. 100 is loose, higher values tighten the identity match.
     """
 
     oref: str | None = None
     ow: int = 100
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.ow <= 1000:
+            raise ValueError(
+                f"IdentityStack.ow must be 0-1000 per Midjourney's --ow "
+                f"range; got {self.ow!r}."
+            )
 
 
 class PromptComposer:

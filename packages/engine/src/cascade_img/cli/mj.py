@@ -116,8 +116,13 @@ async def run(
 
     backend = MidjourneyDiscordBackend(base_url=bridge_url)
 
+    # MidjourneyDiscordBackend methods are synchronous (they call requests
+    # directly); dispatch via to_thread so the async CLI doesn't block its
+    # event loop on the HTTP call and so a missing await doesn't TypeError.
     try:
-        submitted = await backend.imagine(prompt, asset_id, upscale)
+        submitted = await asyncio.to_thread(
+            backend.imagine, prompt, asset_id, upscale
+        )
     except Exception as e:
         emit("CLI_ROLL_FAILED", asset_id=asset_id, error_code=type(e).__name__,
              error_message=str(e))
@@ -138,7 +143,7 @@ async def run(
     timeout = 600 if upscale == "all" else (360 if upscale in {"1", "2", "3", "4"} else 180)
 
     try:
-        result = await backend.wait(job_id, timeout=timeout)
+        result = await asyncio.to_thread(backend.wait, job_id, timeout)
     except Exception as e:
         emit("CLI_ROLL_FAILED", asset_id=asset_id, error_code=type(e).__name__,
              error_message=str(e))

@@ -57,7 +57,7 @@ Drop a `.env` file in the working directory of `cascade-mj-bridge`. Required:
 |---|---|
 | `DISCORD_USER_TOKEN` | DevTools → Console → run the iframe localStorage snippet below. 70 chars, starts with `MTU`, `MTk`, `OD`, or `Nz`. |
 | `MJ_CHANNEL_ID` | Discord Settings → Advanced → Developer Mode ON. Right-click your MJ channel → Copy Channel ID. |
-| `MJ_GUILD_ID` | Same trick — right-click the server icon → Copy Server ID. **Required when the MJ channel lives in a guild** (see Failure mode #2). |
+| `MJ_GUILD_ID` | Same trick — right-click the server icon → Copy Server ID. **Required when the MJ channel lives in a guild**; without it the Discord Interactions API treats the call as a DM and returns `400 Unknown Channel`. |
 | `MJ_IMAGINE_VERSION` | Desktop Discord DevTools → Network. Fire `/imagine <any prompt>` in MJ channel. Find `POST /api/v9/interactions` → Payload → `data.version`. 19-digit number. Re-capture whenever MJ updates the slash command. |
 | `MJ_IMAGINE_COMMAND_ID` | Same capture, `data.id`. The default `938956540159881230` is usually stable; only re-capture if you get 404s. |
 
@@ -80,7 +80,7 @@ Before starting the daemon, run the pre-flight to surface any missing-config tra
 cascade-mj-bridge --check-env --pretty
 ```
 
-Returns `{"ok": true, "config": {...}}` on success or `{"ok": false, "error": {"code": "...", "message": "...", "remediation": "..."}}` on a missing/bad var. The `MJ_GUILD_ID` trap surfaces here as `MISSING_GUILD_ID` rather than as an unrecoverable Discord 400 at first `/imagine`.
+Returns `{"ok": true, "config": {...}}` on success or `{"ok": false, "error": {"code": "...", "message": "...", "remediation": "..."}}` on a missing/bad var. `MJ_GUILD_ID` is optional at the bridge's config layer; the failure mode if you skip it for a guild-bound channel surfaces at the first `/imagine` as `DISCORD_400_UNKNOWN_CHANNEL`.
 
 For the full pre-flight ladder (env + Discord reachability + MCP server importable + discord.py-self importable):
 
@@ -208,13 +208,13 @@ Every failure surfaces as a stable error code through both the bridge's structur
 
 Required env var not set. Run `cascade-mj-bridge --check-env` for the per-var report. Each carries a `remediation` pointing at the relevant capture step.
 
-### `MISSING_GUILD_ID` → would be `DISCORD_400_UNKNOWN_CHANNEL`
+### `DISCORD_400_UNKNOWN_CHANNEL`
 
-Sprint 4.0 trap. When the MJ channel lives in a guild, `MJ_GUILD_ID` must be set. Without it, Discord treats the interaction as a DM and returns `400 Unknown Channel, code 10003`. The pre-flight surfaces this before the daemon starts; if you get the Discord 400 at runtime, capture the guild ID per setup §4 and restart.
+The MJ channel lives in a guild but `MJ_GUILD_ID` is not set. Discord's Interactions API treats the call as a DM and returns `400 Unknown Channel, code 10003`. Capture the guild ID (see the env table in the setup section) and restart the bridge.
 
 ### `DISCORD_400_OUTDATED`
 
-MJ pushed a new slash command version. Re-capture `MJ_IMAGINE_VERSION` from desktop DevTools (setup §4) and restart the bridge. This isn't a bug — it's the cost of riding the slash-command API.
+Midjourney pushed a new slash-command version. Re-capture `MJ_IMAGINE_VERSION` from the Discord desktop DevTools and restart the bridge. This isn't a bug. It's the cost of depending on an unofficial slash command that Midjourney can change without notice.
 
 ### `DISCORD_401`
 
@@ -230,17 +230,18 @@ Grid arrived but no U1-U4 buttons. Either MJ moderated the grid (check the chann
 
 ### Job sits at `submitted` forever
 
-The MJ message never matched the bridge's prompt-substring expectation. Either:
-- MJ moderated the prompt — check the channel manually for a different MJ response.
-- Your prompt leads with characters that broke the substring matcher. Reword the leading 2–3 words to be more conventional.
+The bridge fired the Discord interaction but never received a matching MJ message in the channel. Likely causes:
 
-### Two jobs swapped
+- Midjourney moderated the prompt. Open the MJ channel in Discord; if MJ posted a moderation message instead of a grid, the prompt needs editing.
+- The bridge lost track of the routing token. Each job tags its outbound prompt with `--no cscidnocollide<token>`, a token Midjourney echoes verbatim in its grid messages. If a Discord disconnect dropped the message that carried the echo, the bridge can't match it; check the bridge log for `DISCORD_DISCONNECTED` events around the time the job was submitted.
 
-Bridge matches FIFO. Two identical leading prompts fired back-to-back can swap. Include a unique disambiguator in the leading subject (the bridge looks at the prompt's prefix only).
+### Two concurrent jobs not swapped
 
-### MJ V7 grid never matched
+The bridge routes Midjourney's messages back to jobs using a per-job token appended to the outbound prompt as `--no cscidnocollide<token>` — not by prefix or substring match. Two jobs with identical leading prompts fired back-to-back are kept distinct because each carries its own token. If you do see two jobs receive each other's grids, file a bug with the bridge log; the routing is supposed to be collision-resistant.
 
-The Sprint 4.0 patch addresses this — MJ V7 posts the final grid as a separate new message rather than editing the original. The bridge's `_match_grid` has a fallback path that catches in-progress jobs without a grid_path yet. The path that fired is surfaced in the `GRID_MATCHED` signal as `match_path = "progress_fallback"`.
+### Midjourney V7 grid posted as a new message
+
+Midjourney v7 sometimes posts the final grid as a separate new message rather than editing the original "(Waiting to start)" placeholder. The bridge's `_match_grid` has a second-pass fallback that matches in-progress jobs without a `grid_path` yet against any new message carrying the job's routing token. The `GRID_MATCHED` event records which pass fired as `match_path = "progress_fallback"` (the v7 new-message path) or `"pending"` (the v6-style edit path).
 
 ### Bridge restarted mid-job
 
@@ -266,7 +267,7 @@ Two concurrent jobs shared an `asset_id`. The bridge detects the existing artifa
 
 ## Sprite-style language to fight photoreal drift
 
-Sref + moodboard alone isn't enough on small natural objects (feathers, scratch marks, keepsakes). MJ falls back to photorealism even with `--style raw`. Bake the aesthetic into every subject explicitly:
+A style reference + moodboard alone isn't enough on small natural objects (feathers, scratch marks, keepsakes). Midjourney falls back to photorealism even with `--style raw`. Bake the aesthetic into every subject explicitly:
 
 ```
 pixel-art sprite of <SUBJECT>, <COMPOSITION HINTS>, low-resolution 2D game sprite,
@@ -274,15 +275,15 @@ limited palette, handmade restrained sprite art, readable silhouette, centered,
 transparent background
 ```
 
-The redundant aesthetic phrases (pixel-art / low-resolution / limited palette / handmade / readable silhouette) are intentional — MJ weights repeated concepts higher, and the sref alone needs reinforcement on small subjects. The `PromptComposer` folds `Subject.constraints` into the subject text so this idiom is one-liner.
+The redundant aesthetic phrases (pixel-art / low-resolution / limited palette / handmade / readable silhouette) are intentional. Midjourney weights repeated concepts higher, and a style reference alone needs reinforcement on small subjects. The `PromptComposer` folds `Subject.constraints` into the subject text so this idiom is one-liner.
 
-If subject + sref + moodboard still drifts photoreal, bump sref weight (`--sref <url>::2` or `::3`) and/or reduce stylize (`stylize=50`) to constrain MJ's prettifier.
+If subject + sref + moodboard still drifts photoreal, raise the sref weight (`--sref <url>::2` or `::3`) and reduce `stylize` (e.g. `stylize=50`) to constrain Midjourney's prettifier.
 
 ---
 
 ## Identity-locked variants (V7 `--oref`)
 
-When the goal is "same character, different pose/wings/expression", `--oref` is V7's identity lock. Replaces V6's `--cref` (which is **not compatible with `--v 7`** — silently dropped).
+When the goal is "same character, different pose/wings/expression", `--oref` is Midjourney v7's identity lock. It replaces v6's `--cref`, which is **not compatible with `--v 7`** (silently dropped if you pass it).
 
 ```python
 IdentityStack(oref="https://cdn.discord.com/.../bird.png", ow=400)
@@ -365,7 +366,8 @@ Failures carry a stable `error_code` and a `remediation` string. Codes the agent
 | code | recovery |
 |---|---|
 | `DISCORD_400_OUTDATED` | escalate to human — `MJ_IMAGINE_VERSION` needs re-capture |
-| `MISSING_GUILD_ID` / `MISSING_*` | escalate to human — one-time setup gap |
+| `DISCORD_400_UNKNOWN_CHANNEL` | escalate to human — channel lives in a guild but `MJ_GUILD_ID` is unset |
+| `MISSING_DISCORD_TOKEN` / `MISSING_CHANNEL_ID` / `MISSING_IMAGINE_VERSION` / `INVALID_*` | escalate to human — one-time setup gap (raised by `Config.from_env` before the daemon starts) |
 | `DISCORD_401` | escalate to human — token re-capture |
 | `DISCORD_NOT_READY` (HTTP 503) | retry after a short delay; the bridge's reconnect loop is in flight |
 | `MJ_UUID_MISSING` | re-roll once; if reproducible, escalate |
@@ -402,4 +404,4 @@ Exit 0 means every tool returned `ok: true`, the promoted artifact landed, and t
 
 ---
 
-*Living document. Append surfaced operational lessons as new failure modes are discovered.*
+*Living document. Add new failure modes here as you hit them.*

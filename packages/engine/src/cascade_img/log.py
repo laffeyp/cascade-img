@@ -14,7 +14,7 @@ Each record:
       "backend": "midjourney_discord",
       "job_id": "...",
       "upscale": "1" | "all" | null,
-      "outputs": { "image_path": "...", "grid_path": "...", "upscales": {...} },
+      "outputs": { "image_path": "...", "grid_path": "...", "upscale_paths": {...} },
       "error": null | "...",
       "agent_decision": "promote" | "reroll" | "escalate" | null,
       "agent_reason": "..." | null
