@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cascade-img"
-version = "0.0.1"
-description = "Placeholder release. An LLM-operable image-generation pipeline; v0.1.0 in progress."
+version = "0.1.0a1"
+description = "LLM-operable image-generation pipeline. Midjourney via Discord at v0.1, pluggable backends after."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["midjourney", "image-generation", "mcp", "agent", "llm"]
 classifiers = [
-    "Development Status :: 1 - Planning",
+    "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -22,6 +22,21 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
+dependencies = [
+    "discord.py-self>=2.0.0",
+    "flask>=2.3.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.4.0",
+]
+
+[project.scripts]
+cascade-mj-bridge = "cascade_img.backends.midjourney_discord.bridge:main"
 
 [project.urls]
 Homepage = "https://greenrosesystems.com"
@@ -29,3 +44,6 @@ Repository = "https://github.com/greenrosesystems/cascade-img"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cascade_img"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/cascade_img/signals/versions/0.1.json" = "cascade_img/signals/versions/0.1.json"

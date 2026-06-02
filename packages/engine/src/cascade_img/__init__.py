@@ -1,3 +1,7 @@
-"""cascade-img — placeholder release. v0.1.0 in progress."""
+"""cascade-img — LLM-operable image-generation pipeline.
 
-__version__ = "0.0.1"
+v0.1.0 alpha. Midjourney via Discord ships in this release; pluggable backends
+(Flux, DALL-E, Imagen) follow at v0.2+.
+"""
+
+__version__ = "0.1.0a1"
