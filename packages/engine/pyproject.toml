@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cascade-img"
+version = "0.0.1"
+description = "Placeholder release. An LLM-operable image-generation pipeline; v0.1.0 in progress."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Green Rose Systems", email = "info@greenrosesystems.com" }
+]
+keywords = ["midjourney", "image-generation", "mcp", "agent", "llm"]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Homepage = "https://greenrosesystems.com"
+Repository = "https://github.com/greenrosesystems/cascade-img"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cascade_img"]
