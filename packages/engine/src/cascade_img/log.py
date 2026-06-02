@@ -88,10 +88,14 @@ class PromptLog:
             n: If set, return the last n records (chronologically). If None,
                return all records.
         """
-        if not self.path.exists():
-            return []
+        # Read under lock with EAFP — catches the TOCTOU race where the file
+        # exists at exists() time but is deleted before read_text() (review-
+        # flagged 2026-06-02). A missing file is the same as no records.
         with self._lock:
-            lines = self.path.read_text(encoding="utf-8").splitlines()
+            try:
+                lines = self.path.read_text(encoding="utf-8").splitlines()
+            except FileNotFoundError:
+                return []
         records = [json.loads(l) for l in lines if l.strip()]
         if n is not None:
             return records[-n:]

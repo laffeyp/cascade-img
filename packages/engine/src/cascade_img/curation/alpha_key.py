@@ -43,15 +43,30 @@ def alpha_key_corners(
     if px is None or w == 0 or h == 0:
         return rgba
 
-    corners = [px[0, 0], px[w - 1, 0], px[0, h - 1], px[w - 1, h - 1]]
-    bg_r = sum(c[0] for c in corners) // 4
-    bg_g = sum(c[1] for c in corners) // 4
-    bg_b = sum(c[2] for c in corners) // 4
+    # PIL's RGBA pixel access usually returns a 4-tuple, but ``convert("RGBA")``
+    # on unusual inputs (palette mode P with single-channel transparency,
+    # corrupted files, custom modes) may not produce the expected shape.
+    # Use a small helper that tolerates >=3 channels (taking alpha=255 default)
+    # and raises a clean error on <3. Review-flagged 2026-06-02.
+    def _rgba(pixel):
+        if len(pixel) >= 4:
+            return pixel[0], pixel[1], pixel[2], pixel[3]
+        if len(pixel) == 3:
+            return pixel[0], pixel[1], pixel[2], 255
+        raise ValueError(
+            f"alpha_key_corners: pixel access returned {len(pixel)}-channel data; "
+            f"image mode={rgba.mode!r}; expected RGB or RGBA after convert('RGBA')."
+        )
+
+    cr = [_rgba(c) for c in (px[0, 0], px[w - 1, 0], px[0, h - 1], px[w - 1, h - 1])]
+    bg_r = sum(c[0] for c in cr) // 4
+    bg_g = sum(c[1] for c in cr) // 4
+    bg_b = sum(c[2] for c in cr) // 4
 
     keyed = 0
     for y in range(h):
         for x in range(w):
-            r, g, b, _a = px[x, y]
+            r, g, b, _a = _rgba(px[x, y])
             if (
                 abs(r - bg_r) <= tolerance
                 and abs(g - bg_g) <= tolerance

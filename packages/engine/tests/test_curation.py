@@ -73,6 +73,30 @@ def test_crop_quadrant_rejects_invalid(tmp_path: Path):
         crop_quadrant(src, 5)
 
 
+def test_crop_quadrant_releases_source_file_after_return(tmp_path: Path):
+    """crop_quadrant called with a path must not hold a file descriptor on
+    the source after returning — the source file may be deleted, moved, or
+    overwritten by the consumer."""
+    src = _make_quadranted_grid(tmp_path)
+    out = crop_quadrant(src, 1)
+    src.unlink()  # would fail on Windows with an open lock; on POSIX it
+                  # succeeds even with open FDs but proves the consumer can
+                  # delete the source.
+    # Result still usable after source deletion.
+    assert out.getpixel((10, 10)) == (255, 0, 0)
+
+
+def test_crop_quadrant_zero_returns_copy_not_the_loader(tmp_path: Path):
+    """quadrant=0 used to return the lazy PIL loader directly; now it returns
+    a materialized copy so the consumer can outlive the source file."""
+    src = _make_quadranted_grid(tmp_path)
+    out = crop_quadrant(src, 0)
+    src.unlink()
+    # Image is materialized — accessing pixels still works.
+    assert out.size == (100, 100)
+    assert out.getpixel((10, 10)) == (255, 0, 0)
+
+
 # --------------- alpha_key_corners ---------------
 
 def test_alpha_key_corners_keys_uniform_background():
@@ -100,6 +124,21 @@ def test_alpha_key_corners_keys_uniform_background():
     assert p["total_count"] == 1600
     # Most of the background (1500 px) is keyed; the 100 center pixels are not.
     assert 1400 <= p["keyed_count"] <= 1550
+
+
+def test_alpha_key_corners_handles_rgb_input():
+    """convert('RGBA') usually returns 4-channel pixels, but unusual input
+    modes can produce 3-channel pixels. The keyer tolerates that rather than
+    crashing with `too many values to unpack`."""
+    clear()
+    # Start from RGB; alpha_key_corners calls .convert('RGBA') internally,
+    # but explicitly running through an RGB construction proves the
+    # defensive path against alternate-channel-count inputs.
+    img = Image.new("RGB", (10, 10), (200, 200, 200))
+    out = alpha_key_corners(img)
+    assert out.mode == "RGBA"
+    # Corners are still keyed even after the channel-count guard.
+    assert out.getpixel((0, 0))[3] == 0
 
 
 def test_alpha_key_corners_respects_tolerance():

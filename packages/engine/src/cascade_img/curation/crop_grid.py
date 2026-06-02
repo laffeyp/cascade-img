@@ -42,22 +42,33 @@ def crop_quadrant(src: Union[str, Path, Image.Image], quadrant: int) -> Image.Im
         ValueError: quadrant is not 0 or 1-4.
         FileNotFoundError: src path does not exist.
     """
+    # When given a path, ``Image.open`` returns a lazy loader that must be
+    # closed (or used as a context manager) to release the file descriptor.
+    # Review-flagged 2026-06-02 (FD leak on repeated crops).
+    opened_here = False
     if isinstance(src, (str, Path)):
         img = Image.open(src)
+        opened_here = True
     else:
         img = src
 
-    if quadrant == 0:
-        emit("CROP_QUADRANT", quadrant=0, w=img.size[0], h=img.size[1])
-        return img
+    try:
+        if quadrant == 0:
+            # Materialize into RAM and close the file-backed loader.
+            out = img.copy() if opened_here else img
+            emit("CROP_QUADRANT", quadrant=0, w=out.size[0], h=out.size[1])
+            return out
 
-    if quadrant not in QUADRANT_OFFSETS:
-        raise ValueError(f"quadrant must be 0 (whole image) or 1-4, got {quadrant}")
+        if quadrant not in QUADRANT_OFFSETS:
+            raise ValueError(f"quadrant must be 0 (whole image) or 1-4, got {quadrant}")
 
-    w, h = img.size
-    qw, qh = w // 2, h // 2
-    fx, fy = QUADRANT_OFFSETS[quadrant]
-    box = (fx * qw, fy * qh, fx * qw + qw, fy * qh + qh)
-    cropped = img.crop(box)
-    emit("CROP_QUADRANT", quadrant=quadrant, w=cropped.size[0], h=cropped.size[1])
-    return cropped
+        w, h = img.size
+        qw, qh = w // 2, h // 2
+        fx, fy = QUADRANT_OFFSETS[quadrant]
+        box = (fx * qw, fy * qh, fx * qw + qw, fy * qh + qh)
+        cropped = img.crop(box)
+        emit("CROP_QUADRANT", quadrant=quadrant, w=cropped.size[0], h=cropped.size[1])
+        return cropped
+    finally:
+        if opened_here:
+            img.close()

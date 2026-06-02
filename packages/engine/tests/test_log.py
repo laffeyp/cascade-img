@@ -54,6 +54,19 @@ def test_read_empty_log(tmp_path: Path):
     assert log.read() == []
 
 
+def test_read_handles_concurrent_deletion(tmp_path: Path):
+    """If the log file is deleted between PromptLog.read()'s internal check
+    and its read, the method returns [] rather than raising FileNotFoundError.
+    Simulated here by deleting before the call (the TOCTOU window is wider
+    in the race, but the EAFP fix handles both shapes)."""
+    log_path = tmp_path / "log.jsonl"
+    log = PromptLog(log_path)
+    log.append(asset_id="x", prompt="x", backend="midjourney_discord")
+    assert log.path.exists()
+    log_path.unlink()
+    assert log.read() == []
+
+
 def test_render_markdown_contains_prompts(tmp_path: Path):
     log = PromptLog(tmp_path / "log.jsonl")
     log.append(
