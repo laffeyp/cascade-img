@@ -141,6 +141,26 @@ Read the [`packages/engine/tests/`](./packages/engine/tests/) directory to under
 - **[TOS.md](./TOS.md)** — the technical context: Midjourney has no public API; Discord user-account automation is the established OSS pattern; both Discord's and Midjourney's Terms of Service prohibit it.
 - **[examples/demo/](./examples/demo/)** — one consumer project's worked usage of cascade-img (the demo sprite-art pipeline). Not generic templates; an example of how a real project structured agent prompts against the tool. Read AGENTS.md before any of these.
 
+## Repository layout
+
+```
+cascade-img/
+├── packages/engine/        # the Python package (import name: cascade_img) — the product
+│   ├── src/cascade_img/     #   composer, vocabulary, backends/, curation/, log, mcp_server, cli/
+│   ├── tests/               #   behavior-contract tests
+│   └── tools/               #   vocabulary parity check, live smoke walk
+├── packages/client/        # npm name reservation for the v0.2 TypeScript wrapper (placeholder)
+├── examples/demo/      # one consumer project's worked usage (not generic templates)
+├── vocabulary/0.1.json     # byte-identical mirror of the package's locked event catalog
+├── reviews/                # internal code/documentation review reports (audit trail)
+├── _archive/               # build-process history; not part of the published package
+└── *.md                    # README, ARCHITECTURE, RUNBOOK, AGENTS, RUNDOWN, SECURITY, SUPPORT, …
+```
+
+The product is `packages/engine`. Everything an operator or agent needs is the
+top-level Markdown plus that package; `_archive/` and `reviews/` are history,
+not documentation.
+
 ## Roadmap
 
 | version | headline |
@@ -151,7 +171,7 @@ Read the [`packages/engine/tests/`](./packages/engine/tests/) directory to under
 | v0.4 | Imagen, Ideogram, Recraft backends |
 | v1.0 | API stable across two minor releases, three backends in production |
 
-The HTTP contract between bridge and client is the load-bearing stability seam. Breaking changes there bump minor for both packages in the same release.
+The HTTP contract between the bridge and the client is the main seam between the two packages; changes there are coordinated across both.
 
 ## License
 
