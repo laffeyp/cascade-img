@@ -33,11 +33,35 @@ against these real `custom_id`s, read off the live message at press time
 - **Custom Zoom and Vary (Region) are the only modal/mask cases** — deferred;
   they need a modal-submit primitive the bridge lacks.
 
-## Still to capture (receive side, next live step)
+## Receive-side capture (2026-06-02, live via tools/mj_capture_results.py)
 
-How MJ echoes each result, so the matcher routes it to the child job:
-- vary_*/zoom_*/pan_* → a **new 2x2 grid** (new message; re-echoes parent prompt
-  + token, so a new uuid/nonce match path is needed, not the parent token).
-- animate_high/low → a **video** (.mp4 attachment, or web-only at launch — must
-  confirm how/whether it lands on Discord and the download/content-type path).
-- favorite → likely no result message (state toggle only).
+Pressed Vary (Strong) then Animate (High) on a real upscaled image:
+
+**vary_strong → new 2x2 grid (CONFIRMED).** A new message with a `.webp` grid +
+upsample buttons, carrying a NEW job uuid (`9fb1bd30-…`) but **re-echoing the
+parent prompt + the same `--no cscidnocollide` token**. The existing
+`_match_grid` keys on that token, so it would mis-route the result to the parent
+— confirming the spec. The result content carries a distinguishing marker:
+`… - Variations (Strong) by <@…> … (fast)`. Receive-side matcher therefore
+routes a derived grid by: token present (lineage) + a NEW uuid (not the parent's)
++ the action marker in content. vary_subtle / zoom_out / pan_* echo the same
+shape with their own markers ("Variations (Subtle)", "Zoom Out", "Pan").
+
+**animate_high → NO Discord echo within 340s (web-only).** The press fires the
+job (visible on midjourney.com via the job URL) but the video does not land as a
+Discord attachment in a reasonable window. SDD substrate-gap conclusion: Animate
+is **submit-only** over the bridge — press + surface the job URL; do NOT
+implement a Discord-side video matcher (don't fake-emit a result the substrate
+doesn't deliver). Revisit if MJ starts posting the video to the channel.
+
+## Wave F implementation plan (now fully data-grounded)
+
+- `Job` gains `parent_job_id`; the bridge tracks the upscaled image's
+  `message_id` (the SOLO action buttons live there).
+- A press endpoint + MCP tool per action presses the live `custom_id` via the
+  existing `_press_button` (custom_ids read off the live message, never hardcoded).
+- vary/zoom/pan create a CHILD job (parent_job_id set) awaiting a new grid; a new
+  match path routes a derived grid (token + NEW uuid + action marker) to it.
+- animate is submit-only: press + return the job URL; no result matcher.
+- favorite is a fire-and-forget toggle (no result message).
+- Custom Zoom / Vary (Region) stay deferred (modal / mask-upload primitives).
