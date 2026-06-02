@@ -131,11 +131,18 @@ Read the [`packages/engine/tests/`](./packages/engine/tests/) directory to under
 
 | version | headline |
 |---|---|
-| v0.1 (current) | MJ V7 backend, facet composer, curation, MCP server, AGENTS.md, prompt templates, Python package |
-| v0.2 | Flux via Fal + OpenAI `gpt-image-1` backends, Windows bridge, TypeScript wrapper |
+| v0.1 (current) | MJ V7 backend, facet composer, curation, MCP server, AGENTS.md, prompt templates, Python package. **Python-only** — TypeScript wrapper is a v0.2 deliverable (the `@greenrosesystems/cascade-img` placeholder on npm reserves the name). |
+| v0.2 | TypeScript wrapper (BridgeClient + PromptComposer + Zod types + Node-native MCP server), Flux via Fal + OpenAI `gpt-image-1` backends, Windows bridge |
 | v0.3 | Flux Kontext (instruction-edit), bundled-binary install path |
 | v0.4 | Imagen, Ideogram, Recraft backends |
 | v1.0 | API stable across two minor releases, three backends in production |
+
+### v0.1.0 release checklist (operator-side)
+
+- [ ] PyPI Trusted Publishing configured for the `greenrosesystems/cascade-img` repo against PyPI project `cascade-img` (PyPI → cascade-img project → Settings → Publishing → add GitHub publisher with workflow `release.yml`, environment empty).
+- [ ] npm scope `@greenrosesystems` has a valid automation token in GitHub Actions secrets (only if/when the TS wrapper publishes; not needed for v0.1.0).
+- [ ] GitHub org `greenrosesystems` has actions enabled with workflow write scope (already exercised by Sprint 003's CI workflows).
+- [ ] One live-fire roll captured per `OPERATIONS.md` against the operator's `.env` (Sprint 004 recorded one such roll in the project tree; re-run on the operator's actual machine before tagging v0.1.0).
 
 The HTTP contract between bridge and client is the load-bearing stability seam. Breaking changes there bump minor for both packages in the same release.
 
