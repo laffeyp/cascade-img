@@ -97,10 +97,16 @@ def test_dry_run_composes_and_logs(tmp_path):
     assert "transparent background" in result["prompt"]
     assert result["dry_run"] is True
 
-    # Log got a record with agent_decision=dry_run
-    records = json.loads(log_path.read_text().strip())
-    assert records["agent_decision"] == "dry_run"
-    assert records["asset_id"] == "bird"
+    # Log got a record with agent_decision=dry_run. The log is JSON Lines
+    # (one record per line), so parse line-by-line — reviewer-flagged bug.
+    records = [
+        json.loads(line)
+        for line in log_path.read_text().splitlines()
+        if line.strip()
+    ]
+    assert len(records) == 1
+    assert records[0]["agent_decision"] == "dry_run"
+    assert records[0]["asset_id"] == "bird"
 
     tags = _tags()
     assert "CLI_ROLL_STARTED" in tags

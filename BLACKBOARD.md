@@ -32,6 +32,8 @@
 
 *Agent appends one entry per sprint close, newest-at-top.*
 
+- **2026-06-02** — **Sprint 003 (code-review remediation).** Acted on the external review: fixed `test_cli_mj.py` JSONL-as-single-object parse bug; corrected `capture()` docstring to accurately describe enter-only clear; added 5 tests covering `capture()` (had zero) and root-vs-package vocabulary divergence; moved `logging.basicConfig` out of `bridge.py` module-import-time into `main()` with a no-clobber guard for embedding callers; removed the dead `SseServerTransport` import from `mcp_server.py`. Larger v0.2 items (JOBS unbounded, /wait Flask thread holding, backend async-sync mismatch, _ingest_message I/O race) added to ## Deferred. Discipline ladder 64/64 green.
+
 - **2026-06-02** — **Sprint 002 (sdd-kit-2 alignment).** Copied sdd-kit-2 into the project as read-only kit reference. Upgraded `cascade_img.instrumentation.sdd` from a minimal emit/snapshot module to a kit-conformant SignalVocabulary + SignalEmitter with validate-at-emit, `assert_signal`/`assert_no_signal` test primitives, and `format_for_ai()` digest output. Locked vocabulary at v0.1 (`locked: true`, `locked_at: 2026-06-02`). Mirrored `signals/0.1.json` at project root (canonical kit location). Added project-level discipline artifacts: BLACKBOARD.md, WORKING_AGREEMENT.md, KIT_DIARY.md, signals/0.1-rationale.md. Discipline ladder 59/59 green.
 
 - **2026-06-02** — **Sprint 001 (initial v0.1.0a1 port).** Copied the cascade asset pipeline from Katybird/Cascade source folders into the new `cascade-img/` monorepo under Green Rose Systems. Ported: bridge daemon with Config dataclass + MissingEnvError + both Sprint 4.0 patches preserved; MidjourneyDiscordBackend HTTP wrapper conforming to ImageGenerationBackend; PromptComposer with V7 facet composition; PromptLog JSONL ledger; curation kit (crop/alpha-key/promote); structured-envelope MCP server with 10 tools; unified cascade-mj CLI with --dry-run; cascade-mj-bridge --check-env / --doctor; CI workflows; OPERATIONS.md / TOS.md / AGENTS.md / prompts/. Discipline ladder 48/48 green. Names reserved on PyPI, npm, GitHub. (This sprint violated kit hard rule 6's ≤2 files / one concept sweet spot; addressed in the Sprint 002 KIT_DIARY entry.)
@@ -41,6 +43,14 @@
 ## Deferred
 
 *Anyone may append.*
+
+- **JOBS dict grows unbounded** (`bridge.py`). `JOBS: dict[str, Job]` has no eviction, TTL, or cap. A long-running daemon leaks memory proportional to total jobs run. For a v0.1 single-operator session this is acceptable; flagged by external review 2026-06-02. **Re-visit at v0.2:** add LRU eviction (cap=1000) plus a `terminal_age_seconds` TTL after `DONE`/`FAILED`. Emit `JOB_EVICTED` signal.
+
+- **`/wait` holds a Flask thread for the full timeout** (`bridge.py http_wait`). `time.sleep(2)` poll loop blocks one thread per pending wait. With concurrent `cascade-mj all` calls, Flask's thread pool exhausts. Acceptable for single-user local; flagged by external review 2026-06-02. **Re-visit at v0.2:** switch to SSE long-poll OR a callback-based wait (job-completion `Condition.notify_all`). Either is a bigger refactor.
+
+- **`MidjourneyDiscordBackend.imagine/wait/status/health` are `async def` but call `requests` synchronously** (`backend.py`). Awaiting them from the MCP server doesn't yield the event loop. Concurrent MCP tool calls serialize. Correctness smell, acceptable for single-user. **Re-visit at v0.2:** port to `httpx.AsyncClient` (preferred) or wrap requests calls in `asyncio.to_thread()`. Drop `async def` where it's misleading.
+
+- **`_ingest_message` does blocking file I/O on the Discord event-loop thread, outside `LOCK`** (`bridge.py`). A `/status` read between the download completing and `job.image_path` being set sees partial state. Low probability, but real. **Re-visit at v0.2:** wrap the post-download mutations (`job.grid_path`, `job.image_path`, `job.status`, `job.upscale_paths`) in `with LOCK:`. Same fix for the Path B upscale-completion block.
 
 - **Live-fire end-to-end smoke.** The discipline ladder verifies everything except a real /imagine fired through a live Discord + Midjourney session. Re-visit when the Architect runs `cascade-mj-bridge` against their real `.env` and reports the resulting signal trace.
 
@@ -69,6 +79,15 @@
 ## Sprint tail
 
 *Agent maintains. Last 10 sprint closes.*
+
+### 2026-06-02 — Sprint 003 (code-review remediation) closed
+
+**Rubber Duck Pass:**
+- Sequence narration: external reviewer surfaced 6 concrete fixes; 4 v0.2-scope smells. The 6 fixes landed in one sprint; the 4 smells went to ## Deferred with re-visit conditions and specific remediation pointers.
+- Observations: no missing pairs, no order violations, no vocabulary gaps, no payload anomalies. One **payload anomaly resolved-here**: the `test_dry_run_composes_and_logs` test was reading JSONL with `json.loads(text.strip())` — would have raised on >1 record. Fix preserves the existing assertions while parsing correctly. One **tonal note resolved-here**: capture()'s docstring claimed behavior that the code didn't implement; fixed the docstring (kept the kit-conformant code).
+- Disposition: resolved-here for the 6 fixes; deferred for the 4 smells.
+
+Dual contract: pass (signal: 36 emit callsites against 27 vocab tags, parity clean; artifact: 5 new tests, 5 in-place edits across `bridge.py`/`mcp_server.py`/`sdd.py`/`test_cli_mj.py`; observation: ladder ran 64/64 green).
 
 ### 2026-06-02 — Sprint 002 (sdd-kit-2 alignment) closed
 

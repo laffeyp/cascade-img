@@ -277,9 +277,8 @@ def main() -> None:
     emit("MCP_SERVER_STARTED", transport="http" if args.http else "stdio")
 
     if args.http:
-        # FastMCP's HTTP transport is its SSE app — adjust if mcp SDK changes.
-        from mcp.server.sse import SseServerTransport  # noqa: F401
-        # Defer to FastMCP's own HTTP runner if available
+        # FastMCP exposes its own HTTP/SSE runner; we delegate to it without
+        # importing the lower-level SseServerTransport directly.
         if hasattr(mcp, "run_sse_async"):
             import asyncio
             asyncio.run(mcp.run_sse_async(host="127.0.0.1", port=args.http))
