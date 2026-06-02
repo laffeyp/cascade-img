@@ -39,7 +39,7 @@ def test_smoke_walk_grid_only():
     it) so this test and the script share one code path. Grid-only (no upscale)
     keeps it to ~30s of live time.
     """
-    engine_root = Path(__file__).resolve().parents[2]  # packages/engine
+    engine_root = Path(__file__).resolve().parents[2]  # packages/python
     script = engine_root / "tools" / "smoke_mcp_walk.py"
     proc = subprocess.run(
         [

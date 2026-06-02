@@ -18,7 +18,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: packages/engine
+        working-directory: packages/python
 
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +44,7 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: packages/engine/dist/
+          packages-dir: packages/python/dist/
 
   github-release:
     name: GitHub Release with changelog

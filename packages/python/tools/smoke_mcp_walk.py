@@ -408,7 +408,7 @@ def _ensure_package_importable() -> None:
     if importlib.util.find_spec("cascade_img") is None:
         print(
             "cascade_img not installed in this Python — "
-            "run `pip install -e packages/engine` first.",
+            "run `pip install -e packages/python` first.",
             file=sys.stderr,
         )
         sys.exit(2)

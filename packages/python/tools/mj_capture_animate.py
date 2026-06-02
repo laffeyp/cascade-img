@@ -110,20 +110,43 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     async def _press(message_id: int, custom_id: str) -> None:
-        await _post({"type": _MSG_COMPONENT, "message_id": str(message_id),
-                     "data": {"component_type": _BUTTON, "custom_id": custom_id}})
+        await _post(
+            {
+                "type": _MSG_COMPONENT,
+                "message_id": str(message_id),
+                "data": {"component_type": _BUTTON, "custom_id": custom_id},
+            }
+        )
 
     @client.event
     async def on_ready():
         print(f"connected as {client.user}; firing /imagine", file=sys.stderr, flush=True)
-        await _post({"type": _APP_CMD, "data": {
-            "version": cfg.mj_imagine_version, "id": cfg.mj_imagine_command_id,
-            "name": "imagine", "type": 1,
-            "options": [{"type": _OPT_STRING, "name": "prompt", "value": prompt}],
-            "application_command": {
-                "id": cfg.mj_imagine_command_id, "application_id": str(MJ_BOT_ID),
-                "version": cfg.mj_imagine_version, "name": "imagine", "type": 1,
-                "options": [{"type": _OPT_STRING, "name": "prompt", "description": "The prompt to imagine"}]}}})
+        await _post(
+            {
+                "type": _APP_CMD,
+                "data": {
+                    "version": cfg.mj_imagine_version,
+                    "id": cfg.mj_imagine_command_id,
+                    "name": "imagine",
+                    "type": 1,
+                    "options": [{"type": _OPT_STRING, "name": "prompt", "value": prompt}],
+                    "application_command": {
+                        "id": cfg.mj_imagine_command_id,
+                        "application_id": str(MJ_BOT_ID),
+                        "version": cfg.mj_imagine_version,
+                        "name": "imagine",
+                        "type": 1,
+                        "options": [
+                            {
+                                "type": _OPT_STRING,
+                                "name": "prompt",
+                                "description": "The prompt to imagine",
+                            }
+                        ],
+                    },
+                },
+            }
+        )
 
     async def _handle(message):
         if message.author.id != MJ_BOT_ID or message.channel.id != cfg.channel_id:
@@ -144,7 +167,11 @@ def main(argv: list[str] | None = None) -> int:
             uid = _uuid_in(message)
             st["phase"] = "animate"
             st["animate_pressed_at"] = time.monotonic()
-            print("upscaled -> press Animate (High); logging ALL MJ messages now", file=sys.stderr, flush=True)
+            print(
+                "upscaled -> press Animate (High); logging ALL MJ messages now",
+                file=sys.stderr,
+                flush=True,
+            )
             await _press(message.id, f"MJ::JOB::animate_high::1::{uid}::SOLO")
             return
 
@@ -155,12 +182,17 @@ def main(argv: list[str] | None = None) -> int:
                 "content": content[:200],
                 "has_needle": needle in content,
                 "attachments": atts,
-                "components_n": sum(len(getattr(r, "children", []) or []) for r in (message.components or [])),
+                "components_n": sum(
+                    len(getattr(r, "children", []) or []) for r in (message.components or [])
+                ),
                 "t_since_press": round(time.monotonic() - st["animate_pressed_at"], 1),
             }
             out["animate_trail"].append(entry)
-            print(f"  [{entry['t_since_press']}s] {content[:70]!r} atts={[a['filename'] for a in atts]}",
-                  file=sys.stderr, flush=True)
+            print(
+                f"  [{entry['t_since_press']}s] {content[:70]!r} atts={[a['filename'] for a in atts]}",
+                file=sys.stderr,
+                flush=True,
+            )
             if any(_is_video(a) for a in atts):
                 out["animate_result"] = entry
                 done.set()

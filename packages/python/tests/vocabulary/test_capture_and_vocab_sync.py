@@ -5,7 +5,7 @@ Both items surfaced in the 2026-06-02 external review:
 
 * ``capture()`` was exported from the runtime module but had no test (reviewer-flagged).
 * ``signals/0.1.json`` at project root must remain identical to the
-  package-bundled ``packages/engine/src/cascade_img/vocabulary/versions/0.1.json``
+  package-bundled ``packages/python/src/cascade_img/vocabulary/versions/0.1.json``
   (the runtime canonical). A divergence test catches drift before it ships.
 """
 
@@ -71,9 +71,9 @@ def test_capture_with_context_in_format_for_ai():
 @pytest.mark.contract
 def test_root_and_package_vocab_files_are_identical():
     """The project-root ``vocabulary/0.1.json`` must match the package-data
-    copy at ``packages/engine/src/cascade_img/vocabulary/versions/0.1.json``.
+    copy at ``packages/python/src/cascade_img/vocabulary/versions/0.1.json``.
     """
-    # tests/vocabulary/<this> -> tests/ -> packages/engine/
+    # tests/vocabulary/<this> -> tests/ -> packages/python/
     pkg_root = Path(__file__).resolve().parents[2]
     repo_root = pkg_root.parents[1]
     root_vocab = repo_root / "vocabulary" / "0.1.json"

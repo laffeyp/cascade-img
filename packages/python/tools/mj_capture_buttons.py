@@ -142,22 +142,31 @@ def main(argv: list[str] | None = None) -> int:
             return
         comps = _dump_components(message)
         # Grid: has upsample buttons and is not an "Image #" upscale result.
-        if not state["pressed"] and "Image #" not in content and any(
-            (b["custom_id"] or "").startswith("MJ::JOB::upsample::") for b in comps
+        if (
+            not state["pressed"]
+            and "Image #" not in content
+            and any((b["custom_id"] or "").startswith("MJ::JOB::upsample::") for b in comps)
         ):
             catalog["grid"] = comps
             uid = _extract_uuid(message)
             if uid:
                 state["pressed"] = True
                 state["grid_msg_id"] = message.id
-                print(f"grid captured ({len(comps)} buttons); pressing U1", file=sys.stderr, flush=True)
+                print(
+                    f"grid captured ({len(comps)} buttons); pressing U1",
+                    file=sys.stderr,
+                    flush=True,
+                )
                 await _post(
                     cfg,
                     client,
                     {
                         "type": _INTERACTION_MSG_COMPONENT,
                         "message_id": str(message.id),
-                        "data": {"component_type": _COMPONENT_BUTTON, "custom_id": _UPSAMPLE_BTN + uid},
+                        "data": {
+                            "component_type": _COMPONENT_BUTTON,
+                            "custom_id": _UPSAMPLE_BTN + uid,
+                        },
                     },
                 )
         elif "Image #" in content and message.attachments:
