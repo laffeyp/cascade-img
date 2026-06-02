@@ -496,6 +496,10 @@ def _job_from_row(row: dict) -> Job:
     row["upscale_press_failures"] = {
         int(k): v for k, v in (row.get("upscale_press_failures") or {}).items()
     }
+    # Drop any derived entry still on its reservation sentinel (path==""): if a
+    # concurrent touch() snapshotted the job mid-download, the store can hold a
+    # claimed-but-undownloaded entry whose result never lands after a restart.
+    row["derived"] = [d for d in (row.get("derived") or []) if d.get("path")]
     return Job(**row)
 
 
