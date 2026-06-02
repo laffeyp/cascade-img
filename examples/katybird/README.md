@@ -1,6 +1,6 @@
 # examples/katybird/
 
-Artifacts from the Katybird game project — the first consumer of cascade-img and the origin of the Sprint 4.0 / 4.7 production lessons baked into the bridge daemon and the OPERATIONS doc.
+Artifacts from the Katybird game project — the first consumer of cascade-img and the origin of the Sprint 4.0 / 4.7 production lessons baked into the bridge daemon and the RUNBOOK.
 
 This directory is **not** a generic template set. The prompts here describe how one project drove cascade-img for sprite-art generation; they reference Katybird-specific concepts (Katy, region forest_floor, the apology HUD glyphs, the wing-frame Sprint 4.7 work). They are preserved here for two reasons:
 

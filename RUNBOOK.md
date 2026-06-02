@@ -1,4 +1,4 @@
-# Operations
+# Runbook
 
 How to run `cascade-img` end-to-end against a real Midjourney account, what breaks, and how to recover. Each failure mode named here has been exercised against live MJ.
 

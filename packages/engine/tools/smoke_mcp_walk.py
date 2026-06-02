@@ -21,7 +21,7 @@ the walk and propagates a non-zero exit code so this can be wired into CI
 (against a separate sacrificial credentialed environment) or run by hand for
 release-gate validation.
 
-Requires a populated environment (see ``--env-file`` and OPERATIONS.md).
+Requires a populated environment (see ``--env-file`` and RUNBOOK.md).
 
 Usage::
 

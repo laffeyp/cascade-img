@@ -37,7 +37,7 @@ After installing the package and starting the bridge daemon (see below), ask you
 pip install cascade-img
 cp "$(python -c 'import cascade_img, pathlib; print(pathlib.Path(cascade_img.__path__[0]) / ".env.example")')" .env
 # Fill in DISCORD_USER_TOKEN, MJ_CHANNEL_ID, MJ_GUILD_ID, MJ_IMAGINE_VERSION
-# See OPERATIONS.md for the capture procedure.
+# See RUNBOOK.md for the capture procedure.
 
 cascade-mj-bridge --check-env --pretty       # validate config
 cascade-mj-bridge                            # start the daemon (long-running)
@@ -136,7 +136,7 @@ Read the [`packages/engine/tests/`](./packages/engine/tests/) directory to under
 
 ## Documentation
 
-- **[OPERATIONS.md](./OPERATIONS.md)** — install, env capture, the setup procedure, the reconnect lifecycle, and every known failure mode with its structured error code and remediation.
+- **[RUNBOOK.md](./RUNBOOK.md)** — install, env capture, the setup procedure, the reconnect lifecycle, and every known failure mode with its structured error code and remediation.
 - **[AGENTS.md](./AGENTS.md)** — the LLM operator's guide. Read this when handing cascade-img to an agent.
 - **[TOS.md](./TOS.md)** — the technical context: Midjourney has no public API; Discord user-account automation is the established OSS pattern; both Discord's and Midjourney's Terms of Service prohibit it.
 - **[examples/katybird/](./examples/katybird/)** — one consumer project's worked usage of cascade-img (the Katybird sprite-art pipeline). Not generic templates; an example of how a real project structured agent prompts against the tool. Read AGENTS.md before any of these.

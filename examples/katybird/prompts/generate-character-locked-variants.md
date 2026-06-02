@@ -10,7 +10,7 @@ You're generating multiple sprites of the same character in different poses, exp
    - The base sprite's facets (moodboard, character sref) — these stay constant across variants
    - The list of variants to produce, each with the variant-specific subject language
 
-If the canonical sprite is a local file (e.g. `assets/bird.png`), the human first uploads it to the MJ channel via the Discord API to get a single-image CDN URL. The OPERATIONS doc has the curl recipe.
+If the canonical sprite is a local file (e.g. `assets/bird.png`), the human first uploads it to the MJ channel via the Discord API to get a single-image CDN URL. RUNBOOK.md has the curl recipe.
 
 ## Per variant
 

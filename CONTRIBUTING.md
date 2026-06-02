@@ -7,7 +7,7 @@ cascade-img is a small project. Contributions are welcome; the rules are short.
 **LLM operators are the primary user.** Contributions that optimize for human-developer ergonomics at the expense of LLM-operator ergonomics will be declined. Concrete consequences:
 
 - Output paths are deterministic and predictable. A new feature that introduces a timestamp suffix or a UUID in a returned path is the wrong shape.
-- Errors carry remediation, not blame. A new failure mode that raises a bare exception without a stable `code` and a `remediation` pointing at OPERATIONS.md is incomplete.
+- Errors carry remediation, not blame. A new failure mode that raises a bare exception without a stable `code` and a `remediation` pointing at RUNBOOK.md is incomplete.
 - The CLI's `--json` (or default JSON output) emits a single structured object on stdout. Stderr is reserved for human-readable progress. A new subcommand that prints prose to stdout breaks LLM parsers.
 - New MCP tools include input schemas derived from typed signatures and follow the `{ok, result | error: {code, message, remediation?}}` envelope.
 - Working-memory primitives (the prompt log especially) are append-only and structured. A new log format that returns markdown text from `read_prompt_log` is the wrong shape — `render_markdown` is a separate, optional view.
