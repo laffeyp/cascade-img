@@ -8,11 +8,8 @@ isolated.
 
 from __future__ import annotations
 
-import pytest
-
 from cascade_img.backends.midjourney_discord.bridge import check_env, doctor
 from cascade_img.instrumentation.sdd import clear, snapshot
-
 
 VALID = {
     "DISCORD_USER_TOKEN": "MTU.fake.token.with.some.length",

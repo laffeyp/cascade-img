@@ -8,12 +8,11 @@ re-rolls are expected to replace prior promotions).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Union
 
 from cascade_img.instrumentation.sdd import emit
 
 
-def promote(src: Union[str, Path], dest: Union[str, Path]) -> Path:
+def promote(src: str | Path, dest: str | Path) -> Path:
     """Move a curated asset to its destination path.
 
     Args:

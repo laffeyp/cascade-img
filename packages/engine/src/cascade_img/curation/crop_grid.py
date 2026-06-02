@@ -13,7 +13,6 @@ uniform across the two output shapes.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Union
 
 from PIL import Image
 
@@ -28,7 +27,7 @@ QUADRANT_OFFSETS: dict[int, tuple[int, int]] = {
 }
 
 
-def crop_quadrant(src: Union[str, Path, Image.Image], quadrant: int) -> Image.Image:
+def crop_quadrant(src: str | Path | Image.Image, quadrant: int) -> Image.Image:
     """Crop one quadrant of an MJ 2x2 grid.
 
     Args:

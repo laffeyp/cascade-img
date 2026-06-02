@@ -53,6 +53,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import atexit
+import contextlib
 import logging
 import os
 import re
@@ -64,7 +65,6 @@ from collections import OrderedDict
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 import discord  # discord.py-self
 import requests
@@ -73,14 +73,13 @@ from flask import Flask, jsonify, request
 
 from cascade_img.instrumentation.sdd import emit
 
-
 # Eviction configuration. Overridable via env at startup so deployments can
 # tune for their own job-rate / memory profile.
 MAX_JOBS = int(os.environ.get("CASCADE_MAX_JOBS", "1000"))
 TERMINAL_AGE_SECONDS = float(os.environ.get("CASCADE_TERMINAL_AGE_SECONDS", "3600"))
 
 
-PACKAGE_VERSION = "0.1.0a1"  # bumped in lock-step with pyproject.toml
+PACKAGE_VERSION = "0.1.0"  # bumped in lock-step with pyproject.toml
 BACKEND_NAME = "midjourney_discord"
 
 
@@ -134,14 +133,14 @@ class Config:
 
     discord_token: str
     channel_id: int
-    guild_id: Optional[str]              # required when MJ channel lives in a guild — Sprint 4.0 patch
+    guild_id: str | None              # required when MJ channel lives in a guild — Sprint 4.0 patch
     mj_imagine_version: str
     mj_imagine_command_id: str
     output_dir: Path
     port: int
 
     @classmethod
-    def from_env(cls) -> "Config":
+    def from_env(cls) -> Config:
         """Read and validate every env var; raise MissingEnvError on the first gap."""
         load_dotenv()
 
@@ -228,7 +227,7 @@ class Config:
 
 # Module-level Config holder. Set by :func:`main` (or by an embedding caller)
 # before the Discord event loop or Flask app are started.
-cfg: Optional[Config] = None
+cfg: Config | None = None
 
 
 def _cfg() -> Config:
@@ -274,24 +273,24 @@ class Job:
     # token instead of substring matching to avoid two-prompts-with-same-
     # prefix mis-routing.
     request_token: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
-    upscale: Optional[str] = None              # None | "1".."4" | "all"
+    upscale: str | None = None              # None | "1".."4" | "all"
     status: Status = Status.QUEUED
     progress: str = ""
-    message_id: Optional[int] = None           # grid message id
-    mj_job_uuid: Optional[str] = None          # extracted from grid buttons
-    image_path: Optional[str] = None           # canonical output path
-    image_url: Optional[str] = None
-    grid_path: Optional[str] = None
-    grid_url: Optional[str] = None
+    message_id: int | None = None           # grid message id
+    mj_job_uuid: str | None = None          # extracted from grid buttons
+    image_path: str | None = None           # canonical output path
+    image_url: str | None = None
+    grid_path: str | None = None
+    grid_url: str | None = None
     upscale_paths: dict = field(default_factory=dict)
     upscale_pending: list = field(default_factory=list)
-    error: Optional[str] = None
-    error_code: Optional[str] = None
+    error: str | None = None
+    error_code: str | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     # SDD-specific: which path _match_grid took ("pending" first-touch vs
     # "progress_fallback" — the Sprint 4.0 V7 patch path).
-    match_path: Optional[str] = None
+    match_path: str | None = None
 
     def tagged_prompt(self) -> str:
         """Return the prompt with the unique collision-resistant token
@@ -334,7 +333,7 @@ class Job:
 
 
 # OrderedDict so the LRU eviction can drop the oldest job on overflow.
-JOBS: "OrderedDict[str, Job]" = OrderedDict()
+JOBS: OrderedDict[str, Job] = OrderedDict()
 PENDING_GRID: list[str] = []  # job_ids awaiting grid message match, FIFO
 # RLock + Condition so /wait can sleep on a job-terminal notification rather
 # than polling the dict, AND so the inner mutation helpers (job._complete /
@@ -423,7 +422,7 @@ def _token_needle(token: str) -> str:
     return f"cscidnocollide{token}"
 
 
-def _match_grid(content: str) -> Optional[Job]:
+def _match_grid(content: str) -> Job | None:
     """Find the pending grid job whose request token appears in MJ's message.
 
     Two paths:
@@ -459,7 +458,7 @@ def _match_grid(content: str) -> Optional[Job]:
     return None
 
 
-def _match_upscale(content: str) -> Optional[tuple[Job, int]]:
+def _match_upscale(content: str) -> tuple[Job, int] | None:
     """Match an upscale completion message to (parent_job, slot_index)."""
     m = IMAGE_TAG_RE.search(content or "")
     if not m:
@@ -480,7 +479,7 @@ def _match_upscale(content: str) -> Optional[tuple[Job, int]]:
     return None
 
 
-def _job_by_message_id(message_id: int) -> Optional[Job]:
+def _job_by_message_id(message_id: int) -> Job | None:
     with LOCK:
         for j in JOBS.values():
             if j.message_id == message_id:
@@ -499,7 +498,7 @@ def _download_to(url: str, path: Path) -> int:
     return len(data)
 
 
-def _extract_mj_uuid(components) -> Optional[str]:
+def _extract_mj_uuid(components) -> str | None:
     """Pull the MJ job UUID out of any upsample button in the message."""
     for row in components or []:
         for c in getattr(row, "children", []) or []:
@@ -737,7 +736,7 @@ async def _send_imagine(prompt: str) -> requests.Response:
 
 
 async def _press_button(
-    message_id: int, custom_id: str, guild_id: Optional[str]
+    message_id: int, custom_id: str, guild_id: str | None
 ) -> requests.Response:
     c = _cfg()
     payload = {
@@ -763,7 +762,7 @@ async def _press_button(
 app = Flask(__name__)
 
 
-def _normalize_upscale(value) -> Optional[str]:
+def _normalize_upscale(value) -> str | None:
     if value is None:
         return None
     if isinstance(value, bool):  # True -> "1" so curl users can pass true
@@ -941,7 +940,6 @@ def check_env() -> dict:
     structured dict with ``ok`` and either ``config`` (the loaded fields,
     secrets masked) or ``error`` (code + remediation).
     """
-    import json as _json  # local to keep top-of-file imports clean
 
     try:
         c = Config.from_env()
@@ -1057,10 +1055,9 @@ def _emit_shutdown(reason: str) -> None:
     if _shutdown_emitted:
         return
     _shutdown_emitted = True
-    try:
+    # Shutdown hook must never propagate — swallow any signal-emission error.
+    with contextlib.suppress(Exception):
         emit("BRIDGE_SHUTDOWN", reason=reason)
-    except Exception:
-        pass  # never raise out of a shutdown hook
 
 
 def _signal_handler(signum, _frame):

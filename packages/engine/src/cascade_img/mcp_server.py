@@ -17,11 +17,11 @@ or ``MCP_TOOL_FAILED`` (after). The locked vocabulary in
 from __future__ import annotations
 
 import argparse
-import json
+import contextlib
 import os
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
@@ -36,11 +36,12 @@ from cascade_img.curation import (
     DEFAULT_TOLERANCE,
     alpha_key_corners,
     crop_quadrant,
+)
+from cascade_img.curation import (
     promote as curation_promote,
 )
 from cascade_img.instrumentation.sdd import emit
 from cascade_img.log import PromptLog
-
 
 # ---------------------------------------------------------------------------
 # Module-level state
@@ -115,12 +116,12 @@ def _is_coro(fn) -> bool:
 @mcp.tool()
 async def compose_prompt(
     subject: str,
-    constraints: Optional[list[str]] = None,
-    moodboard: Optional[str] = None,
-    sref: Optional[str] = None,
-    stylize: Optional[int] = None,
+    constraints: list[str] | None = None,
+    moodboard: str | None = None,
+    sref: str | None = None,
+    stylize: int | None = None,
     style_raw: bool = True,
-    oref: Optional[str] = None,
+    oref: str | None = None,
     ow: int = 100,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
@@ -146,7 +147,7 @@ async def compose_prompt(
 async def imagine(
     prompt: str,
     asset_id: str,
-    upscale: Optional[str] = None,
+    upscale: str | None = None,
 ) -> dict[str, Any]:
     """Fire one generation against the running bridge. Backend is sync —
     _run_tool dispatches it via asyncio.to_thread."""
@@ -183,7 +184,7 @@ async def bridge_health() -> dict[str, Any]:
 async def crop_grid(
     src: str,
     quadrant: int,
-    dest: Optional[str] = None,
+    dest: str | None = None,
 ) -> dict[str, Any]:
     """Crop one quadrant of an MJ grid. ``quadrant=0`` returns the whole
     image. If ``dest`` is set, write the cropped image to that path."""
@@ -232,12 +233,12 @@ async def log_append(
     asset_id: str,
     prompt: str,
     backend: str = "midjourney_discord",
-    job_id: Optional[str] = None,
-    upscale: Optional[str] = None,
-    outputs: Optional[dict[str, Any]] = None,
-    error: Optional[str] = None,
-    agent_decision: Optional[str] = None,
-    agent_reason: Optional[str] = None,
+    job_id: str | None = None,
+    upscale: str | None = None,
+    outputs: dict[str, Any] | None = None,
+    error: str | None = None,
+    agent_decision: str | None = None,
+    agent_reason: str | None = None,
 ) -> dict[str, Any]:
     """Append a record to the prompt log.
 
@@ -263,7 +264,7 @@ async def log_append(
 
 
 @mcp.tool()
-async def read_prompt_log(n: Optional[int] = None) -> dict[str, Any]:
+async def read_prompt_log(n: int | None = None) -> dict[str, Any]:
     """Read the prompt log back as structured records. ``n`` returns the
     last n entries; omit for all. This is the agent's working memory across
     loop iterations — the answer to 'what have I tried for this asset?'"""
@@ -285,10 +286,9 @@ def _emit_mcp_shutdown(reason: str) -> None:
     if _mcp_shutdown_emitted:
         return
     _mcp_shutdown_emitted = True
-    try:
+    # Shutdown hook must never propagate.
+    with contextlib.suppress(Exception):
         emit("MCP_SERVER_STOPPED", reason=reason)
-    except Exception:
-        pass
 
 
 def main() -> None:

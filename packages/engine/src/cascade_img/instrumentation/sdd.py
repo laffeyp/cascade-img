@@ -24,12 +24,13 @@ import json
 import os
 import time
 from collections import deque
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from importlib.resources import files
 from pathlib import Path
 from threading import Lock
-from typing import Any, Iterator, Optional
+from typing import Any
 
 VOCAB_VERSION = "0.1"
 
@@ -67,14 +68,14 @@ class SignalVocabulary:
         }
 
     @classmethod
-    def from_package_data(cls) -> "SignalVocabulary":
+    def from_package_data(cls) -> SignalVocabulary:
         """Load the vocabulary bundled inside the cascade_img package."""
         ref = files("cascade_img.signals.versions") / "0.1.json"
         with ref.open("r", encoding="utf-8") as f:
             return cls(json.load(f))
 
     @classmethod
-    def from_path(cls, path: Path | str) -> "SignalVocabulary":
+    def from_path(cls, path: Path | str) -> SignalVocabulary:
         return cls(json.loads(Path(path).read_text(encoding="utf-8")))
 
     def validate(self, tag: str, payload: dict[str, Any]) -> None:
@@ -278,7 +279,7 @@ def vocabulary() -> SignalVocabulary:
 
 
 @contextmanager
-def capture(context: str = "") -> Iterator["SignalEmitter"]:
+def capture(context: str = "") -> Iterator[SignalEmitter]:
     """Context manager for a bounded signal session.
 
     Clears the buffer **at enter only** (so the captured slice begins at the

@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 
 @dataclass
@@ -35,16 +35,16 @@ class AssetEntry:
 
     subject: str
     constraints: list[str] = field(default_factory=list)
-    moodboard: Optional[str] = None
-    sref: Optional[str] = None
-    stylize: Optional[int] = None
+    moodboard: str | None = None
+    sref: str | None = None
+    stylize: int | None = None
     style_raw: bool = True
-    oref: Optional[str] = None
+    oref: str | None = None
     ow: int = 100
     aspect_ratio: str = "1:1"
 
     @classmethod
-    def from_dict(cls, raw: dict[str, Any]) -> "AssetEntry":
+    def from_dict(cls, raw: dict[str, Any]) -> AssetEntry:
         if "subject" not in raw or not raw["subject"]:
             raise ValueError("asset entry missing required 'subject'")
         return cls(
@@ -60,7 +60,7 @@ class AssetEntry:
         )
 
 
-def load_registry(path: Union[str, Path]) -> dict[str, AssetEntry]:
+def load_registry(path: str | Path) -> dict[str, AssetEntry]:
     """Load and validate a JSON registry. Raises FileNotFoundError if the
     path doesn't exist, ValueError on malformed entries."""
     p = Path(path)
