@@ -2,7 +2,7 @@
   "vocabulary_version": "0.1",
   "locked": false,
   "locked_at": null,
-  "categories": ["session", "config", "bridge", "job", "discord", "backend"],
+  "categories": ["session", "config", "bridge", "job", "discord", "backend", "curation"],
   "tags": [
     {
       "name": "CASCADE_INIT",
@@ -107,6 +107,30 @@
       "payload": ["method", "path", "status"],
       "optional_payload": [],
       "note": "MidjourneyDiscordBackend made an HTTP call to the bridge daemon. Useful for grading the client-side, not just the daemon."
+    },
+    {
+      "name": "CROP_QUADRANT",
+      "category": "curation",
+      "stratum": "event",
+      "payload": ["quadrant", "w", "h"],
+      "optional_payload": [],
+      "note": "crop_quadrant() emitted a cropped image. quadrant=0 means the whole image was returned (single-upscale passthrough), 1-4 means a grid quadrant. w/h are the OUTPUT dimensions."
+    },
+    {
+      "name": "ALPHA_KEY_APPLIED",
+      "category": "curation",
+      "stratum": "event",
+      "payload": ["tolerance", "bg_r", "bg_g", "bg_b", "keyed_count", "total_count"],
+      "optional_payload": [],
+      "note": "alpha_key_corners() processed an image. bg_r/bg_g/bg_b are the four-corner average. keyed_count/total_count gives the proportion of pixels keyed transparent — typical sprite values are 30-70%. A keyed ratio outside that band suggests tolerance is wrong (too tight = halo, too loose = sprite eaten)."
+    },
+    {
+      "name": "ASSET_PROMOTED",
+      "category": "curation",
+      "stratum": "event",
+      "payload": ["src", "dest", "bytes"],
+      "optional_payload": [],
+      "note": "promote() copied a curated asset to the consumer's asset tree."
     }
   ]
 }
