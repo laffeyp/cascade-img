@@ -16,11 +16,11 @@ cascade-img is a small project. Contributions are welcome; the rules are short.
 
 ```bash
 git clone https://github.com/greenrosesystems/cascade-img.git
-cd cascade-img/packages/engine
+cd cascade-img/packages/python
 pip install -e '.[dev]'      # editable install + ruff + pytest + mypy
 ```
 
-The four gates each commit must pass (run from `packages/engine/`):
+The four gates each commit must pass (run from `packages/python/`):
 
 ```bash
 ruff check .                                 # lint
@@ -38,7 +38,7 @@ CASCADE_LIVE=1 CASCADE_ENV_FILE=/path/to/.env pytest -m e2e
 
 ## Structured-event discipline
 
-Every important state change emits a vocabulary tag. The vocabulary is locked at `packages/engine/src/cascade_img/vocabulary/versions/0.1.json` (with a byte-identical mirror at `vocabulary/0.1.json` at the repo root). Workflow for a code change that introduces a new state transition:
+Every important state change emits a vocabulary tag. The vocabulary is locked at `packages/python/src/cascade_img/vocabulary/versions/0.1.json` (with a byte-identical mirror at `vocabulary/0.1.json` at the repo root). Workflow for a code change that introduces a new state transition:
 
 1. Identify the new state transitions the change introduces.
 2. Add the new tags to the vocabulary JSON with `payload`, `category`, `stratum`, and a `note` field. Mirror the change to the repo-root copy.

@@ -138,7 +138,11 @@ def main(argv: list[str] | None = None) -> int:
                         "name": "imagine",
                         "type": 1,
                         "options": [
-                            {"type": _OPT_STRING, "name": "prompt", "description": "The prompt to imagine"}
+                            {
+                                "type": _OPT_STRING,
+                                "name": "prompt",
+                                "description": "The prompt to imagine",
+                            }
                         ],
                     },
                 },
@@ -167,7 +171,12 @@ def main(argv: list[str] | None = None) -> int:
             st["phase"] = "vary"
             print("upscaled -> press Vary (Strong)", file=sys.stderr, flush=True)
             await _press(message.id, f"MJ::JOB::high_variation::1::{uid}::SOLO")
-        elif st["phase"] == "vary" and _has_upsample(message) and not is_image and uid not in seen_uuids:
+        elif (
+            st["phase"] == "vary"
+            and _has_upsample(message)
+            and not is_image
+            and uid not in seen_uuids
+        ):
             out["vary_strong_result"] = {
                 "content": content[:300],
                 "echoes_parent_token": needle in content,
@@ -198,7 +207,11 @@ def main(argv: list[str] | None = None) -> int:
         try:
             await asyncio.wait_for(done.wait(), timeout=args.timeout)
         except TimeoutError:
-            print(f"timed out after {args.timeout}s (partial capture below)", file=sys.stderr, flush=True)
+            print(
+                f"timed out after {args.timeout}s (partial capture below)",
+                file=sys.stderr,
+                flush=True,
+            )
         finally:
             await client.close()
             task.cancel()

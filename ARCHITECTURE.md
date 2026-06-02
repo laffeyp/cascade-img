@@ -2,7 +2,7 @@
 
 How cascade-img fits together, for a contributor adding a backend or anyone
 tracing the data flow. The locked event vocabulary
-(`packages/engine/src/cascade_img/vocabulary/versions/0.1.json`) is the
+(`packages/python/src/cascade_img/vocabulary/versions/0.1.json`) is the
 ground truth for what the program reports at each step; this document explains
 the shape around it.
 

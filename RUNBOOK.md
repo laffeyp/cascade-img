@@ -385,9 +385,9 @@ Everything else: re-roll up to N times, then escalate.
 `tools/smoke_mcp_walk.py` boots the bridge daemon and walks every MCP tool over the real stdio JSON-RPC transport (not Python imports) against live MJ. Useful as a release-gate before tagging:
 
 ```bash
-python3 packages/engine/tools/smoke_mcp_walk.py --env-file .env
-python3 packages/engine/tools/smoke_mcp_walk.py --env-file .env --upscale all --wait-timeout 240
-python3 packages/engine/tools/smoke_mcp_walk.py --env-file .env --alpha-key
+python3 packages/python/tools/smoke_mcp_walk.py --env-file .env
+python3 packages/python/tools/smoke_mcp_walk.py --env-file .env --upscale all --wait-timeout 240
+python3 packages/python/tools/smoke_mcp_walk.py --env-file .env --alpha-key
 ```
 
 Exit 0 means every tool returned `ok: true`, the promoted artifact landed, and the prompt log round-tripped. Exit 1 dumps the last 30 lines of the bridge log to stderr for forensics.

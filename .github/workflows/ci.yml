@@ -17,7 +17,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: packages/engine
+        working-directory: packages/python
 
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-          cache-dependency-path: packages/engine/pyproject.toml
+          cache-dependency-path: packages/python/pyproject.toml
 
       - name: Install build tooling
         run: |
@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: packages/engine
+        working-directory: packages/python
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

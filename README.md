@@ -44,11 +44,11 @@ cascade-mj-bridge                            # start the daemon (long-running)
 
 # Recommended: run the test suite from a clone before relying on a release.
 # 113/113 green confirms the daemon's vocabulary contract holds end-to-end.
-pytest packages/engine/tests/ -v
+pytest packages/python/tests/ -v
 
 # For a live end-to-end check against real MJ, including the bridge boot,
 # the MCP server, and every tool — see tools/smoke_mcp_walk.py:
-python3 packages/engine/tools/smoke_mcp_walk.py --env-file .env
+python3 packages/python/tools/smoke_mcp_walk.py --env-file .env
 ```
 
 Then in another shell:
@@ -123,14 +123,14 @@ All three emit structured JSON; all three follow the same `{ok, result | error: 
 
 Every important state change emits a structured event: config validated; Discord connected, disconnected, reconnecting; imagine fired; submit timed out (the job stays in `PENDING_GRID`, it is not failed); grid matched (with `match_path` recording which match path fired); output-path collision; upscale per-slot press failed; upscale received; job completed; job failed. Failures carry a stable error code for every known Discord failure mode.
 
-The vocabulary is locked at [`cascade_img/vocabulary/versions/0.1.json`](./packages/engine/src/cascade_img/vocabulary/versions/0.1.json). A parity check confirms every `emit()` callsite uses a declared tag, and the full test suite passes.
+The vocabulary is locked at [`cascade_img/vocabulary/versions/0.1.json`](./packages/python/src/cascade_img/vocabulary/versions/0.1.json). A parity check confirms every `emit()` callsite uses a declared tag, and the full test suite passes.
 
 ```
-$ pytest packages/engine/tests/ -q
+$ pytest packages/python/tests/ -q
 ... 113 passed in 0.9s
 ```
 
-Read the [`packages/engine/tests/`](./packages/engine/tests/) directory to understand the daemon's contract — the tests are the contract.
+Read the [`packages/python/tests/`](./packages/python/tests/) directory to understand the daemon's contract — the tests are the contract.
 
 ---
 
@@ -145,11 +145,11 @@ Read the [`packages/engine/tests/`](./packages/engine/tests/) directory to under
 
 ```
 cascade-img/
-├── packages/engine/        # the Python package (import name: cascade_img) — the product
+├── packages/python/        # the Python package (import name: cascade_img) — the product
 │   ├── src/cascade_img/     #   composer, vocabulary, backends/, curation/, log, mcp_server, cli/
 │   ├── tests/               #   behavior-contract tests
 │   └── tools/               #   vocabulary parity check, live smoke walk
-├── packages/client/        # npm name reservation for the v0.2 TypeScript wrapper (placeholder)
+├── packages/typescript/        # npm name reservation for the v0.2 TypeScript wrapper (placeholder)
 ├── examples/katybird/      # one consumer project's worked usage (not generic templates)
 ├── vocabulary/0.1.json     # byte-identical mirror of the package's locked event catalog
 ├── reviews/                # internal code/documentation review reports (audit trail)
@@ -157,7 +157,7 @@ cascade-img/
 └── *.md                    # README, ARCHITECTURE, RUNBOOK, AGENTS, RUNDOWN, SECURITY, SUPPORT, …
 ```
 
-The product is `packages/engine`. Everything an operator or agent needs is the
+The product is `packages/python`. Everything an operator or agent needs is the
 top-level Markdown plus that package; `_archive/` and `reviews/` are history,
 not documentation.
 

@@ -27,13 +27,13 @@ Read these in full, in order:
                                  compose -> imagine -> wait -> curate -> log loop.
   4. RUNBOOK.md                — install, credential capture, bring-up, and how
                                  to recover from each failure mode.
-  5. packages/engine/src/cascade_img/vocabulary/versions/0.1.json
+  5. packages/python/src/cascade_img/vocabulary/versions/0.1.json
                                — the LOCKED catalog of every event the program
                                  can emit, with payloads and notes. This is the
                                  authoritative description of what the program
                                  actually does and reports. Read the JOB_FAILED
                                  entry for the stable error codes.
-  6. packages/engine/pyproject.toml  — the real console-script names under
+  6. packages/python/pyproject.toml  — the real console-script names under
                                  [project.scripts]; quote them exactly.
   7. CHANGELOG.md and TOS.md   — current state and the Terms-of-Service reality.
 

@@ -16,6 +16,6 @@ This is an experimental approach to designing software for LLM operators — the
 
 ## How to extend
 
-Add a new tag entry to `0.1.json` before any `emit("NEW_TAG", ...)` callsite. The parity check (`packages/engine/tools/check_vocabulary_parity.py`) walks the source tree and fails if any callsite references an undeclared tag.
+Add a new tag entry to `0.1.json` before any `emit("NEW_TAG", ...)` callsite. The parity check (`packages/python/tools/check_vocabulary_parity.py`) walks the source tree and fails if any callsite references an undeclared tag.
 
 Once `0.1` is locked, structural changes bump to `0.2`. Backwards-incompatible removals are deprecation entries, not deletes.
