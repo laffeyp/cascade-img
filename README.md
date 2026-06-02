@@ -43,7 +43,7 @@ cascade-mj-bridge --check-env --pretty       # validate config
 cascade-mj-bridge                            # start the daemon (long-running)
 
 # Recommended: run the test suite from a clone before relying on a release.
-# 113/113 green confirms the daemon's vocabulary contract holds end-to-end.
+# A green suite confirms the daemon's vocabulary contract holds end-to-end.
 pytest packages/python/tests/ -v
 
 # For a live end-to-end check against real MJ, including the bridge boot,
@@ -127,7 +127,7 @@ The vocabulary is locked at [`cascade_img/vocabulary/versions/0.1.json`](./packa
 
 ```
 $ pytest packages/python/tests/ -q
-... 113 passed in 0.9s
+... all green in ~1s
 ```
 
 Read the [`packages/python/tests/`](./packages/python/tests/) directory to understand the daemon's contract — the tests are the contract.
