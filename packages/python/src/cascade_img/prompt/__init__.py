@@ -17,7 +17,7 @@ from cascade_img.prompt.composer import (
     StyleStack,
     Subject,
 )
-from cascade_img.prompt.log import AgentDecision, PromptLog
+from cascade_img.prompt.prompt_log import AgentDecision, PromptLog
 
 __all__ = [
     "AgentDecision",

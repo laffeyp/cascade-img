@@ -62,6 +62,6 @@ An adversarial bug hunt fixed **14 confirmed bugs**: upscale-result race (double
 ## Repository map
 
 - **Product:** `packages/python/` (`import cascade_img`). Tests: `packages/python/tests/`. Tools: `packages/python/tools/`.
-- **Docs:** `README`, `ARCHITECTURE`, `RUNBOOK`, `AGENTS`, `RUNDOWN`, `CHANGELOG`, `TOS`, `CONTRIBUTING`.
+- **Docs:** `README`, `ARCHITECTURE`, `RUNBOOK`, `AGENTS`, `AGENT_RUNDOWN`, `CHANGELOG`, `TOS`, `CONTRIBUTING`.
 - **`reviews/`** = audit trail (code/doc reviews, live captures, verification reports). **`_archive/`** = builder history, not shipped.
 - **Vocabulary:** `packages/python/src/cascade_img/vocabulary/versions/0.1.json` (byte-identical mirror at `vocabulary/0.1.json`).

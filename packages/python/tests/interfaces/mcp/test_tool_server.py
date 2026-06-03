@@ -129,7 +129,7 @@ async def test_log_append_and_read_roundtrip(tmp_path: Path, monkeypatch):
     is via monkeypatching the module's _log attribute."""
     clear()
     from cascade_img.interfaces.mcp import _envelope
-    from cascade_img.prompt.log import PromptLog
+    from cascade_img.prompt.prompt_log import PromptLog
 
     monkeypatch.setattr(_envelope, "_log", PromptLog(tmp_path / "log.jsonl"))
 

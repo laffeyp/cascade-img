@@ -3,6 +3,7 @@
 A Flask service that drives Midjourney from a Discord user account.
 
     POST /imagine {prompt, asset_id, upscale?} -> {job_id}
+    POST /action/<job_id> {action, slot?}          -> presses a result button (vary/zoom/pan/upscale/animate)
     GET  /status/<job_id>                      -> job record
     GET  /wait/<job_id>?timeout=120            -> blocks until done/failed
     GET  /jobs                                 -> all jobs
@@ -59,7 +60,10 @@ PACKAGE_VERSION = "0.1.0"  # bumped in lock-step with pyproject.toml
 BACKEND_NAME = "midjourney_discord"
 
 
-# Midjourney bot's Discord application ID. Constant across all deployments.
+# Midjourney's public, well-known Discord application ID. This is the same value
+# for every Midjourney user worldwide — it identifies the MJ bot itself, not
+# anything specific to this deployment — so it is a fixed constant here rather
+# than per-operator config.
 MJ_BOT_ID = 936929561302675456
 
 
@@ -119,15 +123,9 @@ class Config:
     @classmethod
     def from_env(cls) -> Config:
         """Read and validate every env var; raise MissingEnvError on the first gap."""
-        # Load the .env from the daemon's *working directory*. Bare
-        # ``load_dotenv()`` delegates to python-dotenv's ``find_dotenv()``,
-        # which — when the bridge runs via its console-script entry point
-        # (``cascade-mj-bridge``) rather than ``-c`` — walks up from the
-        # importing module's directory (the installed package), NOT the cwd.
-        # That silently defeats the documented "launch with cwd = the .env
-        # directory" contract: the file is never found and every secret reads
-        # as missing. ``CASCADE_DOTENV`` lets an operator point at the file
-        # explicitly; otherwise we force the cwd-anchored search.
+        # Anchor the .env search at the cwd: under the console-script entry point
+        # ``find_dotenv()`` would walk up from the installed package, not the cwd.
+        # ``CASCADE_DOTENV`` lets an operator point at the file explicitly instead.
         dotenv_override = os.environ.get("CASCADE_DOTENV")
         if dotenv_override:
             load_dotenv(dotenv_override)

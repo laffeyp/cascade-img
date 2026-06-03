@@ -31,6 +31,8 @@ pip install cascade-img
 
 This pulls in `discord.py-self`, `flask`, `requests`, `python-dotenv`, `Pillow`, and `mcp`. Three console scripts land on your `PATH`:
 
+These three commands are console-script entry points declared in `pyproject.toml` under `[project.scripts]`. When the package is installed, pip generates a small executable wrapper for each one on your `PATH`, and each wrapper imports and calls the named function (for example, `cascade-mj` maps to `cascade_img.interfaces.cli.generate_image:main`). They are thin aliases to that code.
+
 - `cascade-mj-bridge` — the MJ Discord bridge daemon
 - `cascade-mcp` — the MCP server (Claude Desktop / Cursor / Cline)
 - `cascade-mj` — the CLI that composes a prompt from a registry asset, fires the generation, waits, and logs the result
