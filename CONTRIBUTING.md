@@ -27,8 +27,6 @@ ruff check .                                 # lint
 ruff format --check .                        # formatting
 mypy src/cascade_img                         # types (clean; config in pyproject [tool.mypy])
 pytest                                       # fast suite: unit/integration/contract (live e2e skipped)
-python3 tools/check_vocabulary_parity.py     # every emit() uses a declared tag
-diff ../../vocabulary/0.1.json src/cascade_img/vocabulary/versions/0.1.json   # mirror in sync
 ```
 
 Tests are tiered with pytest markers (`unit`, `integration`, `contract`, `smoke`, `e2e`). The default `pytest` run skips the live tiers, so CI and contributors stay green without credentials. To run the live end-to-end walk against a real Discord/Midjourney account (it fires a real `/imagine` and costs credits):
@@ -36,19 +34,6 @@ Tests are tiered with pytest markers (`unit`, `integration`, `contract`, `smoke`
 ```bash
 CASCADE_LIVE=1 CASCADE_ENV_FILE=/path/to/.env pytest -m e2e
 ```
-
-## Structured-event discipline
-
-Every important state change emits a vocabulary tag. The vocabulary is locked at `packages/python/src/cascade_img/vocabulary/versions/0.1.json` (with a byte-identical mirror at `vocabulary/0.1.json` at the repo root). Workflow for a code change that introduces a new state transition:
-
-1. Identify the new state transitions the change introduces.
-2. Add the new tags to the vocabulary JSON with `payload`, `category`, `stratum`, and a `note` field. Mirror the change to the repo-root copy.
-3. Add the `emit(...)` callsites.
-4. Run the parity tool: `python3 tools/check_vocabulary_parity.py`.
-5. Add behavior-contract tests that assert both the function output AND the emitted event sequence.
-6. Run the full suite: `pytest`.
-
-Vocabulary changes are treated as breaking — minor bump on the package version. Don't drop or rename existing tags without a deprecation note.
 
 ## Coding conventions
 

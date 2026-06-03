@@ -197,15 +197,15 @@ async def _mcp_session(env: dict):
     """Open an MCP stdio client against cascade-mj-mcp.
 
     Prefers the installed ``cascade-mcp`` console script; falls back to
-    ``python3 -m cascade_img.mcp_server`` for in-development installs where
-    the entry point isn't on PATH.
+    ``python3 -m cascade_img.interfaces.mcp.tool_server`` for in-development
+    installs where the entry point isn't on PATH.
     """
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
 
     cmd = shutil.which("cascade-mcp")
     if cmd is None:
-        server_args = ["-m", "cascade_img.mcp_server"]
+        server_args = ["-m", "cascade_img.interfaces.mcp.tool_server"]
         server = StdioServerParameters(command=sys.executable, args=server_args, env=env)
     else:
         server = StdioServerParameters(command=cmd, args=[], env=env)

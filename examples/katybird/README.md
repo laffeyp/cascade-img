@@ -7,7 +7,7 @@ This directory is **not** a generic template set. The prompts here describe how 
 1. **Working example.** A consumer reading these can see how an actual project structured its agent prompts against cascade-img's tool surface. The patterns generalize (read the log first, decide on a lever, escalate after N rolls); the specifics don't.
 2. **Audit trail.** Per the project's never-delete discipline, restructures land in new locations rather than removing files. `prompts/` at the project root was the original location; these moved here when the package's scope was narrowed to general-purpose tooling.
 
-Consumers building their own asset pipelines should write their own prompts, informed by their project's vocabulary and constraints — not adopt these verbatim.
+Consumers building their own asset pipelines should write their own prompts, informed by their project's own concepts and constraints — not adopt these verbatim.
 
 ## Files
 

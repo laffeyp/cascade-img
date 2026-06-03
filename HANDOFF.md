@@ -18,7 +18,7 @@ _As of 2026-06-02. Read this first when picking the project back up._
 
 ## Architecture (one paragraph)
 
-Composer (named prompt parts → MJ v7 string) → locked **SDD vocabulary** (`emit()` validated at the callsite, incl. enum enforcement) → `backends/midjourney_discord` = a thin HTTP client + a Flask/`discord.py-self` **bridge daemon** (the only thing touching Discord) → curation kit, JSONL prompt log. Two front doors — `cascade-mcp` (MCP, 16 tools) and `cascade-mj` (CLI) — speak HTTP to the bridge; the bridge drives Discord → Midjourney. Console scripts: `cascade-mj-bridge`, `cascade-mcp`, `cascade-mj`.
+Composer (named prompt parts → MJ v7 string) → `backends/midjourney_discord` = a thin HTTP client + a Flask/`discord.py-self` **bridge daemon** (the only thing touching Discord) → curation kit, JSONL prompt log. Two front doors — `cascade-mcp` (MCP, 16 tools) and `cascade-mj` (CLI) — speak HTTP to the bridge; the bridge drives Discord → Midjourney. Console scripts: `cascade-mj-bridge`, `cascade-mcp`, `cascade-mj`.
 
 ## Quality bar — keep it green (run from `packages/python/`)
 
@@ -27,11 +27,11 @@ ruff check . && ruff format --check . && mypy src/cascade_img && pytest \
   && python tools/check_vocabulary_parity.py \
   && diff ../../vocabulary/0.1.json src/cascade_img/vocabulary/versions/0.1.json
 ```
-Current: **182 passed / 2 skipped**, ruff+format+mypy clean (all enforced gates), parity **47 vocab tags / 67 emit callsites**, vocab mirror byte-identical, wheel builds clean.
+Current: **182 passed / 2 skipped**, ruff+format+mypy clean (all enforced gates), vocab mirror byte-identical, wheel builds clean.
 
 ## Live verification (how to re-run)
 
-`cd packages/python && CASCADE_LIVE=1 CASCADE_ENV_FILE=<live .env> pytest -m e2e`. The bridge reads its `.env` from its working directory, or set `CASCADE_DOTENV=<abs path>`. Use `PORT=5057` (macOS AirPlay squats on 5000). Last live run: **full PASS** — boot+connect, `upscale="all"`, vary/animate/slot actions all routed to disk, single-level `mj_action` envelope, zero emit-enforcement crashes under strict mode. Evidence: `reviews/wave-f-live-verify.md`. Receive-side ground truth (what MJ actually echoes): `reviews/wave-f-receive-capture.md` + `reviews/wave-f-raw-capture.jsonl`.
+`cd packages/python && CASCADE_LIVE=1 CASCADE_ENV_FILE=<live .env> pytest -m e2e`. The bridge reads its `.env` from its working directory, or set `CASCADE_DOTENV=<abs path>`. Use `PORT=5057` (macOS AirPlay squats on 5000). Last live run: **full PASS** — boot+connect, `upscale="all"`, vary/animate/slot actions all routed to disk, single-level `mj_action` envelope. Evidence: `reviews/wave-f-live-verify.md`. Capture of what MJ actually echoes on the receive side: `reviews/wave-f-receive-capture.md` + `reviews/wave-f-raw-capture.jsonl`.
 
 ## Pushing to the remote
 

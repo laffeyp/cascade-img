@@ -35,7 +35,7 @@ For each `asset_id` in the list:
 
 5. **Inspect.** Read each of the four upscale paths with vision. For each, judge:
    - Does it match the aesthetic? (pixel-art, restrained, readable silhouette, no photoreal drift)
-   - Is the subject the right thing? (a feather, not a feather duster; a finch, not a parrot)
+   - Is the subject correct? (a feather, not a feather duster; a finch, not a parrot)
    - Identity, if oref is set: does this read as the same character?
 
 6. **Decide.**

@@ -2040,7 +2040,7 @@ def doctor() -> dict:
         )
 
     try:
-        importlib.import_module("cascade_img.mcp_server")
+        importlib.import_module("cascade_img.interfaces.mcp.tool_server")
         checks.append({"name": "mcp_server_importable", "ok": True})
     except Exception as e:
         checks.append(

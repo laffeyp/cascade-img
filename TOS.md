@@ -9,7 +9,7 @@ Midjourney has no public API. Its [Enterprise API](https://www.midjourney.com/) 
 
 ## Pluggable backend
 
-The `ImageGenerationBackend` interface in `cascade_img.backends.base` is the seam: when the Flux-via-Fal backend ships in v0.2, the same composer, curation kit, MCP server, and CLI drive it without consumer code changes. Planned backends:
+The `ImageGenerationBackend` interface in `cascade_img.backends.base` is the extension point: when the Flux-via-Fal backend ships in v0.2, the same composer, curation kit, MCP server, and CLI drive it without consumer code changes. Planned backends:
 
 - Flux Pro / Dev / Schnell via Fal — v0.2
 - OpenAI `gpt-image-1` / DALL-E 3 — v0.2

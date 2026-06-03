@@ -1,7 +1,7 @@
 """Behavior contract for Config.from_env() + MissingEnvError.
 
-Captures the boot-phase signal sequence for the load-bearing failure modes
-the LLM operator has to be able to recover from:
+Captures the boot-phase signal sequence for the failure modes the LLM
+operator has to be able to recover from:
 - missing DISCORD_USER_TOKEN
 - missing MJ_CHANNEL_ID
 - invalid MJ_CHANNEL_ID (non-integer)
@@ -9,8 +9,7 @@ the LLM operator has to be able to recover from:
 - happy path
 
 Each test asserts both the structured error payload (code + remediation,
-the things an LLM branches on) and the emitted signal sequence (the dual
-contract — code says the right thing and the program speaks the right thing).
+the things an LLM branches on) and the emitted signal sequence.
 """
 
 from __future__ import annotations

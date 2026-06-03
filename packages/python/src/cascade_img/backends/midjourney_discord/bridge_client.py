@@ -6,13 +6,13 @@ rather than importing daemon internals, so the daemon can restart, be
 replaced, or move to another machine without touching the consumer side.
 
 Methods are **synchronous** — wrapping blocking ``requests`` calls in
-``async def`` would lie about the coroutine contract. Callers that need the
+``async def`` would mark them as coroutines when they are not. Callers that need the
 asyncio loop to remain responsive should invoke these via
 ``asyncio.to_thread(backend.imagine, ...)`` or the MCP server's
 ``_run_tool`` helper (which already wraps sync callables in to_thread).
 
-Each method emits a ``BACKEND_HTTP_CALLED`` signal so graders see the
-client-side traffic, not just the daemon-side state transitions.
+Each method emits a ``BACKEND_HTTP_CALLED`` event recording the client-side
+HTTP call, alongside the daemon-side state transitions the bridge emits.
 """
 
 from __future__ import annotations

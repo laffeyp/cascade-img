@@ -1,4 +1,4 @@
-"""Behavior contract for ``cascade_img.curation.crop_grid``."""
+"""Behavior contract for ``cascade_img.curation.geometry.grid_crop``."""
 
 from __future__ import annotations
 

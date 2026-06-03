@@ -12,7 +12,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from cascade_img.curation.crop_grid import QUADRANT_OFFSETS
+from cascade_img.curation._shared import QUADRANT_OFFSETS
 from cascade_img.vocabulary import emit
 
 

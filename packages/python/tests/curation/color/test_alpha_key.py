@@ -1,4 +1,4 @@
-"""Behavior contract for ``cascade_img.curation.alpha_key``."""
+"""Behavior contract for ``cascade_img.curation.color.alpha_key``."""
 
 from __future__ import annotations
 

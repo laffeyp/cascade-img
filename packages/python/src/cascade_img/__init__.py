@@ -13,13 +13,6 @@ from cascade_img.backends.midjourney_discord import (
     MidjourneyDiscordBackend,
     MissingEnvError,
 )
-from cascade_img.composer import (
-    IdentityStack,
-    ParamStack,
-    PromptComposer,
-    StyleStack,
-    Subject,
-)
 from cascade_img.curation import (
     DEFAULT_TOLERANCE,
     QUADRANT_OFFSETS,
@@ -32,7 +25,14 @@ from cascade_img.curation import (
     score_grid,
     sprite_sheet,
 )
-from cascade_img.log import AgentDecision, PromptLog
+from cascade_img.prompt.composer import (
+    IdentityStack,
+    ParamStack,
+    PromptComposer,
+    StyleStack,
+    Subject,
+)
+from cascade_img.prompt.log import AgentDecision, PromptLog
 from cascade_img.vocabulary import (
     VOCAB_VERSION,
     Emitter,

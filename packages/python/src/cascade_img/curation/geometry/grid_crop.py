@@ -16,15 +16,8 @@ from pathlib import Path
 
 from PIL import Image
 
+from cascade_img.curation._shared import QUADRANT_OFFSETS
 from cascade_img.vocabulary import emit
-
-# MJ grid layout (top-left origin). Each tuple is (col_index, row_index), 0 or 1.
-QUADRANT_OFFSETS: dict[int, tuple[int, int]] = {
-    1: (0, 0),  # top-left      U1
-    2: (1, 0),  # top-right     U2
-    3: (0, 1),  # bottom-left   U3
-    4: (1, 1),  # bottom-right  U4
-}
 
 
 def crop_quadrant(src: str | Path | Image.Image, quadrant: int) -> Image.Image:

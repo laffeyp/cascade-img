@@ -1,28 +1,31 @@
-"""Curation utilities for Midjourney grid outputs.
+"""Curation — post-generation image steps for Midjourney grid outputs.
 
-* :func:`crop_quadrant` extracts one of the four 2x2 grid panels.
-  ``quadrant=0`` returns the whole image (used for the ``--upscale 1`` path
-  that bypasses the grid).
-* :func:`alpha_key_corners` performs corner-anchored background detection and
-  alpha-keying for sprite-style outputs (``flood`` default, ``threshold``
-  fallback, or ``rembg`` ML removal via the optional ``[ml]`` extra).
-* :func:`contact_sheet` composites a grid's panels into one labelled image for
-  vision-model selection.
-* :func:`auto_trim` crops an image to its content bounding box.
-* :func:`palette_quantize` reduces an image to a fixed palette.
-* :func:`sprite_sheet` packs several sprites into one atlas plus a frame map.
-* :func:`score_grid` ranks a grid's quadrants for selection (pure-PIL).
-* :func:`promote` copies a curated image into the consumer's asset tree.
+Grouped by theme; this facade re-exports every step so callers keep using
+``from cascade_img.curation import <step>`` regardless of which subpackage now
+hosts it.
+
+* ``geometry/`` — reshape pixel extent: :func:`crop_quadrant` (one of the four
+  2x2 grid panels; ``quadrant=0`` is a whole-image passthrough for the
+  ``--upscale 1`` path), :func:`auto_trim` (crop to the content bounding box).
+* ``color/`` — :func:`alpha_key_corners` (corner-anchored background keying;
+  ``flood`` default, ``threshold`` fallback, or ``rembg`` ML removal via the
+  optional ``[ml]`` extra), :func:`palette_quantize` (fixed-palette reduction).
+* ``sheets/`` — composite many inputs into one: :func:`contact_sheet` (labelled
+  2x2 review sheet for vision-model selection), :func:`sprite_sheet` (atlas plus
+  a frame map).
+* ``select/`` — :func:`score_grid` (rank a grid's quadrants, pure-PIL),
+  :func:`promote` (copy a curated image into the consumer's asset tree).
+
+Primitives shared by more than one theme (``QUADRANT_OFFSETS`` and the
+corner-background sampler) live in the private :mod:`._shared` module so the
+subpackages depend on a common module instead of reaching into each other.
 """
 
-from cascade_img.curation.alpha_key import DEFAULT_TOLERANCE, alpha_key_corners
-from cascade_img.curation.auto_trim import auto_trim
-from cascade_img.curation.contact_sheet import contact_sheet
-from cascade_img.curation.crop_grid import QUADRANT_OFFSETS, crop_quadrant
-from cascade_img.curation.palette_quantize import palette_quantize
-from cascade_img.curation.promote import promote
-from cascade_img.curation.score_grid import score_grid
-from cascade_img.curation.sprite_sheet import sprite_sheet
+from cascade_img.curation._shared import QUADRANT_OFFSETS
+from cascade_img.curation.color import DEFAULT_TOLERANCE, alpha_key_corners, palette_quantize
+from cascade_img.curation.geometry import auto_trim, crop_quadrant
+from cascade_img.curation.select import promote, score_grid
+from cascade_img.curation.sheets import contact_sheet, sprite_sheet
 
 __all__ = [
     "DEFAULT_TOLERANCE",

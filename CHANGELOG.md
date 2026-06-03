@@ -4,6 +4,14 @@ All notable changes to cascade-img are recorded here. Format follows [Keep a Cha
 
 ## [Unreleased]
 
+### Package restructure (internal layout — public API unchanged)
+
+- Reorganized `cascade_img` into concern-based packages so the tree is self-describing on a scan. `from cascade_img import …` is unchanged (the root re-exports everything); the three console scripts (`cascade-mj`, `cascade-mcp`, `cascade-mj-bridge`) are unchanged.
+- New homes: `composer.py` / `log.py` → `prompt/`; the two front doors → `interfaces/` (`cli/` and `mcp/`); curation split by type → `curation/{geometry,color,sheets,select}/` with shared primitives in `curation/_shared.py`. The Midjourney backend stays under `backends/midjourney_discord/`.
+- Renames for clarity: `cli/mj.py` → `interfaces/cli/generate_image.py`; `cli/registry.py` → `interfaces/cli/asset_registry.py`; `backends/midjourney_discord/backend.py` → `bridge_client.py`; `curation/crop_grid.py` → `curation/geometry/grid_crop.py`.
+- The MCP server moved to `interfaces/mcp/` and split by concern: `tool_server.py` (FastMCP instance + entry point), `_envelope.py` (the response wrapper + shared backend/composer/log), and `tools/{prompt,generation,curation,log}_tools.py`. The 16 MCP tool names are unchanged.
+- `pyproject` entry-point module paths updated to match; the wire string `backend="midjourney_discord"` is unchanged.
+
 ### Response-message actions (Wave F)
 
 - **Drive every Midjourney response-message button without a human click.** `POST /action/<job_id>`, the `mj_action(job_id, action)` MCP tool, and `MidjourneyDiscordBackend.action` press the buttons on a completed job's upscaled (SOLO) image: `upscale_subtle`/`upscale_creative`, `vary_subtle`/`vary_strong`, `zoom_out_2x`/`zoom_out_1_5x`, `pan_left`/`right`/`up`/`down`, `animate_high`/`animate_low`, `favorite`. The bridge reads each button's **live** `custom_id` off the message (never reconstructs the uuid-bearing id); a missing button returns `BUTTON_NOT_FOUND`, a grid-only job `NO_UPSCALED_IMAGE`. New signals `MJ_ACTION_REQUESTED` / `MJ_ACTION_FAILED`.
