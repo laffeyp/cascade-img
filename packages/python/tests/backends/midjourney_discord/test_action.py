@@ -288,6 +288,15 @@ def test_classify_derived_covers_every_family():
         _classify_derived("**a bird --raw --motion high --video 1 --aspect 1:1** - <@x>")
         == "animation"
     )
+    # A user who wrote --video in their /imagine prompt: a vary/zoom/pan/upscale
+    # echo carries --video inside the bolded prompt but NOT MJ's --motion
+    # video-rewrite marker, so it must stay "variation", not flip to "animation".
+    assert (
+        _classify_derived(
+            "**a cat --video --ar 16:9 --no cscidnocollidetok** - Variations (Strong) by <@x>"
+        )
+        == "variation"
+    )
 
 
 def test_has_result_button_distinguishes_final_from_progress():

@@ -38,6 +38,7 @@ import time
 import uuid
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -249,23 +250,29 @@ class Status(str, Enum):
     FAILED = "failed"
 
 
-_NO_CLAUSE_RE = re.compile(r"--no\s+(.+?)\s*$")
+# Capture the ``--no`` value up to (but not including) the next ``--flag`` or the
+# end of string. The lookahead — rather than end-anchoring — stops a ``--no`` that
+# sits mid-prompt from swallowing trailing flags like ``--ar``/``--s`` (which
+# would otherwise be folded into the negative-prompt list). The composer always
+# emits ``--no`` last, but a hand-crafted raw prompt may not.
+_NO_CLAUSE_RE = re.compile(r"--no\s+(.+?)(?=\s+--|\s*$)")
 
 
 def _merge_no_clause(prompt: str, token: str) -> str:
     """Weave the per-job routing needle into the prompt's ``--no`` clause.
 
     The bridge routes MJ's echoed messages by finding ``cscidnocollide{token}``
-    as a substring. If the composed prompt already ends with a user ``--no``
-    clause (a negative prompt), append the needle to that one clause — MJ wants
-    a single comma-separated ``--no`` list, and a second ``--no`` would break
-    its parsing. Otherwise add a fresh trailing ``--no`` clause. Either way the
-    needle appears verbatim, so the matchers are unaffected.
+    as a substring. If the prompt already contains a user ``--no`` clause (a
+    negative prompt), append the needle to that one clause — MJ wants a single
+    comma-separated ``--no`` list, and a second ``--no`` would break its parsing.
+    Any flags that follow the ``--no`` clause are preserved in place. Otherwise
+    add a fresh trailing ``--no`` clause. Either way the needle appears verbatim,
+    so the matchers are unaffected.
     """
     needle = f"cscidnocollide{token}"
     m = _NO_CLAUSE_RE.search(prompt)
     if m:
-        return f"{prompt[: m.start()]}--no {m.group(1)}, {needle}"
+        return f"{prompt[: m.start()]}--no {m.group(1)}, {needle}{prompt[m.end() :]}"
     return f"{prompt} --no {needle}"
 
 
@@ -384,7 +391,13 @@ def _persist(job: Job) -> None:
     if _store is None:
         return
     try:
-        _store.put(asdict(job))
+        row = asdict(job)
+        # Never persist a derived entry still on its reservation sentinel
+        # (path==""): if a concurrent touch() snapshots the job mid-download, a
+        # restart's _job_from_row would drop the claimed-but-undownloaded entry
+        # and orphan the file. Only complete (path-bearing) derived rows persist.
+        row["derived"] = [d for d in row.get("derived") or [] if d.get("path")]
+        _store.put(row)
     except Exception as e:  # durability is best-effort; never break the live path
         log.warning(f"job-store persist failed for {job.job_id}: {e}")
 
@@ -868,12 +881,19 @@ def _job_by_upscale_message_id(message_id: int) -> Job | None:
 
 
 def _classify_derived(content: str) -> str:
-    # animation's rewritten prompt carries "--video" INSIDE the bolded prompt;
-    # the other families are named only in the suffix MJ appends after the
-    # prompt's closing "**" ("... ** - Variations (Strong) by ..."). Scan just
-    # that suffix for them so a family word inside the prompt body (e.g. an asset
-    # literally about "zoom") cannot mislabel the result.
-    if "--video" in content:
+    # animation's rewritten prompt carries MJ's video signature INSIDE the bolded
+    # prompt ("... --motion high --video 1 --aspect 1:1**", per the live capture in
+    # reviews/wave-f-receive-capture.md); the other families are named only in the
+    # suffix MJ appends after the prompt's closing "**". Scan that suffix for them
+    # so a family word inside the prompt body (e.g. an asset literally about "zoom")
+    # cannot mislabel the result.
+    #
+    # Require BOTH "--video" and "--motion": a non-animation derived result echoes
+    # the user's original prompt, so a user who wrote "--video" in their prompt
+    # would otherwise mislabel every vary/zoom/pan/upscale as an animation. MJ's
+    # actual animation rewrite always carries "--motion high|low", which a static
+    # /imagine prompt does not.
+    if "--video" in content and "--motion" in content:
         return "animation"
     tail = content.rsplit("**", 1)[-1]
     for marker, kind in _DERIVED_KIND_MARKERS:
@@ -994,7 +1014,23 @@ def _ingest_derived(parent: Job, message) -> None:
     )
 
 
-def _ingest_message(message, event: str = "message"):
+def _ingest_message(message, event: str = "message") -> None:
+    """Process an MJ message, never propagating an exception. Dispatched on a
+    thread pool from on_message / on_message_edit; a single malformed message
+    (e.g. an unexpected attachment shape) must not break the ingest worker —
+    catch and log it with context rather than let it surface only as a generic
+    discord.py event-error log."""
+    try:
+        _ingest_message_impl(message, event)
+    except Exception:
+        log.exception(
+            "[ingest] failed to process MJ message %s (event=%s); dropping it",
+            getattr(message, "id", "?"),
+            event,
+        )
+
+
+def _ingest_message_impl(message, event: str = "message"):
     """Update job state from an MJ message. ``event`` is "message" for a fresh
     message and "edit" when dispatched from ``on_message_edit`` — used only to
     tag the Wave F raw capture (``discord.Message`` is ``__slots__``-based, so
@@ -1051,6 +1087,14 @@ def _ingest_message(message, event: str = "message"):
             with LOCK:
                 job.progress = "queued"
                 job.touch()
+            return
+        if message.attachments and not _has_result_button(message):
+            # A low-res progress frame can carry an attachment but only a lone
+            # Cancel button (no U/V result buttons). Without this guard it could
+            # race the real final grid and win the reservation below, downloading
+            # a 256x256 preview as the grid. Result buttons are the decisive
+            # final-vs-progress signal (see _has_result_button); treat anything
+            # without them as a still-in-progress frame and wait for the final.
             return
         if message.attachments:
             # Claim the grid exactly once. on_message and on_message_edit
@@ -1457,7 +1501,10 @@ def _normalize_upscale(value) -> str | None:
 @app.post("/imagine")
 def http_imagine():
     if not _ready.is_set():
-        return jsonify(error="discord client not ready yet, retry in a few seconds"), 503
+        return jsonify(
+            error="discord client not ready yet, retry in a few seconds",
+            code="DISCORD_NOT_READY",
+        ), 503
 
     body = request.get_json(silent=True) or {}
     prompt = (body.get("prompt") or "").strip()
@@ -1492,7 +1539,10 @@ def http_imagine():
     fut = asyncio.run_coroutine_threadsafe(_send_imagine(job.tagged_prompt()), _running_loop())
     try:
         resp = fut.result(timeout=SUBMIT_TIMEOUT_SECONDS)
-    except TimeoutError:
+    except (TimeoutError, FuturesTimeoutError):
+        # ``run_coroutine_threadsafe`` returns a concurrent.futures.Future, whose
+        # ``.result()`` raises concurrent.futures.TimeoutError — NOT a subclass of
+        # the builtin TimeoutError until Python 3.11 (we support 3.10). Catch both.
         # Discord didn't return within budget. MJ may or may not have it.
         # Don't fail the job; don't evict from PENDING_GRID. If MJ does
         # process it, the grid-match path will catch the result and resolve
@@ -1738,6 +1788,25 @@ def http_action(job_id):
             ok=False,
             error={"code": "DISCORD_NOT_READY", "message": str(e), "remediation": e.remediation},
         ), 503
+    except (TimeoutError, FuturesTimeoutError):
+        # concurrent.futures.TimeoutError on Python 3.10 is not a builtin
+        # TimeoutError; catch both so the timeout doesn't fall through to the
+        # generic handler with an opaque, undeclared error code.
+        emit(
+            "MJ_ACTION_FAILED",
+            job_id=job_id,
+            action=action,
+            error_code="ACTION_TIMEOUT",
+            error_message="action timed out after 35s",
+        )
+        return jsonify(
+            ok=False,
+            error={
+                "code": "ACTION_TIMEOUT",
+                "message": "Discord action timed out after 35s; the press may or may not have landed.",
+                "remediation": "Poll the job's status; do not blindly retry the same action.",
+            },
+        ), 504
     except Exception as e:
         emit(
             "MJ_ACTION_FAILED",

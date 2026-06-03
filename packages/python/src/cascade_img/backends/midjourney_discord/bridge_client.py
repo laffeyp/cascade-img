@@ -81,7 +81,9 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
         body: dict = {"prompt": prompt, "asset_id": asset_id}
         if upscale is not None:
             body["upscale"] = upscale
-        with requests.post(f"{self.base_url}/imagine", json=body, timeout=30) as r:
+        # Must exceed the bridge's 35 s submit budget, or a slow-but-successful
+        # submission reads as a client-side Timeout (and a retry double-bills).
+        with requests.post(f"{self.base_url}/imagine", json=body, timeout=40) as r:
             emit("BACKEND_HTTP_CALLED", method="POST", path="/imagine", status=r.status_code)
             # 202 (SUBMITTED_UNCONFIRMED) is a success the caller must see, not a
             # failure — only 4xx/5xx raise.
@@ -90,6 +92,16 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
             return r.json()
 
     def wait(self, job_id: str, timeout: int = 180) -> dict:
+        """Long-poll until the job is terminal or the wait times out.
+
+        A wait-timeout is deliberately NOT raised as an error: the bridge
+        returns HTTP 504 with ``timed_out=True`` and the job may still be
+        rendering. Re-rolling on a timeout would double-bill, so the timeout is
+        a non-terminal signal, not a failure. Callers must branch on the
+        returned ``status`` (``done`` / ``failed`` / something in-progress) and
+        on ``timed_out`` — a successful HTTP response does NOT imply the job
+        finished. Only genuine errors (unknown/evicted job, etc.) raise.
+        """
         with requests.get(
             f"{self.base_url}/wait/{job_id}",
             params={"timeout": timeout},

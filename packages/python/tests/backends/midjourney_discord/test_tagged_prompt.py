@@ -28,6 +28,17 @@ def test_merges_into_existing_no_clause():
     assert _token_needle("abc123") in out
 
 
+def test_merges_into_mid_prompt_no_clause_preserving_trailing_flags():
+    # A hand-crafted raw prompt with --no mid-string: the needle folds into the
+    # --no list and the trailing render flags (--ar, --s) are preserved, not
+    # swallowed into the negative-prompt words (which would default MJ's aspect
+    # ratio / stylize).
+    out = _merge_no_clause("a cat --no text, watermark --ar 16:9 --s 750", "abc123")
+    assert out == "a cat --no text, watermark, cscidnocollideabc123 --ar 16:9 --s 750"
+    assert out.count("--no") == 1
+    assert _token_needle("abc123") in out
+
+
 def test_job_tagged_prompt_uses_merge():
     job = Job(job_id="j1", asset_id="a", prompt="a finch --v 7 --no text", request_token="tok")
     tagged = job.tagged_prompt()
