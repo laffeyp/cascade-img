@@ -23,7 +23,7 @@ from typing import Any
 
 from cascade_img.backends.midjourney_discord import MidjourneyDiscordBackend
 from cascade_img.prompt.composer import PromptComposer
-from cascade_img.prompt.log import PromptLog
+from cascade_img.prompt.prompt_log import PromptLog
 from cascade_img.vocabulary import emit
 
 CASCADE_BRIDGE_URL = os.environ.get("CASCADE_BRIDGE_URL", "http://127.0.0.1:5000")

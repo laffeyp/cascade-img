@@ -9,6 +9,9 @@ An image-generation pipeline an LLM can drive. It runs Midjourney through Discor
 
 The Midjourney prompt is split into composable parts you set independently — subject, moodboard (`--p`), style reference (`--sref`), identity reference (`--oref`) and its weight (`--ow`), aspect ratio. A curation kit crops the 2×2 grid into quadrants and, optionally, removes a uniform background. A JSONL prompt log records every attempt so the next iteration knows what's been tried. An MCP server exposes all of this to Claude Desktop, Cursor, Cline, or any MCP-aware host — so an agent can compose, generate, curate, and log without a human on every attempt.
 
+
+Midjourney comes first by design. Midjourney has no public API, so driving it through a Discord user account is the established, accepted OSS pattern for programmatic access — and the existing tools that do this are sparsely maintained, which is what cascade-img sets out to improve on with a best-in-class take on that pattern. It is tackled first precisely because, lacking an API, it is the hardest of the image providers to integrate; with that done, adding the rest (Flux, DALL-E, Imagen) is the easier work.
+
 > **Context.** Midjourney has no public API. Driving it through a Discord user account is the established OSS pattern for programmatic access. Both Discord and Midjourney's Terms of Service prohibit user-account automation. See [TOS.md](./TOS.md).
 
 Published by [Green Rose Systems](https://greenrosesystems.com).
@@ -149,7 +152,7 @@ cascade-img/
 ├── vocabulary/0.1.json     # mirror of the package's event log-line catalog
 ├── reviews/                # internal code/documentation review reports (audit trail)
 ├── _archive/               # build-process history; not part of the published package
-└── *.md                    # README, ARCHITECTURE, RUNBOOK, AGENTS, RUNDOWN, SECURITY, SUPPORT, …
+└── *.md                    # README, ARCHITECTURE, RUNBOOK, AGENTS, AGENT_RUNDOWN, SECURITY, SUPPORT, …
 ```
 
 The product is `packages/python`. Everything an operator or agent needs is the

@@ -12,11 +12,12 @@ The package is structured around three responsibilities:
   :class:`~cascade_img.backends.base.ImageGenerationBackend` subclass that
   speaks HTTP to a running bridge.
 * ``job_store.py`` is the SQLite-backed durable mirror of in-flight jobs.
+  It records each job's prompt, state, grid message, and downloaded results
+  so the bridge can survive a restart and rehydrate work that was still
+  pending, rather than losing track of interactions already sent to Discord.
 
-ToS context: Midjourney has no public API; driving it through a Discord
-user account is the established OSS pattern. Both Discord's and Midjourney's
-Terms of Service prohibit user-account automation. See ``TOS.md`` at the
-repository root.
+ToS note: this drives a Discord user account against Midjourney, which both
+services' Terms of Service prohibit; see ``TOS.md``.
 """
 
 from cascade_img.backends.midjourney_discord.bridge import Config, MissingEnvError

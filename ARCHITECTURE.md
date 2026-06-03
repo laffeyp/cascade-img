@@ -8,7 +8,7 @@ tracing the data flow.
 | Module | Role |
 |---|---|
 | `prompt/composer.py` | Turns composable prompt parts (subject, style reference, identity reference, aspect ratio, …) into a Midjourney v7 prompt string. Pure; no I/O. |
-| `prompt/log.py` | `PromptLog` — an append-only JSONL ledger that is the agent's working memory. |
+| `prompt/prompt_log.py` | `PromptLog` — an append-only JSONL ledger that is the agent's working memory. |
 | `backends/base.py` | `ImageGenerationBackend` — the pluggable interface (sync `imagine`/`wait`/`status`/`health`) — and `BackendCapabilities`. |
 | `backends/midjourney_discord/bridge_client.py` | The v0.1 backend: a thin HTTP client that talks to the bridge daemon. |
 | `backends/midjourney_discord/bridge.py` | The bridge daemon: a Flask HTTP server fronting a `discord.py-self` gateway connection to Midjourney. The only component that talks to Discord. |
@@ -24,19 +24,24 @@ There are two front doors and one daemon. Both front doors speak to the bridge
 over HTTP; the bridge is the only thing that touches Discord.
 
 ```
-  cascade-mj (CLI)            cascade-mcp (MCP server)
-        \                          /
-         \                        /
-          v                      v
-        MidjourneyDiscordBackend  (HTTP client)
-                    |
-                    |  POST /imagine, GET /wait/<id>, /status/<id>, /jobs, /health
-                    v
-        cascade-mj-bridge  (Flask daemon, 127.0.0.1:5000)
-            |                         ^
-            | discord.py-self         | grid + upscale messages
-            v  (gateway + REST)       |
-        Discord  <----------------->  Midjourney
+   ┌───────────────────┐          ┌────────────────────────┐
+   │  cascade-mj  (CLI) │          │ cascade-mcp (MCP server)│   front doors:
+   │  human / script    │          │  agent host             │   one composes & rolls,
+   └─────────┬──────────┘          └───────────┬─────────────┘   one exposes tools
+             └───────────────┬─────────────────┘
+                             │   MidjourneyDiscordBackend — a thin HTTP client
+                             │   POST /imagine · GET /wait/<id> · GET /status/<id>
+                             │   POST /action/<id> · GET /health
+                             ▼
+            ┌───────────────────────────────────────────┐
+            │           cascade-mj-bridge                │   the daemon — the only
+            │     Flask daemon · 127.0.0.1:5000          │   process that touches Discord
+            └────────┬──────────────────────────▲────────┘
+                     │ discord.py-self           │ grid · upscale · derived messages
+                     ▼ (gateway + REST)          │
+            ┌──────────────────┐         ┌──────────────────┐
+            │     Discord      │ ◄─────► │    Midjourney    │
+            └──────────────────┘         └──────────────────┘
 ```
 
 A generation round: the front door composes a prompt and calls `imagine`; the
@@ -45,6 +50,14 @@ over Discord and tracks a job; Midjourney posts the grid (and, if requested,
 upscales) back as Discord messages; the bridge matches those messages to the
 job, downloads the images, and resolves the job. The front door long-polls
 `/wait/<id>` until the job is terminal, then curates and logs.
+
+**Two stores, often confused.** cascade-img keeps two separate persistent
+records. The **prompt log** (`prompt/prompt_log.py`) is the *caller's* memory —
+an append-only JSONL log of every attempt for an asset (prompt, outputs,
+decision), read back to decide the next move. The **job store**
+(`backends/midjourney_discord/job_store.py`) is the *daemon's* memory — a
+write-through SQLite mirror of in-flight bridge jobs, so a restart resumes
+tracking them instead of dropping them.
 
 ## HTTP API and the response envelope
 

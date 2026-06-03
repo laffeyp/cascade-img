@@ -16,4 +16,5 @@ Where to go, by question type.
 
 cascade-img drives a Discord user account against Midjourney, which both services' Terms of Service prohibit. Questions about whether to do that, account bans, or credential acquisition are the operator's call and are out of scope for support. The mechanics of running the tool are documented in [RUNBOOK.md](./RUNBOOK.md); the policy reality is documented in [TOS.md](./TOS.md).
 
-There is no SLA. cascade-img is a small project; best-effort response on issues.
+There is no SLA, and cascade-img is a small project, so response times on issues are best-effort. That said, if you are using it in good faith and run into trouble, we are glad to help — you deserve a hand, and we will do what we can.
+

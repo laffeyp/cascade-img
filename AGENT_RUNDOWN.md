@@ -1,6 +1,7 @@
-# Rundown
+# Agent Rundown
 
-Open this repository in any LLM (Claude, etc.) and paste the prompt below. It
+For an agent (or a person) being onboarded to this repository. Open it in any
+LLM (Claude, etc.) and paste the prompt below. It
 will read the source of truth and give you an accurate, grounded rundown of
 cascade-img — what it is, how it works, and how to run it.
 

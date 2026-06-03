@@ -1,7 +1,15 @@
-"""Implementation of the vocabulary runtime.
+"""Implementation behind the public vocabulary API.
 
-The public surface is re-exported from :mod:`cascade_img.vocabulary`; this
-module exists so the package directory can also hold the versioned JSON
+This module loads the versioned tag catalog from ``versions/`` (the
+:class:`Vocabulary` class) and validates emitted payloads against it:
+:meth:`Vocabulary.validate` raises on an unknown tag, a missing required
+field, an undeclared field, or a value outside a locked evidence-constraint
+enum. The :class:`Emitter` is the buffer that records each :class:`Signal`
+at :meth:`Emitter.emit`, and the module-level :func:`emit` is the entry point
+the rest of the program calls. The :func:`capture`, :func:`snapshot`, and
+``assert_signal``/``assert_no_signal`` helpers let tests inspect the recorded
+signals. The public surface is re-exported from :mod:`cascade_img.vocabulary`;
+this module exists so the package directory can also hold the versioned JSON
 under ``versions/``. Consumers should not import from here directly.
 """
 

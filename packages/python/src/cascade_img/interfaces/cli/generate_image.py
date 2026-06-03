@@ -42,7 +42,7 @@ from cascade_img.prompt.composer import (
     StyleStack,
     Subject,
 )
-from cascade_img.prompt.log import PromptLog
+from cascade_img.prompt.prompt_log import PromptLog
 from cascade_img.vocabulary import emit
 
 

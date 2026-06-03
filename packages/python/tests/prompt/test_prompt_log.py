@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from cascade_img.prompt.log import AgentDecision, PromptLog
+from cascade_img.prompt.prompt_log import AgentDecision, PromptLog
 from cascade_img.vocabulary import clear, snapshot
 
 

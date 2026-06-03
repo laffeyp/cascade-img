@@ -1,4 +1,11 @@
-"""PromptLog — append-only ledger that's also the agent's working memory.
+"""PromptLog — the append-only prompt log that's also the agent's working memory.
+
+This is the *prompt log*: a per-run record of what was tried for each asset
+(prompt, outputs, agent decision). It is distinct from the bridge's *job store*
+(``backends/midjourney_discord/job_store.py``), which durably mirrors in-flight
+Discord jobs so the daemon can resume after a restart. The prompt log is the
+caller's memory across attempts; the job store is the daemon's memory across
+restarts.
 
 Records go to disk as JSON Lines (one record per line, structured, trivially
 parseable by an LLM via :meth:`read`). A separate :meth:`render_markdown`

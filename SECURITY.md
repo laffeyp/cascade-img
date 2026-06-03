@@ -4,7 +4,7 @@ cascade-img persists a Discord user-account token in the operator's `.env` file.
 
 ## Reporting a vulnerability
 
-**Do not file a public GitHub issue.** Send a private disclosure to `security@greenrosesystems.com` (PGP key available on request).
+**Do not file a public GitHub issue.** Send a private disclosure to `security@greenrosesystems.com`. Private, coordinated disclosure is the standard practice for security issues, since it lets a fix ship before the problem becomes public knowledge that an attacker could act on.
 
 Include: a description of the vulnerability, the version (`pip show cascade-img`) and platform, the conditions required to trigger it, and any proof-of-concept that exercises it without harming a third party. Expect an acknowledgement within 72 hours and a fix or written response within 30 days for confirmed issues.
 
