@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import threading
 from pathlib import Path
 from typing import Any
@@ -310,13 +311,22 @@ def test_imagine_returns_503_on_discord_not_ready(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_imagine_returns_202_on_submit_timeout(monkeypatch):
+@pytest.mark.parametrize(
+    "exc",
+    [TimeoutError, concurrent.futures.TimeoutError],
+    ids=["builtin_timeout", "futures_timeout"],
+)
+def test_imagine_returns_202_on_submit_timeout(monkeypatch, exc):
+    # run_coroutine_threadsafe's Future raises concurrent.futures.TimeoutError,
+    # which on Python 3.10 (our floor) is NOT a builtin TimeoutError. The except
+    # clause must catch both, or the timeout falls through to a spurious
+    # SUBMIT_FAILED that evicts a job MJ may have accepted (double-bill risk).
     _reset_bridge_state()
     clear()
     bridge._ready.set()
     _patch_coroutine_threadsafe(
         monkeypatch,
-        _FakeFuture(raises=TimeoutError("interaction post timed out")),
+        _FakeFuture(raises=exc("interaction post timed out")),
     )
 
     client = bridge.app.test_client()
@@ -695,7 +705,11 @@ def test_concurrent_grid_ingest_only_downloads_once(monkeypatch, tmp_path):
             self.author = _Author()
             self.channel = _Channel()
             self.attachments = [_Att()]
-            self.components = []
+            # A real final grid carries U/V result buttons; the bridge requires
+            # them to tell a final grid from a low-res progress frame before
+            # claiming the grid.
+            btn = type("Btn", (), {"custom_id": "MJ::JOB::upsample::1::u"})()
+            self.components = [type("Row", (), {"children": [btn]})()]
 
     # Fire two ingests in parallel — the second must short-circuit.
     threads = [threading.Thread(target=bridge._ingest_message, args=(_Msg(),)) for _ in range(2)]

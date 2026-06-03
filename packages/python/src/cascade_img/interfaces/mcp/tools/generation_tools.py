@@ -29,7 +29,13 @@ async def imagine(
 
 async def wait(job_id: str, timeout: int = 180) -> dict[str, Any]:
     """Block until the job hits ``done`` or ``failed`` or the timeout fires.
-    Returns the full job record under ``result``."""
+    Returns the full job record under ``result``.
+
+    A timeout is NOT a failure: the envelope is still ``{ok: true}`` but the
+    result carries ``timed_out: true`` and a non-terminal ``status`` (the job
+    may still be rendering). Branch on ``result.status`` and ``result.timed_out``
+    — ``ok: true`` alone does not mean the job finished. Do not re-roll on a
+    timeout (it double-bills); poll ``wait``/``status`` again instead."""
     return await _envelope._run_tool(
         "wait", _envelope._backend.wait, job_id=job_id, timeout=timeout
     )
