@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from cascade_img.cli.mj import run
-from cascade_img.cli.registry import AssetEntry, load_registry
+from cascade_img.interfaces.cli.asset_registry import AssetEntry, load_registry
+from cascade_img.interfaces.cli.generate_image import run
 from cascade_img.vocabulary import clear, snapshot
 
 REGISTRY_BIRD = {
@@ -179,7 +179,7 @@ def test_identity_lock_facets_flow_through(tmp_path):
 def test_non_dry_run_dispatches_sync_backend_via_to_thread(tmp_path, monkeypatch):
     """The CLI's non-dry-run path used to ``await`` the synchronous backend
     methods, which would raise ``TypeError: object dict can't be used in await
-    expression`` against the real backend (Sync since the 2026-06-02 honest-API
+    expression`` against the real backend (synchronous since the 2026-06-02
     revision). Verify the path wraps the call in ``asyncio.to_thread`` so a
     sync backend works end-to-end.
     """
@@ -208,7 +208,7 @@ def test_non_dry_run_dispatches_sync_backend_via_to_thread(tmp_path, monkeypatch
                 "upscale_paths": {},
             }
 
-    import cascade_img.cli.mj as cli_mod
+    import cascade_img.interfaces.cli.generate_image as cli_mod
 
     monkeypatch.setattr(cli_mod, "MidjourneyDiscordBackend", _StubSyncBackend)
 

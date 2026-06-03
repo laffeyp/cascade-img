@@ -1,24 +1,22 @@
 # Architecture
 
 How cascade-img fits together, for a contributor adding a backend or anyone
-tracing the data flow. The locked event vocabulary
-(`packages/python/src/cascade_img/vocabulary/versions/0.1.json`) is the
-ground truth for what the program reports at each step; this document explains
-the shape around it.
+tracing the data flow.
 
 ## Components
 
 | Module | Role |
 |---|---|
-| `composer.py` | Turns composable prompt parts (subject, style reference, identity reference, aspect ratio, …) into a Midjourney v7 prompt string. Pure; no I/O. |
-| `vocabulary/` | The locked catalog of events the program may emit, plus the runtime (`emit`, `Vocabulary.validate`, `Emitter`). Every state transition names a tag here. |
+| `prompt/composer.py` | Turns composable prompt parts (subject, style reference, identity reference, aspect ratio, …) into a Midjourney v7 prompt string. Pure; no I/O. |
+| `prompt/log.py` | `PromptLog` — an append-only JSONL ledger that is the agent's working memory. |
 | `backends/base.py` | `ImageGenerationBackend` — the pluggable interface (sync `imagine`/`wait`/`status`/`health`) — and `BackendCapabilities`. |
-| `backends/midjourney_discord/backend.py` | The v0.1 backend: a thin HTTP client that talks to the bridge daemon. |
+| `backends/midjourney_discord/bridge_client.py` | The v0.1 backend: a thin HTTP client that talks to the bridge daemon. |
 | `backends/midjourney_discord/bridge.py` | The bridge daemon: a Flask HTTP server fronting a `discord.py-self` gateway connection to Midjourney. The only component that talks to Discord. |
-| `curation/` | `crop_quadrant`, `alpha_key_corners`, `promote` — post-generation image steps. |
-| `log.py` | `PromptLog` — an append-only JSONL ledger that is the agent's working memory. |
-| `mcp_server.py` | A FastMCP server exposing the composer, backend, curation, and log as tools (`cascade-mcp`). |
-| `cli/mj.py` | The `cascade-mj` roll-and-record command. |
+| `backends/midjourney_discord/job_store.py` | A write-through SQLite sidecar to the bridge's in-memory job table, so a daemon restart can resume tracking in-flight jobs. |
+| `curation/` | Post-generation image steps, grouped into `geometry/` (`grid_crop`, `auto_trim`), `color/` (`alpha_key`, `palette_quantize`), `sheets/` (`contact_sheet`, `sprite_sheet`), and `select/` (`score_grid`, `promote`). |
+| `interfaces/mcp/tool_server.py` | A FastMCP server exposing the composer, backend, curation, and log as tools (`cascade-mcp`), with the response envelope in `_envelope.py` and the tools split across `tools/{prompt_tools,generation_tools,curation_tools,log_tools}.py`. |
+| `interfaces/cli/generate_image.py` | The `cascade-mj` roll-and-record command. |
+| `interfaces/cli/asset_registry.py` | Loads and validates the JSON asset registry (`asset_id` → prompt parts) that `cascade-mj` reads. |
 
 ## Data flow
 
@@ -122,13 +120,13 @@ the button. A missing button returns `BUTTON_NOT_FOUND` rather than a wrong
 press; a grid-only job returns `NO_UPSCALED_IMAGE`.
 
 **Routing the result back.** Midjourney posts each derived result as a Discord
-*reply* whose `message_reference` is the SOLO message id — the one signal
+*reply* whose `message_reference` is the SOLO message id — the one marker
 present on every family (vary/zoom/pan/upscale echo the routing token too;
 animate and favorite do not). The bridge matches on that reference
 (`_job_by_upscale_message_id`), distinguishes the final from MJ's progress
 edits (a final carries a real result button, not a lone *Cancel Job*), downloads
-it to `<asset_id>_<kind>_<uuid8>`, appends an entry to `Job.derived`, and emits
-`MJ_DERIVED_RECEIVED`. Recency is deliberately **not** used — the channel is
+it to `<asset_id>_<kind>_<uuid8>`, and appends an entry to `Job.derived`.
+Recency is **not** used — the channel is
 shared, and a foreign job's result interleaving the window would mis-route.
 `animate_*` lands as an animated WebP (`image/webp`), not an mp4; `favorite`
 produces no artifact and is a no-op. This is grounded in a live capture
@@ -150,23 +148,6 @@ re-tracked for further actions.
 - The job table evicts terminal jobs by age and count (LRU + TTL) but never
   drops an in-flight job. (In-memory at v0.1 — a restart drops in-flight state.)
 
-## Vocabulary enforcement (event-driven development)
-
-Every important state transition calls `emit("TAG", **payload)`. At emit time
-the payload is validated against the locked catalog:
-
-- unknown tag → raises;
-- missing a required `payload` field → raises;
-- a field not declared in `payload` or `optional_payload` → raises
-  (the strict posture; relaxable via `CASCADE_STRICT_SIGNALS=false`).
-
-`tools/check_vocabulary_parity.py` walks the source and fails if any `emit()`
-callsite names a tag absent from the catalog. The catalog is mirrored
-byte-for-byte at the repo root (`vocabulary/0.1.json`) for readers who don't
-want to dig into the package; CI keeps the two identical. This is why tests
-assert both a function's output and its emitted event sequence — the events are
-part of the contract.
-
 ## Adding a backend
 
 1. Subclass `ImageGenerationBackend` (`backends/base.py`) and implement the
@@ -176,14 +157,13 @@ part of the contract.
 3. Return results in the same `{ok, result | error}` shape so the MCP server,
    CLI, and curation kit drive it unchanged.
 
-The methods are synchronous on purpose: the MCP server dispatches them on a
-worker thread (`asyncio.to_thread`), so wrapping blocking I/O in `async def`
-would only misrepresent the contract.
+The methods are synchronous: the MCP server dispatches them on a worker
+thread (`asyncio.to_thread`), so wrapping blocking I/O in `async def` would
+mark them as coroutines when they are not.
 
 ## Stable error codes
 
-`error.code` values an agent can branch on (canonical set in the `JOB_FAILED`
-entry of the vocabulary):
+`error.code` values an agent can branch on:
 
 | Code | Meaning |
 |---|---|

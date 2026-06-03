@@ -21,8 +21,8 @@ class BackendCapabilities:
     subclass. v0.1 records the supported composable prompt parts (moodboard,
     sref, oref, ow, style_raw, stylize, etc.) and aspect ratios. Future
     versions can grow the surface when a consumer demands it (a capability-
-    aware composer or an MCP introspection tool); v0.1 keeps the declaration
-    honest without speculative consumers."""
+    aware composer or an MCP introspection tool); v0.1 declares only what is
+    actually used rather than speculative fields."""
 
     prompt_parts: list[str] = field(default_factory=list)
     aspect_ratios: list[str] = field(default_factory=list)
@@ -32,8 +32,8 @@ class ImageGenerationBackend(ABC):
     """Minimal v0.1 surface: submit a job, await its result.
 
     Methods are **synchronous** at v0.1. Callers needing asyncio responsiveness
-    invoke via ``asyncio.to_thread(backend.imagine, ...)``. Honest API rather
-    than ``async def`` wrapping blocking ``requests`` calls."""
+    invoke via ``asyncio.to_thread(backend.imagine, ...)`` rather than wrapping
+    blocking ``requests`` calls in ``async def``."""
 
     capabilities: BackendCapabilities
 

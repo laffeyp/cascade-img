@@ -29,8 +29,7 @@ Out of scope:
 
 - `DISCORD_USER_TOKEN` is read once at daemon startup via `python-dotenv`, held in `Config.discord_token`, and used as the `Authorization` header on Discord interaction calls. It is never written back to disk by the daemon.
 - The daemon's `--check-env` and `--doctor` outputs report only `discord_token_present` (bool) and `discord_token_len` (int), never the token itself.
-- The daemon's logs (`cascade_img.bridge` logger) do not emit the token value at any level. Test suite `test_config.py` includes a contract that asserts the token never appears in the `--check-env` JSON payload.
-- The vocabulary catalog has no event tag whose payload would carry the token.
+- The daemon's logs (`cascade_img.bridge` logger) do not write the token value at any level. Test suite `test_config.py` asserts the token never appears in the `--check-env` JSON payload.
 
 If you find a code path that violates any of the above, please report it through the disclosure channel.
 

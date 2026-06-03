@@ -20,7 +20,8 @@ from pathlib import Path
 
 from PIL import Image, ImageFilter, ImageStat
 
-from cascade_img.curation.crop_grid import QUADRANT_OFFSETS, crop_quadrant
+from cascade_img.curation._shared import QUADRANT_OFFSETS
+from cascade_img.curation.geometry.grid_crop import crop_quadrant
 from cascade_img.vocabulary import emit
 
 # 3x3 discrete Laplacian; high response on edges/detail, ~0 on flat regions.

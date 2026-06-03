@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from cascade_img.composer import (
+from cascade_img.prompt.composer import (
     IdentityStack,
     ParamStack,
     PromptComposer,

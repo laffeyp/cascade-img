@@ -4,15 +4,15 @@ The bridge's POST /action already speaks the {ok, result | error} envelope, so
 the backend must UNWRAP it: return the bare result on success, raise
 BridgeActionError on failure. Without this, _run_tool would double-wrap into
 {ok: true, result: {ok: false, ...}} — a contract violation the MCP-level fake
-backend is structurally blind to (it stands in for this method). This is the
-test seam at the right layer: it exercises the real r.json() handling.
+backend is structurally blind to (it stands in for this method). This test
+exercises the real r.json() handling directly.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from cascade_img.backends.midjourney_discord import backend as bk
+from cascade_img.backends.midjourney_discord import bridge_client as bk
 
 
 class _FakeResp:

@@ -43,7 +43,6 @@ cascade-mj-bridge --check-env --pretty       # validate config
 cascade-mj-bridge                            # start the daemon (long-running)
 
 # Recommended: run the test suite from a clone before relying on a release.
-# A green suite confirms the daemon's vocabulary contract holds end-to-end.
 pytest packages/python/tests/ -v
 
 # For a live end-to-end check against real MJ, including the bridge boot,
@@ -76,7 +75,7 @@ JSON to stdout, exit 0 on `done`.
 cascade-img adds a layer above the Midjourney bridge: it composes the prompt from named parts, curates the output, and records each attempt so the loop can iterate.
 
 ```python
-from cascade_img.composer import PromptComposer, Subject, StyleStack, IdentityStack
+from cascade_img.prompt.composer import PromptComposer, Subject, StyleStack, IdentityStack
 
 prompt = PromptComposer().compose(
     Subject(
@@ -119,18 +118,14 @@ All three emit structured JSON; all three follow the same `{ok, result | error: 
 
 ---
 
-## Structured runtime events
+## Structured logging and errors
 
-Every important state change emits a structured event: config validated; Discord connected, disconnected, reconnecting; imagine fired; submit timed out (the job stays in `PENDING_GRID`, it is not failed); grid matched (with `match_path` recording which match path fired); output-path collision; upscale per-slot press failed; upscale received; job completed; job failed. Failures carry a stable error code for every known Discord failure mode.
-
-The vocabulary is locked at [`cascade_img/vocabulary/versions/0.1.json`](./packages/python/src/cascade_img/vocabulary/versions/0.1.json). A parity check confirms every `emit()` callsite uses a declared tag, and the full test suite passes.
+The daemon emits structured JSON log lines across the job lifecycle — config validated; Discord connected, disconnected, reconnecting; imagine fired; submit timed out (the job stays in `PENDING_GRID`, it is not failed); grid matched; output-path collision; upscale received; job completed; job failed. Failures carry a stable error code for every known Discord failure mode, so a caller can branch on the code rather than parse a message.
 
 ```
 $ pytest packages/python/tests/ -q
 ... all green in ~1s
 ```
-
-Read the [`packages/python/tests/`](./packages/python/tests/) directory to understand the daemon's contract — the tests are the contract.
 
 ---
 
@@ -146,12 +141,12 @@ Read the [`packages/python/tests/`](./packages/python/tests/) directory to under
 ```
 cascade-img/
 ├── packages/python/        # the Python package (import name: cascade_img) — the product
-│   ├── src/cascade_img/     #   composer, vocabulary, backends/, curation/, log, mcp_server, cli/
-│   ├── tests/               #   behavior-contract tests
-│   └── tools/               #   vocabulary parity check, live smoke walk
+│   ├── src/cascade_img/     #   prompt/, interfaces/, backends/, curation/, vocabulary/
+│   ├── tests/               #   behavior tests
+│   └── tools/               #   live smoke walk
 ├── packages/typescript/        # npm name reservation for the v0.2 TypeScript wrapper (placeholder)
 ├── examples/demo/      # one consumer project's worked usage (not generic templates)
-├── vocabulary/0.1.json     # byte-identical mirror of the package's locked event catalog
+├── vocabulary/0.1.json     # mirror of the package's event log-line catalog
 ├── reviews/                # internal code/documentation review reports (audit trail)
 ├── _archive/               # build-process history; not part of the published package
 └── *.md                    # README, ARCHITECTURE, RUNBOOK, AGENTS, RUNDOWN, SECURITY, SUPPORT, …
@@ -173,7 +168,7 @@ not documentation.
 
 Because every backend implements one interface, a later release can chain them: generate on one provider, refine or instruction-edit on a second (e.g. Flux Kontext), then upscale or restyle on a third — passing each image as the next step's input. cascade-img becomes the relay that moves an image between providers, using each for what it does best.
 
-The HTTP contract between the bridge and the client is the main seam between the two packages; changes there are coordinated across both.
+The HTTP contract between the bridge and the client is the main boundary between the two packages; changes there are coordinated across both.
 
 ## License
 

@@ -96,7 +96,7 @@ cascade-mj-bridge --doctor --pretty
 cascade-mj-bridge
 ```
 
-Wait for **`Discord connected as <username>`** in the log. Until that line appears, `/imagine` calls return 503. The bridge emits `DISCORD_CONNECTED` (signal) at the same moment.
+Wait for **`Discord connected as <username>`** in the log. Until that line appears, `/imagine` calls return 503.
 
 Verify:
 
@@ -150,13 +150,13 @@ In your agent host's MCP config (Claude Desktop, Cursor, Cline):
 }
 ```
 
-The agent then sees ten tools — `compose_prompt`, `imagine`, `wait`, `status`, `bridge_health`, `crop_grid`, `alpha_key`, `promote`, `log_append`, `read_prompt_log` — and can drive the full loop autonomously.
+The agent then sees the tool set — `compose_prompt`, `imagine`, `wait`, `status`, `bridge_health`, `crop_grid`, `alpha_key`, `promote`, `log_append`, `read_prompt_log` — and can drive the full loop autonomously.
 
 ### Via the Python library
 
 ```python
 import asyncio
-from cascade_img.composer import PromptComposer, Subject, StyleStack
+from cascade_img.prompt.composer import PromptComposer, Subject, StyleStack
 from cascade_img.backends.midjourney_discord import MidjourneyDiscordBackend
 from cascade_img.curation import crop_quadrant, alpha_key_corners, promote
 
@@ -202,7 +202,7 @@ curl -sS http://127.0.0.1:5000/status/<job_id> | python3 -m json.tool
 
 ## Failure modes
 
-Every failure surfaces as a stable error code through both the bridge's structured payload (HTTP) and the daemon's `JOB_FAILED` event (emitted via `cascade_img.vocabulary`). LLM operators branch on `error_code`; humans read `remediation`.
+Every failure surfaces as a stable error code in the bridge's structured HTTP payload. LLM operators branch on `error_code`; humans read `remediation`.
 
 ### `MISSING_DISCORD_TOKEN` / `MISSING_CHANNEL_ID` / `MISSING_IMAGINE_VERSION`
 
@@ -233,7 +233,7 @@ Grid arrived but no U1-U4 buttons. Either MJ moderated the grid (check the chann
 The bridge fired the Discord interaction but never received a matching MJ message in the channel. Likely causes:
 
 - Midjourney moderated the prompt. Open the MJ channel in Discord; if MJ posted a moderation message instead of a grid, the prompt needs editing.
-- The bridge lost track of the routing token. Each job tags its outbound prompt with `--no cscidnocollide<token>`, a token Midjourney echoes verbatim in its grid messages. If a Discord disconnect dropped the message that carried the echo, the bridge can't match it; check the bridge log for `DISCORD_DISCONNECTED` events around the time the job was submitted.
+- The bridge lost track of the routing token. Each job tags its outbound prompt with `--no cscidnocollide<token>`, a token Midjourney echoes verbatim in its grid messages. If a Discord disconnect dropped the message that carried the echo, the bridge can't match it; check the bridge log for disconnects around the time the job was submitted.
 
 ### Two concurrent jobs not swapped
 
@@ -241,7 +241,7 @@ The bridge routes Midjourney's messages back to jobs using a per-job token appen
 
 ### Midjourney V7 grid posted as a new message
 
-Midjourney v7 sometimes posts the final grid as a separate new message rather than editing the original "(Waiting to start)" placeholder. The bridge's `_match_grid` has a second-pass fallback that matches in-progress jobs without a `grid_path` yet against any new message carrying the job's routing token. The `GRID_MATCHED` event records which pass fired as `match_path = "progress_fallback"` (the v7 new-message path) or `"pending"` (the v6-style edit path).
+Midjourney v7 sometimes posts the final grid as a separate new message rather than editing the original "(Waiting to start)" placeholder. The bridge's `_match_grid` has a second-pass fallback that matches in-progress jobs without a `grid_path` yet against any new message carrying the job's routing token, so the v7 new-message case still resolves.
 
 ### Bridge restarted mid-job
 
@@ -249,19 +249,19 @@ Bridge tracks jobs in memory. A restart vaporizes in-flight state. MJ-side gener
 
 ### `DISCORD_NOT_READY` (HTTP 503)
 
-The bridge's Discord WebSocket dropped and the reconnect loop is in flight. `/imagine` returns 503 with `{code: "DISCORD_NOT_READY", remediation: ...}` until `on_ready` re-fires. The reconnect loop has exponential backoff (2 → 60s cap) and emits `DISCORD_RECONNECTING` between attempts. If the disconnect was transient, the next `/imagine` after `DISCORD_CONNECTED` re-fires succeeds. If `DISCORD_RECONNECT_FAILED` is emitted with `reason: "auth"`, the token was rejected — re-capture `DISCORD_USER_TOKEN` per setup §4.
+The bridge's Discord WebSocket dropped and the reconnect loop is in flight. `/imagine` returns 503 with `{code: "DISCORD_NOT_READY", remediation: ...}` until the connection comes back. The reconnect loop has exponential backoff (2 → 60s cap). If the disconnect was transient, the next `/imagine` after the bridge reconnects succeeds. If the reconnect fails with `reason: "auth"`, the token was rejected — re-capture `DISCORD_USER_TOKEN` per setup §4.
 
 ### `SUBMITTED_UNCONFIRMED` (HTTP 202)
 
-The Discord interaction POST didn't return within the bridge's 35-second budget, but MJ may still have processed the imagine. The job stays in `PENDING_GRID` with `status: "submitted_unconfirmed"` — a late-arriving grid still matches it normally. Poll `/wait` or `/status` rather than re-firing `/imagine` (a retry would double-bill if MJ processed the original). The bridge emits `JOB_SUBMIT_TIMEOUT` when this fires.
+The Discord interaction POST didn't return within the bridge's 35-second budget, but MJ may still have processed the imagine. The job stays in `PENDING_GRID` with `status: "submitted_unconfirmed"` — a late-arriving grid still matches it normally. Poll `/wait` or `/status` rather than re-firing `/imagine` (a retry would double-bill if MJ processed the original).
 
-### `UPSCALE_PRESS_FAILED` (signal, per slot)
+### `UPSCALE_PRESS_FAILED` (per slot)
 
-During `upscale="all"`, an individual U-button press (U1/U2/U3/U4) failed at the Discord interaction layer (network blip, slot-specific 5xx). Surviving slots stay in `upscale_pending` and complete normally; the failed slot is recorded on `Job.upscale_press_failures` and the signal carries `slot`, `error_code` (`HTTP_<status>` or the exception class), and `error_message`. The job stays in `UPSCALING`. If every requested slot's press fails, the job terminates with `UPSCALE_ALL_BUTTONS_FAILED` (or `UPSCALE_BUTTON_FAILED` for single-slot mode).
+During `upscale="all"`, an individual U-button press (U1/U2/U3/U4) failed at the Discord interaction layer (network blip, slot-specific 5xx). Surviving slots stay in `upscale_pending` and complete normally; the failed slot is recorded on `Job.upscale_press_failures` with its `slot`, `error_code` (`HTTP_<status>` or the exception class), and `error_message`. The job stays in `UPSCALING`. If every requested slot's press fails, the job terminates with `UPSCALE_ALL_BUTTONS_FAILED` (or `UPSCALE_BUTTON_FAILED` for single-slot mode).
 
-### `OUTPUT_PATH_COLLISION` (signal, not a failure)
+### `OUTPUT_PATH_COLLISION` (not a failure)
 
-Two concurrent jobs shared an `asset_id`. The bridge detects the existing artifact and writes the second job's output to `<asset_id>_<request_token>{suffix}{ext}` instead of clobbering the first. Both artifacts land. The signal payload carries `intended_path`, `actual_path`, and `kind` (`'grid'` or `'upscale'`). Operator-side: investigate why two jobs got the same asset_id.
+Two concurrent jobs shared an `asset_id`. The bridge detects the existing artifact and writes the second job's output to `<asset_id>_<request_token>{suffix}{ext}` instead of clobbering the first. Both artifacts land. Operator-side: investigate why two jobs got the same asset_id.
 
 ---
 

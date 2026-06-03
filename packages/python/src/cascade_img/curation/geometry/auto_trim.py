@@ -13,7 +13,7 @@ from pathlib import Path
 
 from PIL import Image, ImageChops
 
-from cascade_img.curation.alpha_key import _sample_bg
+from cascade_img.curation._shared import _sample_bg
 from cascade_img.vocabulary import emit
 
 

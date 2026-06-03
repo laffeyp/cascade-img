@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from cascade_img.mcp_server import (
+from cascade_img.interfaces.mcp.tool_server import (
     alpha_key,
     bridge_health,
     compose_prompt,
@@ -128,10 +128,10 @@ async def test_log_append_and_read_roundtrip(tmp_path: Path, monkeypatch):
     which by default lives at CASCADE_PROMPT_LOG. Pointing it at a tmp file
     is via monkeypatching the module's _log attribute."""
     clear()
-    from cascade_img import mcp_server
-    from cascade_img.log import PromptLog
+    from cascade_img.interfaces.mcp import _envelope
+    from cascade_img.prompt.log import PromptLog
 
-    monkeypatch.setattr(mcp_server, "_log", PromptLog(tmp_path / "log.jsonl"))
+    monkeypatch.setattr(_envelope, "_log", PromptLog(tmp_path / "log.jsonl"))
 
     r = await log_append(
         asset_id="bird",
@@ -151,7 +151,7 @@ async def test_log_append_and_read_roundtrip(tmp_path: Path, monkeypatch):
 async def test_run_tool_envelopes_exception_with_remediation():
     """An exception whose class carries `.code` and `.remediation` flows
     through `_run_tool` into the structured envelope unchanged."""
-    from cascade_img.mcp_server import _run_tool
+    from cascade_img.interfaces.mcp._envelope import _run_tool
 
     clear()
 
@@ -175,7 +175,7 @@ async def test_run_tool_envelopes_exception_with_remediation():
 async def test_run_tool_envelopes_bare_exception_without_remediation():
     """An exception without `.code` or `.remediation` still routes through;
     code is the class name, remediation absent."""
-    from cascade_img.mcp_server import _run_tool
+    from cascade_img.interfaces.mcp._envelope import _run_tool
 
     clear()
 
@@ -193,10 +193,10 @@ async def test_run_tool_envelopes_bare_exception_without_remediation():
 async def test_imagine_tool_envelope_and_signals(monkeypatch):
     """imagine() is the tool an agent fires generations with — exercise it
     against a stubbed sync backend (it was previously never called)."""
-    from cascade_img import mcp_server
+    from cascade_img.interfaces.mcp import _envelope
 
     clear()
-    monkeypatch.setattr(mcp_server, "_backend", _FakeBackend())
+    monkeypatch.setattr(_envelope, "_backend", _FakeBackend())
     r = await imagine(prompt="a finch --v 7", asset_id="bird", upscale=None)
     assert r["ok"] is True
     assert r["result"]["job_id"] == "job-1"
@@ -207,9 +207,9 @@ async def test_imagine_tool_envelope_and_signals(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_wait_status_health_tools(monkeypatch):
-    from cascade_img import mcp_server
+    from cascade_img.interfaces.mcp import _envelope
 
-    monkeypatch.setattr(mcp_server, "_backend", _FakeBackend())
+    monkeypatch.setattr(_envelope, "_backend", _FakeBackend())
     rw = await wait(job_id="job-1", timeout=5)
     assert rw["ok"] is True and rw["result"]["status"] == "done"
     rs = await status(job_id="job-1")
@@ -222,10 +222,10 @@ async def test_wait_status_health_tools(monkeypatch):
 async def test_mj_action_tool_envelope_and_signals(monkeypatch):
     """mj_action drives a response-message button through the backend. Exercise
     the envelope + signal pair against the stub (no live daemon)."""
-    from cascade_img import mcp_server
+    from cascade_img.interfaces.mcp import _envelope
 
     clear()
-    monkeypatch.setattr(mcp_server, "_backend", _FakeBackend())
+    monkeypatch.setattr(_envelope, "_backend", _FakeBackend())
     r = await mj_action(job_id="job-1", action="vary_strong")
     assert r["ok"] is True
     assert r["result"]["action"] == "vary_strong"
@@ -237,7 +237,7 @@ async def test_mj_action_tool_envelope_and_signals(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_alpha_key_tool_keys_and_reports_ratio(tmp_path: Path):
-    """alpha_key ships a load-bearing keyed_ratio the agent branches on; feed
+    """alpha_key returns a keyed_ratio the agent branches on; feed
     a synthetic image and assert the envelope + ratio band + signal."""
     clear()
     from PIL import Image
@@ -288,15 +288,15 @@ def test_serve_http_sets_host_port_on_settings(monkeypatch):
     Regression guard for the --http transport (the old run_sse_async(host=,
     port=) call would TypeError at runtime). The fake mirrors the real
     no-argument signature, so a revert to kwargs fails this test."""
-    from cascade_img import mcp_server
+    from cascade_img.interfaces.mcp import tool_server
 
     called = {"ran": False}
 
     async def _fake_run_sse_async():
         called["ran"] = True
 
-    monkeypatch.setattr(mcp_server.mcp, "run_sse_async", _fake_run_sse_async)
-    mcp_server._serve_http(8123)
+    monkeypatch.setattr(tool_server.mcp, "run_sse_async", _fake_run_sse_async)
+    tool_server._serve_http(8123)
     assert called["ran"] is True
-    assert mcp_server.mcp.settings.host == "127.0.0.1"
-    assert mcp_server.mcp.settings.port == 8123
+    assert tool_server.mcp.settings.host == "127.0.0.1"
+    assert tool_server.mcp.settings.port == 8123

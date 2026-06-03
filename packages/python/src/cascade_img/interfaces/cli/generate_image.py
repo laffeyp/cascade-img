@@ -35,14 +35,14 @@ from pathlib import Path
 from typing import Any
 
 from cascade_img.backends.midjourney_discord import MidjourneyDiscordBackend
-from cascade_img.cli.registry import AssetEntry, load_registry
-from cascade_img.composer import (
+from cascade_img.interfaces.cli.asset_registry import AssetEntry, load_registry
+from cascade_img.prompt.composer import (
     IdentityStack,
     PromptComposer,
     StyleStack,
     Subject,
 )
-from cascade_img.log import PromptLog
+from cascade_img.prompt.log import PromptLog
 from cascade_img.vocabulary import emit
 
 
