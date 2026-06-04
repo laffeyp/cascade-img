@@ -45,7 +45,7 @@ jobs:
       - name: Vocabulary parity (every emit tag in vocabulary)
         run: python3 tools/check_vocabulary_parity.py
 
-      - name: pytest test suite
+      - name: pytest
         run: pytest tests/ -v
 
   lint:

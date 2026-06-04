@@ -1,8 +1,8 @@
-"""Vocabulary-validation contract for the upgraded sdd module.
+"""Vocabulary-validation contract for the event-emit module.
 
-Schema enforced at emit time (the design notes
-commitment 2). Unknown tag raises; missing required field raises; the
-assert_signal / assert_no_signal test primitives match the kit's reference.
+The schema is enforced at emit time: an unknown tag raises, a missing required
+field raises. The assert_signal / assert_no_signal helpers are the test
+primitives for asserting which events a code path emits.
 """
 
 from __future__ import annotations
