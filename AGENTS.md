@@ -72,18 +72,19 @@ A finished upscale carries the buttons a human would otherwise click in Discord.
 
 The pressed action's result — a new grid for vary/zoom/pan, a single image for `upscale_*`, a short animation for `animate_*` — is routed back to the originating job automatically: the bridge downloads it and appends an entry to the job's `derived` list (`{action_kind, mj_uuid, path, content_type, ...}`), which you read via `status(job_id)`. `animate_*` arrives as an animated WebP (`image/webp`, ~125 frames), not an mp4. `favorite` only rates the image — it produces no artifact, so nothing lands in `derived`. With `upscale="all"` every per-slot image is actionable and a derived result replying to any of them routes home. (Known v0.1 limit: a derived result that is itself a grid — vary/zoom/pan — is recorded in `derived` but not re-tracked as a new job, so you can't then `mj_action` on its quadrants.)
 
-## V7 facets
+## V7 prompt parts
 
-The composer assembles these into the prompt string:
+The composer assembles these into the prompt string. The most-used:
 
 - **Subject**: the literal subject sentence + optional `constraints` list (folded in for emphasis — MJ weights repeated concepts higher).
 - **Moodboard (`--p`)**: MJ's personalization profile code. Human supplies once.
 - **Sref (`--sref`)**: style-reference URL or integer code. Human supplies once.
 - **Stylize (`--s`)**: 0-1000. Default 100 in MJ; lower constrains MJ's prettifier and lets the sref dominate.
 - **Style raw**: toggles `--style raw`. Default on for cascade-img's locked-style use case.
-- **Oref (`--oref`)**: V7 omni-reference identity lock. URL to a single image (not a grid).
-- **Ow (`--ow`)**: omni-weight, 0-1000. 100 default (loose), 400 tight identity, 1000 max.
+- **Oref (`--oref`)** / **Ow (`--ow`)**: V7 omni-reference identity lock (single-image URL, not a grid) and its weight (0-1000; 100 loose, 400 tight, 1000 max).
 - **Aspect ratio (`--ar`)**: "1:1", "16:9", "9:16", etc.
+
+The composer also accepts `negatives` (`--no`), image prompts + `image_weight` (`--iw`), and the render-control params `tile`, `chaos`, `weird`, `stop`, `quality` (`--q`), and `seed`. **[CAPABILITIES.md](./CAPABILITIES.md) is the complete reference** — every part, its range, every `mj_action`, and the v7 features intentionally not wired (`--sw`, draft mode, `--repeat`, …). cascade-img is v7-only by design.
 
 ## Holding a non-photoreal style
 

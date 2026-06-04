@@ -183,6 +183,7 @@ $ pytest packages/python/tests/ -q
 
 - **[RUNBOOK.md](./RUNBOOK.md)** — install, env capture, the setup procedure, the reconnect lifecycle, and every known failure mode with its structured error code and remediation.
 - **[AGENTS.md](./AGENTS.md)** — the LLM operator's guide. Read this when handing cascade-img to an agent.
+- **[CAPABILITIES.md](./CAPABILITIES.md)** — exactly which Midjourney v7 features cascade-img drives (every prompt parameter and `mj_action`, what each does) and what's intentionally not wired.
 - **[TOS.md](./TOS.md)** — the technical context: Midjourney has no public API; Discord user-account automation is the established OSS pattern; both Discord's and Midjourney's Terms of Service prohibit it.
 - **[examples/](./examples/)** — two short, generic walkthroughs of the operating loop (generate one image; generate a batch). Illustrative, not templates to copy verbatim. Read AGENTS.md before any of these.
 

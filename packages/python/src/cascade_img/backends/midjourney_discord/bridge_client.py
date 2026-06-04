@@ -22,8 +22,27 @@ import requests
 from cascade_img.backends.base import BackendCapabilities, ImageGenerationBackend
 from cascade_img.vocabulary import emit
 
+# Every composable part PromptComposer can emit, by the token it records in the
+# PROMPT_COMPOSED event's prompt_parts_used. Kept in sync with the composer by
+# test_capabilities_cover_composer; CAPABILITIES.md documents what each does.
 MIDJOURNEY_DISCORD_CAPABILITIES = BackendCapabilities(
-    prompt_parts=["moodboard", "sref", "oref", "ow", "style_raw", "stylize"],
+    prompt_parts=[
+        "moodboard",
+        "sref",
+        "stylize",
+        "style_raw",
+        "oref",
+        "ow",
+        "negatives",
+        "image_prompt",
+        "image_weight",
+        "tile",
+        "chaos",
+        "weird",
+        "stop",
+        "quality",
+        "seed",
+    ],
     aspect_ratios=["1:1", "16:9", "9:16", "4:3", "3:4", "2:3", "3:2"],
 )
 
