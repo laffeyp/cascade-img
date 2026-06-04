@@ -53,19 +53,13 @@ Cmd+Q Discord (a full quit, not window close), reopen, then **Cmd+Option+I** ope
 
 ### Capture the five `.env` values
 
-Drop a `.env` file in the working directory of `cascade-mj-bridge` (the daemon resolves it from its current working directory). If you run the daemon under a process manager (launchd, systemd, Docker) where the working directory isn't the `.env`'s directory, set `CASCADE_DOTENV=/abs/path/to/.env` to point at it explicitly. Required:
+Drop a `.env` file in the working directory of `cascade-mj-bridge` (the daemon resolves it from its current working directory). If you run the daemon under a process manager (launchd, systemd, Docker) where the working directory isn't the `.env`'s directory, set `CASCADE_DOTENV=/abs/path/to/.env` to point at it explicitly.
 
-| Variable | How to capture |
-|---|---|
-| `DISCORD_USER_TOKEN` | DevTools → Console → run the iframe localStorage snippet below. 70 chars, starts with `MTU`, `MTk`, `OD`, or `Nz`. |
-| `MJ_CHANNEL_ID` | Discord Settings → Advanced → Developer Mode ON. Right-click your MJ channel → Copy Channel ID. |
-| `MJ_GUILD_ID` | Same trick — right-click the server icon → Copy Server ID. **Required when the MJ channel lives in a guild**; without it the Discord Interactions API treats the call as a DM and returns `400 Unknown Channel`. |
-| `MJ_IMAGINE_VERSION` | Desktop Discord DevTools → Network. Fire `/imagine <any prompt>` in MJ channel. Find `POST /api/v9/interactions` → Payload → `data.version`. 19-digit number. Re-capture whenever MJ updates the slash command. |
-| `MJ_IMAGINE_COMMAND_ID` | Same capture, `data.id`. The default `938956540159881230` is usually stable; only re-capture if you get 404s. |
+Five values are required: the Discord token (one console snippet) plus four IDs you copy out of Discord.
 
-Optional: `MJ_OUTPUT_DIR` (default `./generated`), `PORT` (default `5000`), `CASCADE_BRIDGE_URL` (default `http://127.0.0.1:5000`), `CASCADE_PROMPT_LOG` (default `./cascade-prompt-log.jsonl`), `CASCADE_DOTENV` (explicit `.env` path; overrides the cwd search), `CASCADE_JOB_DB` (persistent job store path; default `<MJ_OUTPUT_DIR>/cascade-jobs.db`).
+#### `DISCORD_USER_TOKEN` — the credential
 
-**Token capture snippet** (paste in Console, Cmd+Shift+M to enable mobile emulation first or this returns undefined):
+The only secret. Capture it from DevTools → **Console**. Enable mobile emulation first (**Cmd+Shift+M**, or the snippet returns `undefined`), then paste:
 
 ```javascript
 const iframe = document.createElement('iframe');
@@ -73,6 +67,21 @@ console.log('Token: %c%s', 'font-size:16px;',
   JSON.parse(document.body.appendChild(iframe).contentWindow.localStorage.token));
 iframe.remove();
 ```
+
+The token is ~70 chars and starts with `MTU`, `MTk`, `OD`, or `Nz`. Treat it like a password — anyone holding it has full access to your account.
+
+#### The four IDs
+
+No snippet — each is a quick copy inside Discord:
+
+| Variable | How to capture |
+|---|---|
+| `MJ_CHANNEL_ID` | Discord Settings → Advanced → Developer Mode ON. Right-click your MJ channel → Copy Channel ID. |
+| `MJ_GUILD_ID` | Same trick — right-click the server icon → Copy Server ID. **Required when the MJ channel lives in a guild**; without it the Discord Interactions API treats the call as a DM and returns `400 Unknown Channel`. |
+| `MJ_IMAGINE_VERSION` | Desktop Discord DevTools → Network. Fire `/imagine <any prompt>` in MJ channel. Find `POST /api/v9/interactions` → Payload → `data.version`. 19-digit number. Re-capture whenever MJ updates the slash command. |
+| `MJ_IMAGINE_COMMAND_ID` | Same capture, `data.id`. The default `938956540159881230` is usually stable; only re-capture if you get 404s. |
+
+Optional: `MJ_OUTPUT_DIR` (default `./generated`), `PORT` (default `5000`), `CASCADE_BRIDGE_URL` (default `http://127.0.0.1:5000`), `CASCADE_PROMPT_LOG` (default `./cascade-prompt-log.jsonl`), `CASCADE_DOTENV` (explicit `.env` path; overrides the cwd search), `CASCADE_JOB_DB` (persistent job store path; default `<MJ_OUTPUT_DIR>/cascade-jobs.db`).
 
 ### Pre-flight check
 
