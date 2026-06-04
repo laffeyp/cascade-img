@@ -16,7 +16,7 @@ Each record:
 
     {
       "ts": "2026-06-02T03:04:05Z",
-      "asset_id": "bird",
+      "asset_id": "mountain-icon",
       "prompt": "...",
       "backend": "midjourney_discord",
       "job_id": "...",

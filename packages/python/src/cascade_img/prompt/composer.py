@@ -73,8 +73,8 @@ class StyleStack:
     """Style-related prompt parts. ``None`` values are omitted from the prompt.
 
     - ``moodboard`` is Midjourney's ``--p`` personalization profile code
-      (e.g. ``m7458053701014388751``). The composer doesn't enforce a
-      prefix convention; pass the code as-is.
+      (e.g. ``m`` followed by a long digit string). The composer doesn't
+      enforce a prefix convention; pass the code as-is.
     - ``sref`` is Midjourney's ``--sref`` style-reference URL or integer code.
     - ``stylize`` is Midjourney's ``--s`` value (0-1000; validated at
       construction). Default 100 if omitted at Midjourney's end.

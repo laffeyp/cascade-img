@@ -5,11 +5,11 @@ A registry is a JSON file mapping ``asset_id`` to its composable prompt parts:
 .. code-block:: json
 
     {
-      "bird": {
-        "subject": "pixel-art sprite of a small finch, side view",
-        "constraints": ["transparent background"],
-        "moodboard": "m7458053701014388751",
-        "sref": "https://cdn.midjourney.com/.../0_0.png",
+      "mountain-icon": {
+        "subject": "a flat-design icon of a mountain",
+        "constraints": ["centered", "simple shapes", "transparent background"],
+        "moodboard": "<optional moodboard code>",
+        "sref": "<optional style-reference URL>",
         "aspect_ratio": "1:1",
         "oref": null,
         "ow": 100,
