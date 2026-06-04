@@ -53,13 +53,19 @@ The key name is `YOU_KNOW_WHAT_YOURE_DOING`, not `UNDERSTAND_THE_RISK`. There's 
 
 Cmd+Q Discord (a full quit, not window close), reopen, then **Cmd+Option+I** opens DevTools. Discord wipes this setting on every app update — re-add after auto-updates.
 
-### Capture the five `.env` values
+### Capture the `.env` values
 
 Drop a `.env` file in the working directory of `cascade-mj-bridge` (the daemon resolves it from its current working directory). If you run the daemon under a process manager (launchd, systemd, Docker) where the working directory isn't the `.env`'s directory, set `CASCADE_DOTENV=/abs/path/to/.env` to point at it explicitly.
 
-Five values are required: the Discord token (one console snippet) plus four IDs you copy out of Discord.
+What the bridge actually demands, precisely:
 
-#### `DISCORD_USER_TOKEN` — the credential
+- **Required** (the daemon refuses to start without them): `DISCORD_USER_TOKEN`, `MJ_CHANNEL_ID`, `MJ_IMAGINE_VERSION`.
+- **Conditionally required:** `MJ_GUILD_ID` — needed whenever the MJ channel lives in a Discord server (a "guild"), which in practice is almost always. Config validation passes without it, but the first `/imagine` then fails `DISCORD_400_UNKNOWN_CHANNEL`.
+- **Defaulted:** `MJ_IMAGINE_COMMAND_ID` ships with a working default (`938956540159881230`); only set it if interactions start 404ing.
+
+The token needs a one-time console snippet; the rest are quick copies inside Discord.
+
+#### `DISCORD_USER_TOKEN` — the credential (required)
 
 The only secret. Capture it from DevTools → **Console**. Enable mobile emulation first (**Cmd+Shift+M**, or the snippet returns `undefined`), then paste:
 
@@ -72,16 +78,16 @@ iframe.remove();
 
 The token is ~70 chars and starts with `MTU`, `MTk`, `OD`, or `Nz`. Treat it like a password — anyone holding it has full access to your account.
 
-#### The four IDs
+#### The IDs
 
 No snippet — each is a quick copy inside Discord:
 
-| Variable | How to capture |
-|---|---|
-| `MJ_CHANNEL_ID` | Discord Settings → Advanced → Developer Mode ON. Right-click your MJ channel → Copy Channel ID. |
-| `MJ_GUILD_ID` | Same trick — right-click the server icon → Copy Server ID. **Required when the MJ channel lives in a guild**; without it the Discord Interactions API treats the call as a DM and returns `400 Unknown Channel`. |
-| `MJ_IMAGINE_VERSION` | Desktop Discord DevTools → Network. Fire `/imagine <any prompt>` in MJ channel. Find `POST /api/v9/interactions` → Payload → `data.version`. 19-digit number. Re-capture whenever MJ updates the slash command. |
-| `MJ_IMAGINE_COMMAND_ID` | Same capture, `data.id`. The default `938956540159881230` is usually stable; only re-capture if you get 404s. |
+| Variable | Required? | How to capture |
+|---|---|---|
+| `MJ_CHANNEL_ID` | yes | Discord Settings → Advanced → Developer Mode ON. Right-click your MJ channel → Copy Channel ID. |
+| `MJ_IMAGINE_VERSION` | yes | Desktop Discord DevTools → Network. Fire `/imagine <any prompt>` in MJ channel. Find `POST /api/v9/interactions` → Payload → `data.version`. 19-digit number. Re-capture whenever MJ updates the slash command. |
+| `MJ_GUILD_ID` | when channel is in a server | Right-click the server icon → Copy Server ID. Without it, a guild-bound channel fails the first `/imagine` with `400 Unknown Channel` (Discord treats the call as a DM). |
+| `MJ_IMAGINE_COMMAND_ID` | no (defaulted) | Same capture as the version, `data.id`. The default `938956540159881230` is usually stable; only re-capture if you get 404s. |
 
 Optional: `MJ_OUTPUT_DIR` (default `./generated`), `PORT` (default `5000`), `CASCADE_BRIDGE_URL` (default `http://127.0.0.1:5000`), `CASCADE_PROMPT_LOG` (default `./cascade-prompt-log.jsonl`), `CASCADE_DOTENV` (explicit `.env` path; overrides the cwd search), `CASCADE_JOB_DB` (persistent job store path; default `<MJ_OUTPUT_DIR>/cascade-jobs.db`).
 

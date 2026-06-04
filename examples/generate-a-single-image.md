@@ -19,9 +19,10 @@ placeholder subject for your own.
    Use `upscale="all"` instead if you want four upscaled candidates to choose
    between rather than one.
 
-4. **Wait.** `wait(job_id, timeout=600)`. On `done` you get `image_path` and
-   `grid_path`. A timeout is not a failure — poll `wait`/`status` again rather
-   than re-firing `imagine` (re-firing double-bills the render).
+4. **Wait.** `wait(job_id, timeout=360)` for a single upscale (use `180` for a
+   grid-only roll, `600` for `upscale="all"`). On `done` you get `image_path`
+   and `grid_path`. A timeout is not a failure — poll `wait`/`status` again
+   rather than re-firing `imagine` (re-firing double-bills the render).
 
 5. **Inspect.** Open `image_path` and check it matches the request.
 

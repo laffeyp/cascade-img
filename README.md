@@ -20,6 +20,16 @@ Published by [Green Rose Systems](https://greenrosesystems.com).
 
 ---
 
+## Why this exists
+
+cascade-img grew out of building a sprite-based 2D game — by someone with the taste to know what the art should be, but not the hand-skills to draw it. Midjourney could produce the art; the work that actually mattered was the *discovery loop*: try a direction, see it, judge it, adjust, go again, until the result matches the thing in your head. Doing that by hand through Discord — one prompt, one click, one download at a time — was the bottleneck.
+
+The point isn't to hand creative judgment to a model. The taste, the direction, the call on what's right still come from the person. What an LLM agent and image generation change is the *speed* of discovery: the agent runs the mechanical loop — compose from reusable parts, fire, wait, curate the winner, log what was tried — so you converge on what you actually want in a fraction of the time. No existing open-source Midjourney driver let an agent close that loop, so the missing layer got built — first for one game's pipeline, then generalized.
+
+The style-specific lessons (holding a non-photoreal look, locking a subject's identity across rolls) are still in the [RUNBOOK](./RUNBOOK.md) because they're genuinely useful, but nothing in the tool assumes you're making sprites.
+
+---
+
 ## Quickstart
 
 **Prerequisites.** A Midjourney subscription and a Discord account that can run
@@ -39,10 +49,11 @@ This puts three console scripts on your `PATH`: `cascade-mj-bridge` (the daemon)
 
 ### 2. Configure (one-time)
 
-cascade-img reaches Midjourney through your Discord account, so it needs a
-Discord user token plus your MJ channel and server (guild) IDs and the current
-`/imagine` command version. These are captured from the Discord desktop app's
-DevTools — a genuine one-time procedure, not a 60-second paste.
+cascade-img reaches Midjourney through your Discord account. Three values are
+required — a Discord user token, your MJ channel ID, and the current `/imagine`
+command version — plus your server (guild) ID whenever the channel lives in a
+Discord server (almost always). These are captured from the Discord desktop
+app's DevTools — a genuine one-time procedure, not a 60-second paste.
 **[RUNBOOK.md](./RUNBOOK.md) is the step-by-step guide**: enabling DevTools, the
 token-capture snippet, and what each value means.
 
@@ -106,16 +117,6 @@ JSON to stdout, exit 0 on `done`; generated images land in `./generated`.
 > `pytest packages/python/tests/` runs the offline suite, and
 > `python3 packages/python/tools/smoke_mcp_walk.py --env-file .env` runs a live
 > end-to-end check (boots the bridge and MCP server, exercises every tool).
-
----
-
-## Why this exists
-
-cascade-img grew out of building a sprite-based 2D game — by someone with the taste to know what the art should be, but not the hand-skills to draw it. Midjourney could produce the art; the work that actually mattered was the *discovery loop*: try a direction, see it, judge it, adjust, go again, until the result matches the thing in your head. Doing that by hand through Discord — one prompt, one click, one download at a time — was the bottleneck.
-
-The point isn't to hand creative judgment to a model. The taste, the direction, the call on what's right still come from the person. What an LLM agent and image generation change is the *speed* of discovery: the agent runs the mechanical loop — compose from reusable parts, fire, wait, curate the winner, log what was tried — so you converge on what you actually want in a fraction of the time. No existing open-source Midjourney driver let an agent close that loop, so the missing layer got built — first for one game's pipeline, then generalized.
-
-The style-specific lessons (holding a non-photoreal look, locking a subject's identity across rolls) are still in the [RUNBOOK](./RUNBOOK.md) because they're genuinely useful, but nothing in the tool assumes you're making sprites.
 
 ---
 
