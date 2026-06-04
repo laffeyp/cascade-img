@@ -111,9 +111,11 @@ JSON to stdout, exit 0 on `done`; generated images land in `./generated`.
 
 ## Why this exists
 
-cascade-img grew out of building a sprite-based 2D game. The art had to be generated, curated, and iterated on at volume, and Midjourney gave the best results — but there was no way to put an LLM agent in the driver's seat. The existing open-source Midjourney drivers stopped at "send a prompt, get back an image"; none let an agent run the whole loop: compose a prompt from reusable parts, fire it, wait, judge the four candidates, crop and clean the winner, and log the attempt so the next iteration knows what was already tried.
+cascade-img grew out of building a sprite-based 2D game — by someone with the taste to know what the art should be, but not the hand-skills to draw it. Midjourney could produce the art; the work that actually mattered was the *discovery loop*: try a direction, see it, judge it, adjust, go again, until the result matches the thing in your head. Doing that by hand through Discord — one prompt, one click, one download at a time — was the bottleneck.
 
-So the missing layer got built — first for that one game's pipeline, then generalized. The style-specific lessons (holding a non-photoreal look, locking a subject's identity across rolls) are still in the [RUNBOOK](./RUNBOOK.md) because they're genuinely useful, but nothing in the tool assumes you're making sprites.
+The point isn't to hand creative judgment to a model. The taste, the direction, the call on what's right still come from the person. What an LLM agent and image generation change is the *speed* of discovery: the agent runs the mechanical loop — compose from reusable parts, fire, wait, curate the winner, log what was tried — so you converge on what you actually want in a fraction of the time. No existing open-source Midjourney driver let an agent close that loop, so the missing layer got built — first for one game's pipeline, then generalized.
+
+The style-specific lessons (holding a non-photoreal look, locking a subject's identity across rolls) are still in the [RUNBOOK](./RUNBOOK.md) because they're genuinely useful, but nothing in the tool assumes you're making sprites.
 
 ---
 
