@@ -18,9 +18,50 @@ Published by [Green Rose Systems](https://greenrosesystems.com).
 
 ---
 
-## 60-second quickstart for an MCP-aware agent host
+## Quickstart
 
-Drop this in your Claude Desktop, Cursor, or Cline MCP config:
+**Prerequisites.** A Midjourney subscription and a Discord account that can run
+`/imagine` in a channel where the Midjourney bot is present, plus Python 3.10+.
+cascade-img drives *your own* Midjourney account through Discord — it is not a
+hosted service, and there is no copy-paste shortcut around the credential setup
+in step 2.
+
+### 1. Install
+
+```bash
+pip install cascade-img
+```
+
+This puts three console scripts on your `PATH`: `cascade-mj-bridge` (the daemon),
+`cascade-mcp` (the MCP server), and `cascade-mj` (the CLI).
+
+### 2. Configure (one-time)
+
+cascade-img reaches Midjourney through your Discord account, so it needs a
+Discord user token plus your MJ channel and server (guild) IDs and the current
+`/imagine` command version. These are captured from the Discord desktop app's
+DevTools — a genuine one-time procedure, not a 60-second paste.
+**[RUNBOOK.md](./RUNBOOK.md) is the step-by-step guide**: enabling DevTools, the
+token-capture snippet, and what each value means.
+
+```bash
+# Copy the env template into your working directory, then fill it in per RUNBOOK.md:
+cp "$(python -c 'import cascade_img, pathlib; print(pathlib.Path(cascade_img.__path__[0]) / ".env.example")')" .env
+
+cascade-mj-bridge --check-env --pretty   # validates the .env and names anything missing
+```
+
+### 3. Start the bridge daemon
+
+```bash
+cascade-mj-bridge          # long-running; the only process that talks to Discord
+```
+
+Leave it running. Both front doors below connect to it over local HTTP.
+
+### 4a. Drive it from an MCP host (Claude Desktop, Cursor, Cline)
+
+Drop this into your host's MCP config:
 
 ```json
 {
@@ -32,44 +73,37 @@ Drop this in your Claude Desktop, Cursor, or Cline MCP config:
 }
 ```
 
-After installing the package and starting the bridge daemon (see below), ask your agent to generate a sprite. The agent gets sixteen tools with JSON schemas it can introspect — generation (`imagine`, `wait`, `status`, `bridge_health`, `mj_action`), composition (`compose_prompt`), curation (`crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `promote`), and working memory (`log_append`, `read_prompt_log`). [AGENTS.md](./AGENTS.md) is the operator's guide an agent reads once.
+Your agent gets sixteen tools with introspectable JSON schemas — generation
+(`imagine`, `wait`, `status`, `bridge_health`, `mj_action`), composition
+(`compose_prompt`), curation (`crop_grid`, `alpha_key`, `auto_trim`,
+`palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `promote`),
+and working memory (`log_append`, `read_prompt_log`). [AGENTS.md](./AGENTS.md) is
+the operator's guide an agent reads once.
 
-## 60-second quickstart for a human
+### 4b. Drive it from the CLI
 
-```bash
-pip install cascade-img
-cp "$(python -c 'import cascade_img, pathlib; print(pathlib.Path(cascade_img.__path__[0]) / ".env.example")')" .env
-# Fill in DISCORD_USER_TOKEN, MJ_CHANNEL_ID, MJ_GUILD_ID, MJ_IMAGINE_VERSION
-# See RUNBOOK.md for the capture procedure.
-
-cascade-mj-bridge --check-env --pretty       # validate config
-cascade-mj-bridge                            # start the daemon (long-running)
-
-# Recommended: run the test suite from a clone before relying on a release.
-pytest packages/python/tests/ -v
-
-# For a live end-to-end check against real MJ, including the bridge boot,
-# the MCP server, and every tool — see tools/smoke_mcp_walk.py:
-python3 packages/python/tools/smoke_mcp_walk.py --env-file .env
-```
-
-Then in another shell:
+In another shell, define an asset registry (`asset_id` → prompt parts) and roll
+it. Only `subject` is required; `moodboard` (a Midjourney moodboard code) and
+`sref` (a style-reference image URL) are optional style controls you'd set up in
+Midjourney first — omit them for a plain prompt:
 
 ```bash
 echo '{
-  "bird": {
-    "subject": "pixel-art sprite of a small finch, side view",
-    "constraints": ["transparent background"],
-    "moodboard": "m7458053701014388751",
-    "sref": "https://cdn.midjourney.com/.../0_0.png",
+  "mountain-icon": {
+    "subject": "a flat-design icon of a mountain, centered, simple shapes",
     "aspect_ratio": "1:1"
   }
 }' > assets.json
 
-cascade-mj bird --registry assets.json --upscale all --pretty
+cascade-mj mountain-icon --registry assets.json --upscale all --pretty
 ```
 
-JSON to stdout, exit 0 on `done`.
+JSON to stdout, exit 0 on `done`; generated images land in `./generated`.
+
+> **Verify a release before relying on it.** From a clone:
+> `pytest packages/python/tests/` runs the offline suite, and
+> `python3 packages/python/tools/smoke_mcp_walk.py --env-file .env` runs a live
+> end-to-end check (boots the bridge and MCP server, exercises every tool).
 
 ---
 
@@ -82,13 +116,13 @@ from cascade_img.prompt.composer import PromptComposer, Subject, StyleStack, Ide
 
 prompt = PromptComposer().compose(
     Subject(
-        text="the same finch with its wings raised UP in a full upstroke",
-        constraints=["SIDE VIEW facing LEFT (matching the reference orientation)",
-                     "low-resolution 2D game sprite", "limited palette",
-                     "handmade restrained sprite art", "transparent background"],
+        text="a flat-design icon of a mountain",
+        constraints=["centered", "simple shapes", "transparent background"],
     ),
-    style=StyleStack(moodboard="m7458053701014388751", sref="https://cdn.../sref.png"),
-    identity=IdentityStack(oref="https://cdn.../canonical-bird.png", ow=1000),
+    # Style and identity are optional. moodboard is a Midjourney moodboard code
+    # and sref/oref are reference-image URLs — set them up in Midjourney first.
+    style=StyleStack(moodboard="<your-moodboard-code>", sref="https://cdn.../style.png"),
+    identity=IdentityStack(oref="https://cdn.../reference.png", ow=1000),
     aspect_ratio="1:1",
 )
 ```
