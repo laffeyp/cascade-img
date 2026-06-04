@@ -27,17 +27,19 @@ pytestmark = pytest.mark.e2e
 _LIVE = os.environ.get("CASCADE_LIVE") == "1"
 _ENV_FILE = os.environ.get("CASCADE_ENV_FILE")
 
-
-@pytest.mark.skipif(
+requires_live = pytest.mark.skipif(
     not (_LIVE and _ENV_FILE),
     reason="live e2e walk — set CASCADE_LIVE=1 and CASCADE_ENV_FILE=/path/to/.env to run",
 )
-def test_smoke_walk_grid_only():
-    """Boot the bridge, walk every MCP tool against real MJ, assert exit 0.
 
-    Invokes tools/smoke_mcp_walk.py as a subprocess (the way an operator runs
-    it) so this test and the script share one code path. Grid-only (no upscale)
-    keeps it to ~30s of live time.
+
+def _run_smoke_walk(extra_args: list[str], *, wait_timeout: int, proc_timeout: int) -> None:
+    """Run tools/smoke_mcp_walk.py as a subprocess (the way an operator runs it)
+    so each e2e test and the script share one code path. Asserts a clean exit 0.
+
+    ``extra_args`` selects the variant (e.g. ``["--upscale", "all"]``);
+    ``wait_timeout`` is the per-job MJ wait budget, ``proc_timeout`` the outer
+    subprocess kill budget (bridge boot + wait + curation headroom).
     """
     engine_root = Path(__file__).resolve().parents[2]  # packages/python
     script = engine_root / "tools" / "smoke_mcp_walk.py"
@@ -48,12 +50,36 @@ def test_smoke_walk_grid_only():
             "--env-file",
             _ENV_FILE,
             "--wait-timeout",
-            "180",
+            str(wait_timeout),
             "--bridge-boot-timeout",
             "60",
+            *extra_args,
         ],
         cwd=engine_root,
-        timeout=420,
+        timeout=proc_timeout,
         check=False,
     )
-    assert proc.returncode == 0, f"smoke walk exited {proc.returncode} (expected 0)"
+    assert proc.returncode == 0, (
+        f"smoke walk {extra_args or '(grid-only)'} exited {proc.returncode} (expected 0)"
+    )
+
+
+@requires_live
+def test_smoke_walk_grid_only():
+    """Walk every MCP tool against real MJ with no upscale — the fast variant
+    (~30s live): compose -> imagine -> wait -> crop -> promote -> log."""
+    _run_smoke_walk([], wait_timeout=180, proc_timeout=420)
+
+
+@requires_live
+def test_smoke_walk_upscale_all():
+    """The upscale path: ``--upscale all`` fires U1-U4 and waits for four real
+    upscaled images, so it runs longer than the grid-only variant."""
+    _run_smoke_walk(["--upscale", "all"], wait_timeout=300, proc_timeout=540)
+
+
+@requires_live
+def test_smoke_walk_alpha_key():
+    """The curation path with background removal: ``--alpha-key`` exercises the
+    flood-fill keyer on the cropped quadrant before promote."""
+    _run_smoke_walk(["--alpha-key"], wait_timeout=180, proc_timeout=420)
