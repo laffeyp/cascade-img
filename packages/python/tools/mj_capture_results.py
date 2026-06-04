@@ -1,7 +1,7 @@
-"""Live capture of how Midjourney ECHOES derived-action results (Wave F receive side).
+"""Live capture of how Midjourney ECHOES derived-action results.
 
 Submit-side custom_ids are already mapped (mj_capture_buttons.py). This maps the
-receive side — the only remaining unknown before the Wave F result matchers can
+receive side — the only remaining unknown before the result matchers can
 be written:
 
     /imagine -> grid -> press U1 -> upscaled image

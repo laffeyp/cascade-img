@@ -625,7 +625,7 @@ def test_shutdown_event_cuts_backoff_short(valid_env, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# /wait timeout validation (review-003 MEDIUM)
+# /wait timeout validation
 # ---------------------------------------------------------------------------
 
 
@@ -648,7 +648,7 @@ def test_wait_returns_400_on_non_numeric_timeout():
 
 
 # ---------------------------------------------------------------------------
-# Grid-race reservation (review-003 HIGH)
+# Grid-race reservation
 # ---------------------------------------------------------------------------
 
 
