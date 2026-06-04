@@ -35,5 +35,6 @@ generated/
 smoke-output/
 cascade-prompt-log.jsonl
 
-# the event system kit — process/reference material pasted in locally; not part of the product
+# Local-only working files — not part of the package
 the toolkit/
+_archive/
