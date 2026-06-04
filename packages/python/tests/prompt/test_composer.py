@@ -60,6 +60,47 @@ def test_full_style_stack_includes_all_flags():
     assert set(rec["payload"]["prompt_parts_used"]) == {"moodboard", "sref", "stylize"}
 
 
+def test_style_weight_emits_sw_with_sref():
+    clear()
+    p = PromptComposer().compose(
+        Subject(text="a mountain"),
+        style=StyleStack(sref="https://cdn/s.png", sw=250),
+    )
+    assert "--sref https://cdn/s.png" in p
+    assert "--sw 250" in p
+    assert "sw" in snapshot()[-1]["payload"]["prompt_parts_used"]
+
+
+def test_style_weight_without_sref_rejected_at_construction():
+    """--sw only weights a style reference; setting it without sref is a no-op at
+    Midjourney, so it's rejected where the consumer built it."""
+    with pytest.raises(ValueError, match="only meaningful with a style reference"):
+        StyleStack(sw=250)  # no sref
+
+
+def test_style_weight_range_validated():
+    for bad in (-1, 1001):
+        with pytest.raises(ValueError, match="--sw range"):
+            StyleStack(sref="https://cdn/s.png", sw=bad)
+    StyleStack(sref="https://cdn/s.png", sw=0)
+    StyleStack(sref="https://cdn/s.png", sw=1000)
+
+
+def test_exp_emits_flag_and_validates_range():
+    clear()
+    p = PromptComposer().compose(
+        Subject(text="a mountain"),
+        params=ParamStack(exp=25),
+    )
+    assert "--exp 25" in p
+    assert "exp" in snapshot()[-1]["payload"]["prompt_parts_used"]
+    for bad in (-1, 101):
+        with pytest.raises(ValueError, match="--exp range"):
+            ParamStack(exp=bad)
+    ParamStack(exp=0)
+    ParamStack(exp=100)
+
+
 def test_identity_stack_appends_oref_and_ow():
     clear()
     p = PromptComposer().compose(

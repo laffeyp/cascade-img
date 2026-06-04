@@ -18,6 +18,7 @@ async def compose_prompt(
     constraints: list[str] | None = None,
     moodboard: str | None = None,
     sref: str | None = None,
+    sw: int | None = None,
     stylize: int | None = None,
     style_raw: bool = True,
     oref: str | None = None,
@@ -27,6 +28,7 @@ async def compose_prompt(
     image_prompts: list[str] | None = None,
     image_weight: float | None = None,
     tile: bool = False,
+    exp: int | None = None,
     chaos: int | None = None,
     weird: int | None = None,
     stop: int | None = None,
@@ -36,11 +38,12 @@ async def compose_prompt(
     """Compose a Midjourney v7 prompt from composable prompt parts. Returns
     ``{ok, result: {prompt}}``.
 
-    Beyond the style/identity parts: ``negatives`` becomes a single ``--no``
-    clause; ``image_prompts`` are reference URLs prepended to the prompt with
-    optional ``image_weight`` (``--iw``); ``tile``/``chaos``/``weird``/``stop``/
-    ``quality``/``seed`` are render controls. Out-of-range values return a
-    structured ValueError through the envelope."""
+    Beyond the style/identity parts: ``sw`` is the style-reference weight
+    (``--sw``, only meaningful with ``sref``); ``negatives`` becomes a single
+    ``--no`` clause; ``image_prompts`` are reference URLs prepended to the
+    prompt with optional ``image_weight`` (``--iw``); ``exp``/``tile``/
+    ``chaos``/``weird``/``stop``/``quality``/``seed`` are render controls.
+    Out-of-range values return a structured ValueError through the envelope."""
 
     def go():
         prompt = _envelope._composer.compose(
@@ -54,12 +57,14 @@ async def compose_prompt(
             style=StyleStack(
                 moodboard=moodboard,
                 sref=sref,
+                sw=sw,
                 stylize=stylize,
                 style_raw=style_raw,
             ),
             identity=IdentityStack(oref=oref, ow=ow) if oref else None,
             params=ParamStack(
                 tile=tile,
+                exp=exp,
                 chaos=chaos,
                 weird=weird,
                 stop=stop,

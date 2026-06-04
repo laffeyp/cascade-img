@@ -27,6 +27,7 @@ construction, so a bad value fails before it reaches Midjourney.
 | `aspect_ratio` | `--ar` | `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `2:3`, `3:2` | Output aspect ratio. Default `1:1`. |
 | `moodboard` | `--p` | personalization profile code | Applies a saved Midjourney personalization/moodboard profile. |
 | `sref` | `--sref` | style-reference URL or code | Steers the output toward a reference style. |
+| `sw` | `--sw` | 0–1000 (default 100) | Style weight: how strongly the `sref` pulls. Only meaningful with `sref`. |
 | `stylize` | `--s` | 0–1000 | Strength of Midjourney's house aesthetic. Lower lets the `sref` dominate. |
 | `style_raw` | `--style raw` | on/off (default on) | Suppresses Midjourney's default opinion injection. |
 | `oref` | `--oref` | single-image URL | Omni-reference: v7's identity lock — "same subject, new pose/angle". |
@@ -35,6 +36,7 @@ construction, so a bad value fails before it reaches Midjourney.
 | `image_prompts` | (leading URLs) | list of image URLs | Reference images Midjourney blends in; emitted before the subject. |
 | `image_weight` | `--iw` | 0–3 | How strongly the image prompts pull. Meaningless without `image_prompts`. |
 | `tile` | `--tile` | on/off | Seamless, repeating output. |
+| `exp` | `--exp` | 0–100 (whole number) | v7 experimental aesthetics — more detail/dynamism. Above ~25 can overwhelm `stylize`/`p`. |
 | `chaos` | `--chaos` | 0–100 | Variety across the four grid candidates. |
 | `weird` | `--weird` | 0–3000 | Offbeat / unconventional aesthetics. |
 | `stop` | `--stop` | 10–100 | Halt the render early for a rougher draft. |
@@ -73,9 +75,8 @@ and recorded on the job's `derived` list, read via `status(job_id)`.
 These are current v7 capabilities, intentionally out of scope for v0.1 — listed
 so the boundary is explicit rather than implied:
 
-- **`--sw` (style-reference weight, 0–1000).** You can set `--sref` but not yet
-  how strongly it pulls.
-- **Draft Mode (`--draft`).** Faster, cheaper draft renders.
+- **Draft Mode (`--draft`).** Faster, cheaper draft renders — but it changes the
+  render/button flow (draft → enhance), so it's not a drop-in flag; deferred.
 - **GPU mode** (fast / relax / turbo) and **Stealth** (`--stealth`, private
   renders). cascade-img uses the account's default mode.
 - **`--repeat`** (fire the same prompt N times in one call).

@@ -52,6 +52,7 @@ def _compose(entry: AssetEntry) -> str:
         style=StyleStack(
             moodboard=entry.moodboard,
             sref=entry.sref,
+            sw=entry.sw,
             stylize=entry.stylize,
             style_raw=entry.style_raw,
         ),
