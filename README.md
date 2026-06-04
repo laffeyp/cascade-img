@@ -150,14 +150,11 @@ cascade-img/
 ├── packages/typescript/        # npm name reservation for the v0.2 TypeScript wrapper (placeholder)
 ├── examples/katybird/      # one consumer project's worked usage (not generic templates)
 ├── vocabulary/0.1.json     # mirror of the package's event log-line catalog
-├── reviews/                # internal code/documentation review reports (audit trail)
-├── _archive/               # build-process history; not part of the published package
 └── *.md                    # README, ARCHITECTURE, RUNBOOK, AGENTS, AGENT_RUNDOWN, SECURITY, SUPPORT, …
 ```
 
 The product is `packages/python`. Everything an operator or agent needs is the
-top-level Markdown plus that package; `_archive/` and `reviews/` are history,
-not documentation.
+top-level Markdown plus that package.
 
 ## Roadmap
 
