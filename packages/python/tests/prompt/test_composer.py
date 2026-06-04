@@ -20,9 +20,9 @@ from cascade_img.vocabulary import clear, snapshot
 
 def test_subject_only_emits_minimal_prompt():
     clear()
-    p = PromptComposer().compose(Subject(text="a small finch"))
+    p = PromptComposer().compose(Subject(text="a mountain"))
     # No moodboard, no sref, no oref. style_raw default-on.
-    assert p == "a small finch --ar 1:1 --v 7 --style raw"
+    assert p == "a mountain --ar 1:1 --v 7 --style raw"
     rec = snapshot()[-1]
     assert rec["tag"] == "PROMPT_COMPOSED"
     assert rec["payload"]["prompt_parts_used"] == []
@@ -32,19 +32,19 @@ def test_subject_only_emits_minimal_prompt():
 def test_subject_constraints_fold_into_prompt():
     p = PromptComposer().compose(
         Subject(
-            text="a small finch",
+            text="a mountain",
             constraints=["side view", "transparent background"],
         )
     )
-    assert p.startswith("a small finch, side view, transparent background --ar")
+    assert p.startswith("a mountain, side view, transparent background --ar")
 
 
 def test_full_style_stack_includes_all_flags():
     clear()
     p = PromptComposer().compose(
-        Subject(text="a small finch"),
+        Subject(text="a mountain"),
         style=StyleStack(
-            moodboard="m7458053701014388751",
+            moodboard="m1234567890123456789",
             sref="https://cdn.midjourney.com/x/0_0.png",
             stylize=50,
         ),
@@ -53,7 +53,7 @@ def test_full_style_stack_includes_all_flags():
     assert "--ar 16:9" in p
     assert "--v 7" in p
     assert "--style raw" in p
-    assert "--p m7458053701014388751" in p
+    assert "--p m1234567890123456789" in p
     assert "--sref https://cdn.midjourney.com/x/0_0.png" in p
     assert "--s 50" in p
     rec = snapshot()[-1]
@@ -63,7 +63,7 @@ def test_full_style_stack_includes_all_flags():
 def test_identity_stack_appends_oref_and_ow():
     clear()
     p = PromptComposer().compose(
-        Subject(text="the same finch with its wings raised"),
+        Subject(text="the same icon at a new angle"),
         style=StyleStack(moodboard="m1", sref="https://cdn/x.png"),
         identity=IdentityStack(oref="https://cdn/oref.png", ow=1000),
     )
@@ -116,7 +116,7 @@ def test_subject_rejects_empty_text():
 def test_negatives_emit_single_no_clause():
     clear()
     p = PromptComposer().compose(
-        Subject(text="a finch", negatives=["text", "watermark", "human hands"])
+        Subject(text="a mountain", negatives=["text", "watermark", "human hands"])
     )
     # One --no clause, comma-joined, and it is the final flag (the bridge's
     # routing-token merge depends on --no being last).
@@ -165,12 +165,12 @@ def test_image_prompts_lead_prompt_with_iw():
     clear()
     p = PromptComposer().compose(
         Subject(
-            text="a finch",
+            text="a mountain",
             image_prompts=["https://cdn/ref1.png", "https://cdn/ref2.png"],
             image_weight=2.0,
         )
     )
-    assert p.startswith("https://cdn/ref1.png https://cdn/ref2.png a finch")
+    assert p.startswith("https://cdn/ref1.png https://cdn/ref2.png a mountain")
     assert "--iw 2.0" in p
     used = set(snapshot()[-1]["payload"]["prompt_parts_used"])
     assert {"image_prompt", "image_weight"} <= used
@@ -200,7 +200,7 @@ def test_stylize_and_ow_validated_at_construction():
 def test_multi_part_prompt_keeps_no_clause_last():
     clear()
     p = PromptComposer().compose(
-        Subject(text="a finch", negatives=["text"]),
+        Subject(text="a mountain", negatives=["text"]),
         style=StyleStack(moodboard="m1", stylize=50),
         params=ParamStack(chaos=10, seed=7),
     )

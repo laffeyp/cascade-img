@@ -15,15 +15,15 @@ from cascade_img.backends.midjourney_discord.bridge import (
 
 
 def test_appends_fresh_no_clause_when_none_present():
-    out = _merge_no_clause("a finch --ar 1:1 --v 7", "abc123")
-    assert out == "a finch --ar 1:1 --v 7 --no cscidnocollideabc123"
+    out = _merge_no_clause("a mountain --ar 1:1 --v 7", "abc123")
+    assert out == "a mountain --ar 1:1 --v 7 --no cscidnocollideabc123"
     assert out.count("--no") == 1
     assert _token_needle("abc123") in out
 
 
 def test_merges_into_existing_no_clause():
-    out = _merge_no_clause("a finch --ar 1:1 --v 7 --no text, watermark", "abc123")
-    assert out == "a finch --ar 1:1 --v 7 --no text, watermark, cscidnocollideabc123"
+    out = _merge_no_clause("a mountain --ar 1:1 --v 7 --no text, watermark", "abc123")
+    assert out == "a mountain --ar 1:1 --v 7 --no text, watermark, cscidnocollideabc123"
     assert out.count("--no") == 1
     assert _token_needle("abc123") in out
 
@@ -40,8 +40,8 @@ def test_merges_into_mid_prompt_no_clause_preserving_trailing_flags():
 
 
 def test_job_tagged_prompt_uses_merge():
-    job = Job(job_id="j1", asset_id="a", prompt="a finch --v 7 --no text", request_token="tok")
+    job = Job(job_id="j1", asset_id="a", prompt="a mountain --v 7 --no text", request_token="tok")
     tagged = job.tagged_prompt()
-    assert tagged == "a finch --v 7 --no text, cscidnocollidetok"
+    assert tagged == "a mountain --v 7 --no text, cscidnocollidetok"
     assert tagged.count("--no") == 1
     assert _token_needle("tok") in tagged

@@ -174,7 +174,9 @@ def test_action_no_upscaled_image_returns_409_and_emits_failure():
     bridge._ready.set()
     clear()
     try:
-        job = Job(job_id="j-grid", asset_id="bird", prompt="a finch", status=Status.DONE)
+        job = Job(
+            job_id="j-grid", asset_id="mountain-icon", prompt="a mountain", status=Status.DONE
+        )
         with LOCK:
             JOBS["j-grid"] = job
         client = bridge.app.test_client()
@@ -189,10 +191,9 @@ def test_action_no_upscaled_image_returns_409_and_emits_failure():
 
 # ---------------- receive side (derived results) ----------------
 #
-# Fixtures below mirror the verbatim live capture in
-# reviews/wave-f-receive-capture.md (SOLO message id 1511317210822611026, parent
-# uuid bb5d727b...). The routing key under test is message_reference == the SOLO
-# id; nothing here is guessed.
+# Fixtures below mirror a verbatim 2026-06-02 live capture (SOLO message id
+# 1511317210822611026, parent uuid bb5d727b...). The routing key under test is
+# message_reference == the SOLO id; nothing here is guessed.
 
 _SOLO_ID = 1511317210822611026
 

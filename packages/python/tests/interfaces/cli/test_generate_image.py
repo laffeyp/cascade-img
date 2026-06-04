@@ -20,17 +20,17 @@ from cascade_img.interfaces.cli.asset_registry import AssetEntry, load_registry
 from cascade_img.interfaces.cli.generate_image import run
 from cascade_img.vocabulary import clear, snapshot
 
-REGISTRY_BIRD = {
-    "bird": {
-        "subject": "pixel-art sprite of a small finch, side view",
+REGISTRY_SAMPLE = {
+    "mountain-icon": {
+        "subject": "a flat-design icon of a mountain, centered",
         "constraints": ["transparent background"],
-        "moodboard": "m7458053701014388751",
+        "moodboard": "m1234567890123456789",
         "sref": "https://cdn.midjourney.com/x/0_0.png",
         "aspect_ratio": "1:1",
     },
-    "clue_a": {
-        "subject": "a single wet feather",
-        "moodboard": "m7458053701014388751",
+    "hero-portrait": {
+        "subject": "a portrait of a hero, front view",
+        "moodboard": "m1234567890123456789",
         "sref": "https://cdn.midjourney.com/x/0_0.png",
         "aspect_ratio": "1:1",
         "oref": "https://cdn/oref.png",
@@ -53,13 +53,13 @@ def _tags():
 
 
 def test_registry_loads_two_assets(tmp_path):
-    p = _write_registry(tmp_path, REGISTRY_BIRD)
+    p = _write_registry(tmp_path, REGISTRY_SAMPLE)
     reg = load_registry(p)
-    assert set(reg.keys()) == {"bird", "clue_a"}
-    assert isinstance(reg["bird"], AssetEntry)
-    assert reg["bird"].moodboard == "m7458053701014388751"
-    assert reg["clue_a"].oref == "https://cdn/oref.png"
-    assert reg["clue_a"].ow == 400
+    assert set(reg.keys()) == {"mountain-icon", "hero-portrait"}
+    assert isinstance(reg["mountain-icon"], AssetEntry)
+    assert reg["mountain-icon"].moodboard == "m1234567890123456789"
+    assert reg["hero-portrait"].oref == "https://cdn/oref.png"
+    assert reg["hero-portrait"].ow == 400
 
 
 def test_registry_missing_subject_raises(tmp_path):
@@ -78,12 +78,12 @@ def test_registry_file_missing_raises(tmp_path):
 
 def test_dry_run_composes_and_logs(tmp_path):
     clear()
-    reg_path = _write_registry(tmp_path, REGISTRY_BIRD)
+    reg_path = _write_registry(tmp_path, REGISTRY_SAMPLE)
     log_path = tmp_path / "log.jsonl"
 
     result = asyncio.run(
         run(
-            asset_id="bird",
+            asset_id="mountain-icon",
             registry_path=reg_path,
             upscale=None,
             bridge_url="http://127.0.0.1:9999",  # unreachable; not hit in dry-run
@@ -93,8 +93,8 @@ def test_dry_run_composes_and_logs(tmp_path):
     )
 
     assert result["ok"] is True
-    assert result["asset_id"] == "bird"
-    assert "--p m7458053701014388751" in result["prompt"]
+    assert result["asset_id"] == "mountain-icon"
+    assert "--p m1234567890123456789" in result["prompt"]
     assert "transparent background" in result["prompt"]
     assert result["dry_run"] is True
 
@@ -103,7 +103,7 @@ def test_dry_run_composes_and_logs(tmp_path):
     records = [json.loads(line) for line in log_path.read_text().splitlines() if line.strip()]
     assert len(records) == 1
     assert records[0]["agent_decision"] == "dry_run"
-    assert records[0]["asset_id"] == "bird"
+    assert records[0]["asset_id"] == "mountain-icon"
 
     tags = _tags()
     assert "CLI_ROLL_STARTED" in tags
@@ -114,7 +114,7 @@ def test_dry_run_composes_and_logs(tmp_path):
 
 def test_unknown_asset_id_returns_structured_error(tmp_path):
     clear()
-    reg_path = _write_registry(tmp_path, REGISTRY_BIRD)
+    reg_path = _write_registry(tmp_path, REGISTRY_SAMPLE)
     log_path = tmp_path / "log.jsonl"
 
     result = asyncio.run(
@@ -130,7 +130,7 @@ def test_unknown_asset_id_returns_structured_error(tmp_path):
 
     assert result["ok"] is False
     assert result["error"]["code"] == "UNKNOWN_ASSET_ID"
-    assert "bird" in result["error"]["remediation"]
+    assert "mountain-icon" in result["error"]["remediation"]
     assert "CLI_ROLL_FAILED" in _tags()
 
 
@@ -140,7 +140,7 @@ def test_missing_registry_returns_structured_error(tmp_path):
 
     result = asyncio.run(
         run(
-            asset_id="bird",
+            asset_id="mountain-icon",
             registry_path=tmp_path / "does-not-exist.json",
             upscale=None,
             bridge_url="http://127.0.0.1:9999",
@@ -155,12 +155,12 @@ def test_missing_registry_returns_structured_error(tmp_path):
 
 
 def test_identity_lock_facets_flow_through(tmp_path):
-    """clue_a has oref+ow set in the registry — the composed prompt must
+    """hero-portrait has oref+ow set in the registry — the composed prompt must
     include --oref and --ow."""
-    reg_path = _write_registry(tmp_path, REGISTRY_BIRD)
+    reg_path = _write_registry(tmp_path, REGISTRY_SAMPLE)
     result = asyncio.run(
         run(
-            asset_id="clue_a",
+            asset_id="hero-portrait",
             registry_path=reg_path,
             upscale=None,
             bridge_url="http://127.0.0.1:9999",
@@ -184,7 +184,7 @@ def test_non_dry_run_dispatches_sync_backend_via_to_thread(tmp_path, monkeypatch
     sync backend works end-to-end.
     """
     clear()
-    reg_path = _write_registry(tmp_path, REGISTRY_BIRD)
+    reg_path = _write_registry(tmp_path, REGISTRY_SAMPLE)
     log_path = tmp_path / "log.jsonl"
 
     calls: list[tuple[str, tuple, dict]] = []
@@ -214,7 +214,7 @@ def test_non_dry_run_dispatches_sync_backend_via_to_thread(tmp_path, monkeypatch
 
     result = asyncio.run(
         cli_mod.run(
-            asset_id="bird",
+            asset_id="mountain-icon",
             registry_path=reg_path,
             upscale=None,
             bridge_url="http://127.0.0.1:9999",
