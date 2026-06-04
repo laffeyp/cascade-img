@@ -1,6 +1,6 @@
 """Behavior contract for the persistent JobStore + the bridge's rehydration.
 
-The store is the durability sidecar for Wave G: a restart must resume tracking
+The store is the durability sidecar: a restart must resume tracking
 in-flight jobs instead of dropping them. These tests pin (a) the store's
 put/load/delete + terminal filtering, (b) the str-enum serialization trap, and
 (c) the bridge reconstructing typed Job objects + PENDING_GRID on rehydrate.

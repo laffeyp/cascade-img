@@ -12,7 +12,7 @@ All notable changes to cascade-img are recorded here. Format follows [Keep a Cha
 - The MCP server moved to `interfaces/mcp/` and split by concern: `tool_server.py` (FastMCP instance + entry point), `_envelope.py` (the response wrapper + shared backend/composer/log), and `tools/{prompt,generation,curation,log}_tools.py`. The 16 MCP tool names are unchanged.
 - `pyproject` entry-point module paths updated to match; the wire string `backend="midjourney_discord"` is unchanged.
 
-### Response-message actions (Wave F)
+### Response-message actions
 
 - **Drive every Midjourney response-message button without a human click.** `POST /action/<job_id>`, the `mj_action(job_id, action)` MCP tool, and `MidjourneyDiscordBackend.action` press the buttons on a completed job's upscaled (SOLO) image: `upscale_subtle`/`upscale_creative`, `vary_subtle`/`vary_strong`, `zoom_out_2x`/`zoom_out_1_5x`, `pan_left`/`right`/`up`/`down`, `animate_high`/`animate_low`, `favorite`. The bridge reads each button's **live** `custom_id` off the message (never reconstructs the uuid-bearing id); a missing button returns `BUTTON_NOT_FOUND`, a grid-only job `NO_UPSCALED_IMAGE`. New signals `MJ_ACTION_REQUESTED` / `MJ_ACTION_FAILED`.
 - **Route the derived result back to the job.** A vary/zoom/pan/upscale/animation result is matched to its parent by Discord `message_reference == Job.upscale_message_id` (the only signal present on every family; recency is unsafe on a shared channel), downloaded to `<asset_id>_<kind>_<uuid8>`, and recorded in `Job.derived` with `MJ_DERIVED_RECEIVED` (or `MJ_DERIVED_FAILED`). `animate_*` is delivered as an animated WebP (`image/webp`), not mp4; `favorite` produces no artifact. The matchers are built from a verbatim live capture, not guessed.

@@ -1,4 +1,4 @@
-"""Behavior contract for the Sprint 007/008 concurrency + matching work:
+"""Behavior contract for the concurrency + matching work:
 JOBS LRU+TTL eviction, /wait Condition-based callback, token-based grid
 matching, BRIDGE_SHUTDOWN signal, port range validation.
 

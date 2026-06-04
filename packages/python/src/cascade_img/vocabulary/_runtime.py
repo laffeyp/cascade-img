@@ -144,7 +144,7 @@ class Signal:
     Carries ``vocab_version`` so the record reflects the vocabulary that
     actually emitted it, not the module-global. Matters once a process
     loads more than one vocabulary version (uncommon today but a latent
-    bug otherwise — review-003 LOW).
+    bug otherwise).
     """
 
     tag: str

@@ -47,7 +47,7 @@ def test_undeclared_payload_field_raises():
     """The schema's ``validator-extras: strict`` posture must be enforced:
     payload keys that aren't in the tag's ``payload`` or ``optional_payload``
     raise at emit time. Without this check the strictness guarantee was a
-    lie (review-003 HIGH)."""
+    lie."""
     clear()
     with pytest.raises(ValueError, match="undeclared payload fields"):
         emit(

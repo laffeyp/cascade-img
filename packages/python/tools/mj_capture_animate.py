@@ -1,4 +1,4 @@
-"""Live capture of the Midjourney Animate (video) result shape (Wave F).
+"""Live capture of the Midjourney Animate (video) result shape.
 
 Corrects the earlier capture, which gated on the prompt token and timed out:
 this drives /imagine -> grid -> U1 -> upscaled -> press Animate (High), then

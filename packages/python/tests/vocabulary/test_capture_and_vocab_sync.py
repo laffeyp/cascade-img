@@ -81,7 +81,7 @@ def test_root_and_package_vocab_files_are_identical():
     if not root_vocab.exists():
         # In a source checkout (src/ present) the mirror MUST exist — a missing
         # file is real drift, not the installed-wheel case. Fail loudly there;
-        # skip only when running against an installed wheel (review-003 §5).
+        # skip only when running against an installed wheel.
         if (pkg_root / "src").is_dir():
             pytest.fail(
                 "Project-root vocabulary/0.1.json is missing in a source checkout "

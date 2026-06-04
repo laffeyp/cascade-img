@@ -1,11 +1,11 @@
-"""Live capture of Midjourney's response-message button surface (Wave F bridge mapping).
+"""Live capture of Midjourney's response-message button surface.
 
 Fires one /imagine, waits for the grid, presses U1, waits for the upscaled
 image, and dumps every message component (label, custom_id, emoji, style) MJ
 attaches. That is the real action surface — Vary / Zoom / Pan / Make Square /
-Animate / favorite — for THIS account's MJ version. Wave F's endpoints and
-result matchers are written against this capture, not guessed (the event system technique
-46: reverse-engineer the external surface before authoring against it).
+Animate / favorite — for THIS account's MJ version. The endpoints and
+result matchers are written against this capture, not guessed: reverse-engineer
+the external surface before authoring against it.
 
     python3 tools/mj_capture_buttons.py --env-file /path/to/.env
 

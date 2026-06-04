@@ -142,7 +142,7 @@ def test_no_style_stack_still_emits_style_raw():
 
 def test_subject_rejects_empty_text():
     """Subject.text='' or whitespace would otherwise render a subject-less
-    prompt (review-003 MEDIUM). Validated at construction so the bad
+    prompt. Validated at construction so the bad
     Subject never reaches the composer."""
     import pytest as _pytest
 

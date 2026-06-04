@@ -1,4 +1,4 @@
-"""Behavior contract for Wave F response-message actions (vary / zoom / pan /
+"""Behavior contract for response-message actions (vary / zoom / pan /
 upscale-variant / animate / favorite) — the submit side.
 
 Two layers, no live Discord:

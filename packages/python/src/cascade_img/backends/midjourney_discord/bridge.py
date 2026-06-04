@@ -323,7 +323,7 @@ class Job:
     # matched after the job was already in PROGRESS (happens when MJ posts the
     # final grid as a new message instead of editing the initial preamble).
     match_path: str | None = None
-    # Wave F receive side: derived results (vary / zoom / pan / upscale-variant /
+    # Derived results (vary / zoom / pan / upscale-variant /
     # animation) pressed on this job's SOLO upscaled image. MJ posts each as a
     # Discord reply to upscale_message_id; the bridge downloads it and appends an
     # entry {action_kind, mj_uuid, message_id, path, url, content_type, width,
@@ -379,7 +379,7 @@ TERMINAL_CV = threading.Condition(LOCK)
 # this between attempts so the daemon doesn't hammer Discord on the way out.
 _shutdown_event = threading.Event()
 
-# Durable job store (Wave G). None until main() opens it. The in-memory JOBS
+# Durable job store. None until main() opens it. The in-memory JOBS
 # map stays authoritative; this is a write-through mirror for restart recovery.
 _store: JobStore | None = None
 
@@ -768,7 +768,7 @@ def _find_action_custom_id(message, action: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Wave F raw-capture hook (observation-only; env-gated; OFF by default).
+# Raw-capture hook (observation-only; env-gated; OFF by default).
 # When CASCADE_CAPTURE_RAW points at a path, _ingest_message appends one JSON
 # line per MJ-bot message in the watched channel — structure only, NO
 # interpretation — so derived results (vary / zoom / pan / animate / favorite)
@@ -843,7 +843,7 @@ def _capture_raw_message(message, event: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Wave F receive side: route derived results (vary / zoom / pan / upscale-variant
+# Route derived results (vary / zoom / pan / upscale-variant
 # / animation) back to the parent job. Grounded entirely in the 2026-06-02 live
 # capture: MJ posts each derived result as a
 # Discord reply whose message_reference is the SOLO upscaled-image message id
@@ -1033,20 +1033,20 @@ def _ingest_message(message, event: str = "message") -> None:
 def _ingest_message_impl(message, event: str = "message"):
     """Update job state from an MJ message. ``event`` is "message" for a fresh
     message and "edit" when dispatched from ``on_message_edit`` — used only to
-    tag the Wave F raw capture (``discord.Message`` is ``__slots__``-based, so
+    tag the raw capture (``discord.Message`` is ``__slots__``-based, so
     the event cannot ride on the object; it must be passed as an argument)."""
     c = _cfg()
     if message.author.id != MJ_BOT_ID or message.channel.id != c.channel_id:
         return
 
-    # Wave F: capture every MJ-bot message in the watched channel, verbatim,
+    # Capture every MJ-bot message in the watched channel, verbatim,
     # BEFORE any routing return can drop it. on_message_edit funnels through
     # here too (it passes the AFTER message) with event="edit".
     _capture_raw_message(message, event)
 
     content = message.content or ""
 
-    # Wave F receive side: a derived result (vary/zoom/pan/upscale/animation) is a
+    # A derived result (vary/zoom/pan/upscale/animation) is a
     # Discord reply to the SOLO upscaled-image message it was launched from. Route
     # by message_reference == a tracked job's upscale_message_id — the only signal
     # present on every family; recency is unsafe (shared channel). Handled and
@@ -1363,7 +1363,7 @@ async def on_message(message):
 @client.event
 async def on_message_edit(before, after):
     loop = asyncio.get_running_loop()
-    # Pass event="edit" so the Wave F raw capture distinguishes MJ's in-place
+    # Pass event="edit" so the raw capture distinguishes MJ's in-place
     # progress edits from fresh messages. discord.Message is __slots__-based,
     # so the tag rides as a call argument, not an attribute.
     await loop.run_in_executor(_POOLS["ingest"], _ingest_message, after, "edit")
