@@ -41,7 +41,6 @@ MIDJOURNEY_DISCORD_CAPABILITIES = BackendCapabilities(
         "exp",
         "chaos",
         "weird",
-        "stop",
         "quality",
         "seed",
     ],

@@ -5,8 +5,7 @@ identity stack, an optional render-parameter stack, and an aspect ratio.
 The composer emits the backend-specific prompt string. v0.1 emits Midjourney
 v7 syntax: ``--ar``, ``--v 7``, ``--style raw``, ``--p``, ``--sref``, ``--sw``,
 ``--s``, ``--oref``, ``--ow``, ``--no``, ``--tile``, ``--exp``, ``--chaos``,
-``--weird``, ``--stop``, ``--q``, ``--seed``, ``--iw``, and leading
-image-prompt URLs.
+``--weird``, ``--q``, ``--seed``, ``--iw``, and leading image-prompt URLs.
 
 Every range is validated at construction (``__post_init__``) so a bad value
 fails before it reaches the wire, in the same place the consumer built it.
@@ -139,7 +138,6 @@ class ParamStack:
       more detail/dynamism. Values above ~25 can overwhelm ``stylize``/``p``.
     - ``chaos`` is ``--chaos`` (0-100): grid variety.
     - ``weird`` is ``--weird`` (0-3000): offbeat aesthetics.
-    - ``stop`` is ``--stop`` (10-100): halt the render early for rough drafts.
     - ``quality`` is ``--q``, one of {1, 2, 4} on v7 (GPU-cost lever; affects
       only the initial grid — the U-button upscales inherit the grid).
     - ``seed`` is ``--seed`` (0-4294967295). Reproducibility holds only within
@@ -151,7 +149,6 @@ class ParamStack:
     exp: int | None = None
     chaos: int | None = None
     weird: int | None = None
-    stop: int | None = None
     quality: int | None = None
     seed: int | None = None
 
@@ -170,10 +167,6 @@ class ParamStack:
             raise ValueError(
                 f"ParamStack.weird must be 0-3000 per Midjourney's --weird "
                 f"range; got {self.weird!r}."
-            )
-        if self.stop is not None and not 10 <= self.stop <= 100:
-            raise ValueError(
-                f"ParamStack.stop must be 10-100 per Midjourney's --stop range; got {self.stop!r}."
             )
         if self.quality is not None and self.quality not in (1, 2, 4):
             raise ValueError(
@@ -252,9 +245,6 @@ class PromptComposer:
             if params.weird is not None:
                 flags.append(f"--weird {params.weird}")
                 prompt_parts_used.append("weird")
-            if params.stop is not None:
-                flags.append(f"--stop {params.stop}")
-                prompt_parts_used.append("stop")
             if params.quality is not None:
                 flags.append(f"--q {params.quality}")
                 prompt_parts_used.append("quality")

@@ -123,18 +123,19 @@ def test_curation_pipeline_on_live_grid(base_job, checks, tmp_path: Path):
 
 
 def test_render_control_params_are_accepted(live_backend, checks):
-    """Prove Midjourney accepts cascade-img's render-control param surface
-    end-to-end: a single grid render carrying exp / chaos / weird / stop /
-    quality / seed / stylize must come back ``done`` with a valid image. (We
-    can't assert a param *changed* the image — two renders differ from MJ's own
-    randomness regardless — only that the whole surface is accepted and renders.)
+    """Prove Midjourney v7 accepts cascade-img's render-control param surface
+    end-to-end: a single grid render carrying exp / chaos / weird / quality /
+    seed / stylize / tile must come back ``done`` with a valid image. (We can't
+    assert a param *changed* the image — two renders differ from MJ's own
+    randomness regardless — only that the whole surface is accepted and renders.
+    This is the test that caught --stop being v6-only.)
     """
     from cascade_img.prompt.composer import ParamStack, PromptComposer, StyleStack, Subject
 
     prompt = PromptComposer().compose(
         Subject(text="a simple flat icon of a blue square, centered, plain white background"),
         style=StyleStack(stylize=200),
-        params=ParamStack(exp=15, chaos=15, weird=50, stop=90, quality=2, seed=4242),
+        params=ParamStack(exp=15, chaos=15, weird=50, quality=2, seed=4242, tile=True),
         aspect_ratio="1:1",
     )
     res = live_backend.imagine(prompt, asset_id="captest_params", upscale=None)

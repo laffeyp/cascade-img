@@ -172,12 +172,12 @@ def test_param_stack_flags_and_signal():
     clear()
     p = PromptComposer().compose(
         Subject(text="x"),
-        params=ParamStack(tile=True, chaos=50, weird=250, stop=80, quality=2, seed=12345),
+        params=ParamStack(tile=True, chaos=50, weird=250, quality=2, seed=12345),
     )
-    for frag in ["--tile", "--chaos 50", "--weird 250", "--stop 80", "--q 2", "--seed 12345"]:
+    for frag in ["--tile", "--chaos 50", "--weird 250", "--q 2", "--seed 12345"]:
         assert frag in p
     used = set(snapshot()[-1]["payload"]["prompt_parts_used"])
-    assert {"tile", "chaos", "weird", "stop", "quality", "seed"} <= used
+    assert {"tile", "chaos", "weird", "quality", "seed"} <= used
 
 
 def test_param_stack_validates_ranges_at_construction():
@@ -185,8 +185,6 @@ def test_param_stack_validates_ranges_at_construction():
         {"chaos": 150},
         {"chaos": -1},
         {"weird": 3001},
-        {"stop": 5},
-        {"stop": 101},
         {"quality": 3},
         {"seed": 4294967296},
     ):
@@ -196,7 +194,6 @@ def test_param_stack_validates_ranges_at_construction():
     ParamStack(chaos=0)
     ParamStack(chaos=100)
     ParamStack(weird=3000)
-    ParamStack(stop=10)
     ParamStack(quality=4)
     ParamStack(seed=0)
     ParamStack(seed=4294967295)

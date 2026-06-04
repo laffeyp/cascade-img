@@ -31,7 +31,6 @@ async def compose_prompt(
     exp: int | None = None,
     chaos: int | None = None,
     weird: int | None = None,
-    stop: int | None = None,
     quality: int | None = None,
     seed: int | None = None,
 ) -> dict[str, Any]:
@@ -42,7 +41,7 @@ async def compose_prompt(
     (``--sw``, only meaningful with ``sref``); ``negatives`` becomes a single
     ``--no`` clause; ``image_prompts`` are reference URLs prepended to the
     prompt with optional ``image_weight`` (``--iw``); ``exp``/``tile``/
-    ``chaos``/``weird``/``stop``/``quality``/``seed`` are render controls.
+    ``chaos``/``weird``/``quality``/``seed`` are render controls.
     Out-of-range values return a structured ValueError through the envelope."""
 
     def go():
@@ -67,7 +66,6 @@ async def compose_prompt(
                 exp=exp,
                 chaos=chaos,
                 weird=weird,
-                stop=stop,
                 quality=quality,
                 seed=seed,
             ),

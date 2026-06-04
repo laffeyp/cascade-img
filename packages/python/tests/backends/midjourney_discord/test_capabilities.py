@@ -34,7 +34,7 @@ def test_capabilities_cover_composer():
             moodboard="m1", sref="https://cdn/s.png", sw=200, stylize=50, style_raw=True
         ),
         identity=IdentityStack(oref="https://cdn/o.png", ow=400),
-        params=ParamStack(tile=True, exp=25, chaos=10, weird=20, stop=50, quality=2, seed=7),
+        params=ParamStack(tile=True, exp=25, chaos=10, weird=20, quality=2, seed=7),
         aspect_ratio="16:9",
     )
     emitted = set(snapshot()[-1]["payload"]["prompt_parts_used"])
