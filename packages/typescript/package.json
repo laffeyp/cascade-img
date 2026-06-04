@@ -4,7 +4,7 @@
   "description": "Placeholder release. An LLM-operable image-generation pipeline; v0.1.0 in progress.",
   "main": "index.js",
   "type": "module",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "author": "Green Rose Systems <info@greenrosesystems.com>",
   "homepage": "https://greenrosesystems.com",
   "repository": {

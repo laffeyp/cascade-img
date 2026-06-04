@@ -7,7 +7,7 @@ name = "cascade-img"
 version = "0.1.0"
 description = "LLM-operable image-generation pipeline. Midjourney via Discord at v0.1, pluggable backends after."
 readme = "README.md"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 authors = [
     { name = "Green Rose Systems", email = "info@greenrosesystems.com" },
@@ -32,7 +32,7 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",

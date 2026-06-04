@@ -16,4 +16,4 @@ Full documentation, setup procedure, failure-mode catalog, and the agent-operato
 
 ## License
 
-MIT. Published by [Green Rose Systems](https://greenrosesystems.com).
+Apache-2.0. Published by [Green Rose Systems](https://greenrosesystems.com).
