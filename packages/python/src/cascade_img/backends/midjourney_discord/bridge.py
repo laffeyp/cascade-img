@@ -61,10 +61,8 @@ PACKAGE_VERSION = "0.1.0"  # bumped in lock-step with pyproject.toml
 BACKEND_NAME = "midjourney_discord"
 
 
-# Midjourney's public, well-known Discord application ID. This is the same value
-# for every Midjourney user worldwide — it identifies the MJ bot itself, not
-# anything specific to this deployment — so it is a fixed constant here rather
-# than per-operator config.
+# Midjourney's public, well-known Discord application ID — the same for every MJ
+# user, so it's a fixed constant here, not per-operator config.
 MJ_BOT_ID = 936929561302675456
 
 
