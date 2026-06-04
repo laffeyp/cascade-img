@@ -144,15 +144,15 @@ Compared to other OSS Midjourney drivers:
 
 | | cascade-img | erictik/midjourney-api | novicezk/midjourney-proxy | Paid REST proxies |
 |---|---|---|---|---|
-| Drives MJ V7 | yes | partial | OSS no, paid fork yes | yes |
+| Drives MJ V7 | yes | raw passthrough (no v7 awareness) | OSS no, paid fork yes | yes |
 | Composable prompt parts (moodboard, sref, oref, ow as named inputs) | yes | no | no | passes raw strings |
 | Local HTTP bridge | yes | no (library only) | yes (Java) | n/a (hosted) |
 | Curation kit (grid crop, alpha key, promote) | yes | no | no | no |
 | Append-only prompt log | yes | no | no | no |
 | MCP server | yes | no | no | no |
-| Structured-error envelope with stable codes | yes | no | no | partial |
-| Pluggable backend (Flux / DALL-E / Imagen on the same interface in v0.2+) | yes | MJ only | MJ only | provider-locked |
-| License | MIT | MIT | Apache 2.0 | proprietary |
+| Structured-error envelope with stable codes | yes | no | not documented | partial |
+| Pluggable backend (Flux / DALL-E / Imagen on the same interface in v0.2+) | interface; backends v0.2+ | MJ only | MJ only | provider-locked |
+| License | MIT | Apache-2.0 | Apache 2.0 | proprietary |
 
 ---
 
