@@ -137,7 +137,7 @@ $ pytest packages/python/tests/ -q
 - **[RUNBOOK.md](./RUNBOOK.md)** — install, env capture, the setup procedure, the reconnect lifecycle, and every known failure mode with its structured error code and remediation.
 - **[AGENTS.md](./AGENTS.md)** — the LLM operator's guide. Read this when handing cascade-img to an agent.
 - **[TOS.md](./TOS.md)** — the technical context: Midjourney has no public API; Discord user-account automation is the established OSS pattern; both Discord's and Midjourney's Terms of Service prohibit it.
-- **[examples/demo/](./examples/demo/)** — one consumer project's worked usage of cascade-img (the demo sprite-art pipeline). Not generic templates; an example of how a real project structured agent prompts against the tool. Read AGENTS.md before any of these.
+- **[examples/](./examples/)** — two short, generic walkthroughs of the operating loop (generate one image; generate a batch). Illustrative, not templates to copy verbatim. Read AGENTS.md before any of these.
 
 ## Repository layout
 
@@ -148,7 +148,7 @@ cascade-img/
 │   ├── tests/               #   behavior tests
 │   └── tools/               #   live smoke walk
 ├── packages/typescript/        # npm name reservation for the v0.2 TypeScript wrapper (placeholder)
-├── examples/demo/      # one consumer project's worked usage (not generic templates)
+├── examples/              # two short, generic walkthroughs of the operating loop
 ├── vocabulary/0.1.json     # mirror of the package's event log-line catalog
 └── *.md                    # README, ARCHITECTURE, RUNBOOK, AGENTS, AGENT_RUNDOWN, SECURITY, SUPPORT, …
 ```

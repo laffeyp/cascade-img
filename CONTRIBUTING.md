@@ -49,7 +49,7 @@ CASCADE_LIVE=1 CASCADE_ENV_FILE=/path/to/.env pytest -m e2e
 - New backend implementations conforming to `ImageGenerationBackend`.
 - New curation utilities (e.g. better alpha-key heuristics, atlas packing).
 - Documentation improvements that surface operational lessons.
-- New entries under `examples/<consumer>/` — worked examples of one project's usage, not generic prompt templates. (Package-shipped prompts are not in scope; AGENTS.md is the canonical operator guide.)
+- Improvements to the generic walkthroughs under `examples/` — kept generic and illustrative, not tied to a specific project. (AGENTS.md is the canonical operator guide.)
 
 ## What's out of scope at v0.1
 
