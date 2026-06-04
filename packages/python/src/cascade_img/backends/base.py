@@ -1,10 +1,11 @@
 """Backend interface for image-generation providers.
 
 v0.1 ships :class:`cascade_img.backends.midjourney_discord.MidjourneyDiscordBackend`
-only. The abstract is intentionally small — two async methods and a
-capabilities declaration — because a second backend hasn't shipped yet and
-the speculative surface would harden into something wrong. When Flux,
-DALL-E, or Imagen lands, this file grows from observed need.
+only. The abstract is intentionally small — a synchronous surface
+(``imagine`` / ``wait`` / ``status`` / ``health``) plus a capabilities
+declaration — because a second backend hasn't shipped yet and a larger
+speculative surface would harden into something wrong. When Flux, DALL-E, or
+Imagen lands, this file grows from observed need.
 """
 
 from __future__ import annotations
@@ -29,11 +30,12 @@ class BackendCapabilities:
 
 
 class ImageGenerationBackend(ABC):
-    """Minimal v0.1 surface: submit a job, await its result.
+    """Minimal v0.1 surface: submit a job, await its result, read status, report health.
 
     Methods are **synchronous** at v0.1. Callers needing asyncio responsiveness
     invoke via ``asyncio.to_thread(backend.imagine, ...)`` rather than wrapping
-    blocking ``requests`` calls in ``async def``."""
+    blocking ``requests`` calls in ``async def``. A new backend implements all
+    four; the MCP server, CLI, and curation kit then drive it unchanged."""
 
     capabilities: BackendCapabilities
 
@@ -44,3 +46,11 @@ class ImageGenerationBackend(ABC):
     @abstractmethod
     def wait(self, job_id: str, timeout: int = 180) -> dict:
         """Block until the job hits ``done`` or ``failed`` or the timeout fires."""
+
+    @abstractmethod
+    def status(self, job_id: str) -> dict:
+        """Non-blocking read of the job's current state (the ``status`` MCP tool)."""
+
+    @abstractmethod
+    def health(self) -> dict:
+        """Report backend liveness — daemon up, upstream connected (``bridge_health``)."""
