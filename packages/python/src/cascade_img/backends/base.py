@@ -1,11 +1,9 @@
 """Backend interface for image-generation providers.
 
 v0.1 ships :class:`cascade_img.backends.midjourney_discord.MidjourneyDiscordBackend`
-only. The abstract is intentionally small — a synchronous surface
-(``imagine`` / ``wait`` / ``status`` / ``health``) plus a capabilities
-declaration — because a second backend hasn't shipped yet and a larger
-speculative surface would harden into something wrong. When Flux, DALL-E, or
-Imagen lands, this file grows from observed need.
+only. The surface is deliberately small — a synchronous
+``imagine`` / ``wait`` / ``status`` / ``health`` plus a capabilities
+declaration — and grows when a second backend lands.
 """
 
 from __future__ import annotations
@@ -18,12 +16,8 @@ from dataclasses import dataclass, field
 class BackendCapabilities:
     """What a backend declares about itself.
 
-    Declarative metadata attached to each :class:`ImageGenerationBackend`
-    subclass. v0.1 records the supported composable prompt parts (moodboard,
-    sref, oref, ow, style_raw, stylize, etc.) and aspect ratios. Future
-    versions can grow the surface when a consumer demands it (a capability-
-    aware composer or an MCP introspection tool); v0.1 declares only what is
-    actually used rather than speculative fields."""
+    v0.1 records the supported composable prompt parts (moodboard, sref, oref,
+    ow, style_raw, stylize) and aspect ratios."""
 
     prompt_parts: list[str] = field(default_factory=list)
     aspect_ratios: list[str] = field(default_factory=list)
@@ -32,10 +26,9 @@ class BackendCapabilities:
 class ImageGenerationBackend(ABC):
     """Minimal v0.1 surface: submit a job, await its result, read status, report health.
 
-    Methods are **synchronous** at v0.1. Callers needing asyncio responsiveness
-    invoke via ``asyncio.to_thread(backend.imagine, ...)`` rather than wrapping
-    blocking ``requests`` calls in ``async def``. A new backend implements all
-    four; the MCP server, CLI, and curation kit then drive it unchanged."""
+    Methods are **synchronous**. Callers needing asyncio responsiveness invoke
+    via ``asyncio.to_thread(backend.imagine, ...)`` rather than wrapping blocking
+    ``requests`` calls in ``async def``."""
 
     capabilities: BackendCapabilities
 

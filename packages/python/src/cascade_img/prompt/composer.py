@@ -22,9 +22,8 @@ from cascade_img.vocabulary import emit
 class Subject:
     """The thing being depicted, plus content-level prompt parts.
 
-    ``text`` must be a non-empty, non-whitespace description; an empty subject
-    would otherwise produce a leading-space, subject-less prompt that
-    Midjourney renders as noise.
+    ``text`` is the non-empty description of what to depict (validated at
+    construction).
 
     ``constraints`` are folded into the prompt as comma-separated phrases
     after ``text``; Midjourney weights repeated concepts higher, so naming
