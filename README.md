@@ -9,6 +9,8 @@ An image-generation pipeline an LLM can drive. It runs Midjourney through Discor
 
 The Midjourney prompt is split into composable parts you set independently — subject, moodboard (`--p`), style reference (`--sref`), identity reference (`--oref`) and its weight (`--ow`), aspect ratio. A curation kit crops the 2×2 grid into quadrants and, optionally, removes a uniform background. A JSONL prompt log records every attempt so the next iteration knows what's been tried. An MCP server exposes all of this to Claude Desktop, Cursor, Cline, or any MCP-aware host — so an agent can compose, generate, curate, and log without a human on every attempt.
 
+> **The point: an agent runs the loop.** cascade-img's headline mode is letting an LLM agent drive the whole loop over the MCP tools — compose → generate → wait → inspect → curate → log, iterating on its own prompt log without a human on every roll. The CLI and Python API are conveniences for scripting and embedding; the agent loop is why the package exists. [AGENTS.md](./AGENTS.md) is the operator's guide.
+
 
 Midjourney comes first by design. Midjourney has no public API, so driving it through a Discord user account is the established, accepted OSS pattern for programmatic access — and the existing tools that do this are sparsely maintained, which is what cascade-img sets out to improve on with a best-in-class take on that pattern. It is tackled first precisely because, lacking an API, it is the hardest of the image providers to integrate; with that done, adding the rest (Flux, DALL-E, Imagen) is the easier work.
 

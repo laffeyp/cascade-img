@@ -9,7 +9,7 @@
   "ontology": {
     "entities": [
       {"name": "Job", "definition": "One /imagine roll through to its terminal state (done | failed). Identified by job_id."},
-      {"name": "Asset", "definition": "A named output the user is generating (e.g., 'bird', 'clue_a'). Identified by asset_id."},
+      {"name": "Asset", "definition": "A named output the user is generating (e.g., 'mountain-icon', 'hero-portrait'). Identified by asset_id."},
       {"name": "Bridge", "definition": "The long-running Flask + discord.py-self daemon process. Operated through HTTP."},
       {"name": "Backend", "definition": "The pluggable backend implementing ImageGenerationBackend. v0.1 has one (MidjourneyDiscordBackend)."}
     ]

@@ -4,6 +4,8 @@ How to run `cascade-img` end-to-end against a real Midjourney account, what brea
 
 > **Context.** Midjourney has no public API. Driving it through a Discord user account is the established OSS pattern for programmatic access. Both Discord's and Midjourney's Terms of Service prohibit user-account automation. See [TOS.md](./TOS.md).
 
+> **The point of the package.** cascade-img is built to be driven by an **LLM agent** over its MCP tools: the agent composes a prompt, fires the generation, waits, inspects the image, curates the winner, and logs the attempt — looping without a human on every roll, reading its own log to decide the next move. That agent loop is what cascade-img is *for*; the CLI and Python paths are conveniences for scripting and embedding. The loop itself is specified in **[LLM-agent operation](#llm-agent-operation)** below — if you read one section, read that one.
+
 ---
 
 ## One-time setup
@@ -127,22 +129,20 @@ Build a registry file once (JSON, keyed by `asset_id`):
 
 ```json
 {
-  "bird": {
-    "subject": "pixel-art sprite of a small finch, side view",
-    "constraints": ["transparent background"],
-    "moodboard": "m7458053701014388751",
-    "sref": "https://cdn.midjourney.com/.../0_0.png",
+  "mountain-icon": {
+    "subject": "a flat-design icon of a mountain",
+    "constraints": ["centered", "simple shapes", "transparent background"],
     "aspect_ratio": "1:1"
   }
 }
 ```
 
-Then:
+`subject` is the only required field. `moodboard`, `sref`, `oref`/`ow`, and `stylize` are optional style controls (see the style and identity sections below). Then:
 
 ```bash
-cascade-mj bird --registry assets.json --pretty
-cascade-mj bird --registry assets.json --upscale all --pretty
-cascade-mj bird --registry assets.json --dry-run    # compose+log, no fire
+cascade-mj mountain-icon --registry assets.json --pretty
+cascade-mj mountain-icon --registry assets.json --upscale all --pretty
+cascade-mj mountain-icon --registry assets.json --dry-run    # compose+log, no fire
 ```
 
 JSON to stdout, human-readable progress to stderr. Exit 0 on `done`, 1 on `failed` or any structured error.
@@ -161,7 +161,7 @@ In your agent host's MCP config (Claude Desktop, Cursor, Cline):
 }
 ```
 
-The agent then sees the tool set — `compose_prompt`, `imagine`, `wait`, `status`, `bridge_health`, `crop_grid`, `alpha_key`, `promote`, `log_append`, `read_prompt_log` — and can drive the full loop autonomously.
+The agent then sees all sixteen tools and can drive the full loop autonomously: generation (`imagine`, `wait`, `status`, `bridge_health`, `mj_action`), composition (`compose_prompt`), curation (`crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `promote`), and working memory (`log_append`, `read_prompt_log`). This is the primary way to operate cascade-img — see [LLM-agent operation](#llm-agent-operation) for the loop the agent runs.
 
 ### Via the Python library
 
@@ -173,13 +173,13 @@ from cascade_img.curation import crop_quadrant, alpha_key_corners, promote
 
 backend = MidjourneyDiscordBackend()  # defaults to http://127.0.0.1:5000
 prompt = PromptComposer().compose(
-    Subject(text="a small finch"),
-    style=StyleStack(moodboard="m7458...", sref="https://cdn..."),
+    Subject(text="a flat-design icon of a mountain, centered, simple shapes"),
+    style=StyleStack(moodboard="<your-moodboard-code>", sref="https://cdn..."),
     aspect_ratio="1:1",
 )
 
 async def go():
-    j = await backend.imagine(prompt, asset_id="bird", upscale="1")
+    j = await backend.imagine(prompt, asset_id="mountain-icon", upscale="1")
     r = await backend.wait(j["job_id"], timeout=360)
     return r
 
@@ -276,17 +276,24 @@ Two concurrent jobs shared an `asset_id`. The bridge detects the existing artifa
 
 ---
 
-## Sprite-style language to fight photoreal drift
+## Fighting photoreal drift
 
-A style reference + moodboard alone isn't enough on small natural objects (feathers, scratch marks, keepsakes). Midjourney falls back to photorealism even with `--style raw`. Bake the aesthetic into every subject explicitly:
+Whatever non-photoreal look you're after — flat vector icon, pixel-art sprite, watercolor, line art — Midjourney tends to fall back to photorealism, even with `--style raw`, especially on small or natural subjects. A style reference plus moodboard alone often isn't enough. The fix is to name the target aesthetic explicitly in the subject and repeat its key descriptors:
 
 ```
-pixel-art sprite of <SUBJECT>, <COMPOSITION HINTS>, low-resolution 2D game sprite,
+<STYLE NAME> of <SUBJECT>, <COMPOSITION HINTS>, <repeat the style's key
+descriptors>, centered, <transparent background | scene framing>
+```
+
+For example, for a pixel-art game sprite:
+
+```
+pixel-art sprite of <SUBJECT>, side view, low-resolution 2D game sprite,
 limited palette, handmade restrained sprite art, readable silhouette, centered,
 transparent background
 ```
 
-The redundant aesthetic phrases (pixel-art / low-resolution / limited palette / handmade / readable silhouette) are intentional. Midjourney weights repeated concepts higher, and a style reference alone needs reinforcement on small subjects. The `PromptComposer` folds `Subject.constraints` into the subject text so this idiom is one-liner.
+The redundant aesthetic phrases (pixel-art / low-resolution / limited palette / handmade / readable silhouette) are intentional: Midjourney weights repeated concepts higher, and a style reference alone needs reinforcement. Swap the descriptors for whatever your target style is. The `PromptComposer` folds `Subject.constraints` into the subject text, so this stays a one-liner.
 
 If subject + sref + moodboard still drifts photoreal, raise the sref weight (`--sref <url>::2` or `::3`) and reduce `stylize` (e.g. `stylize=50`) to constrain Midjourney's prettifier.
 
@@ -294,22 +301,22 @@ If subject + sref + moodboard still drifts photoreal, raise the sref weight (`--
 
 ## Identity-locked variants (V7 `--oref`)
 
-When the goal is "same character, different pose/wings/expression", `--oref` is Midjourney v7's identity lock. It replaces v6's `--cref`, which is **not compatible with `--v 7`** (silently dropped if you pass it).
+When the goal is "same subject, different pose/angle/expression" — a recurring character, a product from new angles, a mascot in new scenes — `--oref` is Midjourney v7's identity lock. It replaces v6's `--cref`, which is **not compatible with `--v 7`** (silently dropped if you pass it).
 
 ```python
-IdentityStack(oref="https://cdn.discord.com/.../bird.png", ow=400)
+IdentityStack(oref="https://cdn.discord.com/.../reference.png", ow=400)
 ```
 
 - `ow` is omni-weight (0-1000). 100 = default (drifts), 400 = first useful tightness, 1000 = max. Bump higher when default drifts visibly.
-- The reference URL must be a **single image, not a 2x2 grid**. A grid URL makes MJ average identity across 4 variants — "different birds flickering" drift. Use a single-image URL of the curated U-quadrant.
+- The reference URL must be a **single image, not a 2x2 grid**. A grid URL makes MJ average identity across 4 variants — a "different subjects flickering" drift. Use a single-image URL of the curated U-quadrant.
 
 To get a single-image URL from a local file, upload to your MJ channel via the Discord API:
 
 ```bash
 curl -X POST "https://discord.com/api/v9/channels/$MJ_CHANNEL_ID/messages" \
   -H "Authorization: $DISCORD_USER_TOKEN" \
-  -F "files[0]=@assets/bird.png" \
-  -F 'payload_json={"content":"canonical bird sprite (oref reference)"}'
+  -F "files[0]=@reference.png" \
+  -F 'payload_json={"content":"oref reference image"}'
 ```
 
 Response has `attachments[0].url` — use that as `--oref`.
@@ -319,7 +326,7 @@ Response has `attachments[0].url` — use that as `--oref`.
 1. Bump `ow=1000`.
 2. Re-host the source image with cleaner alpha + tighter crop.
 3. Use MJ's "Vary Region" inpaint (interactive Discord, not in the bridge yet).
-4. Switch to a layered-sprite approach in your renderer — base body asset + separate overlay assets composited at runtime.
+4. If your pipeline assembles the final image (e.g. compositing layers in a renderer or design tool), split the work — lock the parts that must stay constant as separate assets and vary only the rest.
 
 ---
 
@@ -330,47 +337,49 @@ After a roll completes, you have a grid (`<asset_id>.{png,webp}`) and optionally
 ```python
 from cascade_img.curation import crop_quadrant, alpha_key_corners, promote
 
-img = crop_quadrant("generated/bird.webp", quadrant=2)   # U2
+img = crop_quadrant("generated/mountain-icon.webp", quadrant=2)   # U2
 # Optional — only when transparency is wanted:
 img = alpha_key_corners(img, tolerance=24, method="flood")
-img.save("staging/bird.png")
-promote("staging/bird.png", "assets/bird.png")
+img.save("staging/mountain-icon.png")
+promote("staging/mountain-icon.png", "out/mountain-icon.png")
 ```
 
 Or as MCP tool calls:
 
 ```
-crop_grid(src="generated/bird.webp", quadrant=2, dest="staging/bird.png")
+crop_grid(src="generated/mountain-icon.webp", quadrant=2, dest="staging/mountain-icon.png")
 # Optional:
-alpha_key(src="staging/bird.png", dest="staging/bird_keyed.png", tolerance=24, method="flood")
-promote(src="staging/bird_keyed.png", dest="assets/bird.png")
+alpha_key(src="staging/mountain-icon.png", dest="staging/mountain-icon_keyed.png", tolerance=24, method="flood")
+promote(src="staging/mountain-icon_keyed.png", dest="out/mountain-icon.png")
 ```
 
 ### Alpha-key method and tolerance
 
 Two algorithms ship under `alpha_key_corners`:
 
-- **`method="flood"` (default)** — 4-connected flood-fill from each corner. Subject regions surrounded by a darker outline stay opaque because the outline blocks the flood (the case where a white-bellied subject sits on a white background). Correct for most MJ sprite outputs.
-- **`method="threshold"`** — global per-pixel distance from the corner-average color. Faster, simpler, but eats subject pixels whose color is close to the background. Available for domains where flood-fill leaks (broken outlines, intentional gradients from bg into subject).
+- **`method="flood"` (default)** — 4-connected flood-fill from each corner. Subject regions surrounded by a darker outline stay opaque because the outline blocks the flood (the case where a light subject sits on a light background). Correct for most MJ outputs with a uniform background.
+- **`method="threshold"`** — global per-pixel distance from the corner-average color. Faster, simpler, but eats subject pixels whose color is close to the background. Available for cases where flood-fill leaks (broken outlines, intentional gradients from bg into subject).
 
-`tolerance` (0-255 per channel) controls how permissive each algorithm is. Default 24 works for MJ's anti-aliased sprite art. The MCP `alpha_key` envelope returns `keyed_count`, `total_count`, and `keyed_ratio` (0.0-1.0). Typical sprite outputs key 0.4-0.8 of the frame. Ratios under 0.1 mean the keyer found no background (gradient, vignette, wrong tolerance, wrong method). Ratios over 0.9 mean the keyer ate the subject — reject and reroll, swap method, or skip alpha-keying for this asset.
+`tolerance` (0-255 per channel) controls how permissive each algorithm is. Default 24 works for MJ's anti-aliased output. The MCP `alpha_key` envelope returns `keyed_count`, `total_count`, and `keyed_ratio` (0.0-1.0). A clean subject-on-uniform-background frame typically keys 0.4-0.8. Ratios under 0.1 mean the keyer found no background (gradient, vignette, wrong tolerance, wrong method). Ratios over 0.9 mean the keyer ate the subject — reject and reroll, swap method, or skip alpha-keying for this asset.
 
-Region backdrops (full-scene images) should not be alpha-keyed — the entire image is the asset.
+Full-scene images (backgrounds, landscapes, anything where the whole frame is the asset) should not be alpha-keyed.
 
 ---
 
 ## LLM-agent operation
 
-The whole point of the package is that an LLM can close the loop without human-in-the-loop on every roll. The standard cycle:
+The whole point of the package is that an LLM can close the loop without a human on every roll. The standard cycle:
 
-1. **Compose** — `compose_prompt(subject, constraints, moodboard, sref, oref, ow, aspect_ratio)`.
-2. **Fire** — `imagine(prompt, asset_id, upscale)` → returns `job_id`.
-3. **Wait** — `wait(job_id, timeout=180|360|600)` → returns the full job record.
-4. **Inspect** — read the PNG path with vision. Decide: promote / re-roll / escalate ow.
-5. **Curate** — `crop_grid` → `alpha_key` → `promote` for the winner.
-6. **Log** — `log_append(asset_id, prompt, job_id, outputs, agent_decision, agent_reason)`.
+1. **Compose** — `compose_prompt(subject, constraints=…, moodboard=…, sref=…, oref=…, ow=…, aspect_ratio=…)`. Only `subject` is required; everything else is optional. Returns `{ok, result: {prompt}}`.
+2. **Fire** — `imagine(prompt, asset_id, upscale=None|"1".."4"|"all")` → returns `job_id`.
+3. **Wait** — `wait(job_id, timeout=180|360|600)` → returns the full job record (`image_path`, `grid_path`, `upscale_paths`, status).
+4. **Inspect** — read the returned image path with vision. Decide: promote / re-roll / raise `ow` or constraints / escalate.
+5. **Curate** — `crop_grid` → (optional) `alpha_key` → `promote` for the winner.
+6. **Log** — `log_append(asset_id, prompt, job_id, outputs, agent_decision, agent_reason)`. `agent_decision` is one of `promote` / `reroll` / `escalate` / `dry_run`.
 
-The next iteration starts with `read_prompt_log(n=5)` to surface what's already been tried for this asset. That's the working memory across loop iterations.
+The next iteration starts with `read_prompt_log(n=5)` to surface what's already been tried for this asset — that's the working memory across loop iterations. Curation has more tools when you need them: `score_grid` ranks the four quadrants, `auto_trim` / `palette_quantize` post-process, and `contact_sheet` / `sprite_sheet` assemble multiple results.
+
+Beyond the core loop, **`mj_action(job_id, action, slot=None)`** presses Midjourney's response-message buttons on a finished upscale to spawn a derived result — `vary_subtle`/`vary_strong`, `zoom_out_2x`/`zoom_out_1_5x`, `pan_*`, `upscale_subtle`/`upscale_creative`, `animate_high`/`animate_low`, `favorite`. The result is downloaded and recorded on the job; the agent can branch the same asset into variations without re-composing.
 
 Failures carry a stable `error_code` and a `remediation` string. Codes the agent should branch on:
 

@@ -28,7 +28,7 @@ next loop iteration starts with read_prompt_log(n=5) for working memory
 
 The cycle is closeable end-to-end without human intervention for the common case. Human is needed for:
 
-- Initial guidance (moodboard ID, character sref, optional oref reference)
+- Initial guidance (moodboard ID, style reference / sref, optional oref reference)
 - Failure modes flagged "escalate" below
 - Final acceptance of the asset set
 
@@ -47,10 +47,10 @@ Available via the `cascade-mcp` MCP server. Each returns `{ok: bool, result: ...
 | `crop_grid(src, quadrant, dest)` | Pull one quadrant from a 2x2 grid (0 = whole) |
 | `score_grid(src)` | Rank a grid's four quadrants on sharpness/contrast/edge-density so you pick on evidence before reading with vision |
 | `contact_sheet(src, dest, labels)` | Composite a 2x2 grid into one labelled sheet — a better single input for vision selection than four separate reads |
-| `alpha_key(src, dest, tolerance, method)` | Corner-anchored alpha-key. `method="flood"` (default; correct for sprite-on-uniform-bg), `"threshold"`, or `"rembg"` (ML; needs the `[ml]` extra). Returns `keyed_ratio` so you can detect failure. |
+| `alpha_key(src, dest, tolerance, method)` | Corner-anchored alpha-key. `method="flood"` (default; correct for a subject on a uniform background), `"threshold"`, or `"rembg"` (ML; needs the `[ml]` extra). Returns `keyed_ratio` so you can detect failure. |
 | `auto_trim(src, dest, mode, tolerance)` | Crop to the content bounding box (`mode="alpha"` after alpha_key, or `"color"`) |
 | `palette_quantize(src, dest, n_colors, method)` | Reduce to a fixed palette for the limited-palette look |
-| `sprite_sheet(srcs, dest, layout, padding)` | Pack several curated sprites into one atlas + a `.frames.json` map |
+| `sprite_sheet(srcs, dest, layout, padding)` | Pack several curated cut-outs into one sheet/atlas + a `.frames.json` map |
 | `promote(src, dest)` | Copy curated asset to project tree |
 | `log_append(asset_id, prompt, backend, job_id, upscale, outputs, error, agent_decision, agent_reason)` | Append a record to the working-memory log |
 | `read_prompt_log(n)` | Read structured log entries (defaults to all) |
@@ -85,9 +85,9 @@ The composer assembles these into the prompt string:
 - **Ow (`--ow`)**: omni-weight, 0-1000. 100 default (loose), 400 tight identity, 1000 max.
 - **Aspect ratio (`--ar`)**: "1:1", "16:9", "9:16", etc.
 
-## Sprite-style register
+## Holding a non-photoreal style
 
-Sref + moodboard alone don't dominate on small natural objects (feathers, scratch marks, keepsakes) — MJ falls back to photorealism even with `--style raw`. Bake the aesthetic into the subject explicitly:
+Sref + moodboard alone often don't dominate, especially on small or natural subjects — MJ falls back to photorealism even with `--style raw`. Whatever look you want (flat vector, pixel-art sprite, watercolor, line art), name it in the subject and repeat its key descriptors. For example, for a pixel-art game sprite:
 
 ```
 "pixel-art sprite of <subject>, low-resolution 2D game sprite,
@@ -95,16 +95,16 @@ limited palette, handmade restrained sprite art, readable silhouette,
 centered, transparent background"
 ```
 
-The redundancy is intentional. Region backdrops (full scenes) drop "transparent background" and add "16:9 composed scene".
+The redundancy is intentional — swap the descriptors for your target style. Full-scene images (backgrounds, landscapes) drop "transparent background" and add scene framing like "16:9 composed scene".
 
 ## Identity lock
 
-When you need "same character, different pose":
+When you need "same subject, different pose/angle/expression":
 
-1. Start with `oref` set to a **single-image URL** of the canonical sprite (not a 2x2 grid URL — that averages identity across 4 variants).
+1. Start with `oref` set to a **single-image URL** of the canonical reference (not a 2x2 grid URL — that averages identity across 4 variants).
 2. `ow=100` is the default; if identity drifts visibly, escalate `ow=400`, then `ow=1000`.
-3. Add orientation constraints to the subject ("SIDE VIEW facing LEFT (matching the reference orientation)") — MJ frequently disregards orientation without explicit emphasis.
-4. If identity still wanders at `ow=1000`: re-host the source image with cleaner alpha and tighter crop, or escalate to the human for a layered-sprite approach.
+3. Add orientation/composition constraints to the subject (e.g. "side view facing left, matching the reference orientation") — MJ frequently disregards orientation without explicit emphasis.
+4. If identity still wanders at `ow=1000`: re-host the source image with cleaner alpha and tighter crop, or escalate to the human for a layered/composited approach.
 
 ## Failure modes you should branch on
 
@@ -136,7 +136,7 @@ You should not ask the human for:
 
 You should ask the human for:
 
-- Initial moodboard ID, character sref URL, and (if doing identity-locked variants) an oref reference image.
+- Initial moodboard ID, style-reference (sref) URL, and (if doing identity-locked variants) an oref reference image.
 - Acceptance of the final asset set.
 - Recovery from any `escalate` failure mode above.
 - Tonal judgment calls where stakes exceed mechanical "is the output well-formed" checks.
@@ -154,7 +154,7 @@ Fields per record:
 ```json
 {
   "ts": "2026-...Z",
-  "asset_id": "bird",
+  "asset_id": "mountain-icon",
   "prompt": "...",
   "backend": "midjourney_discord",
   "job_id": "...",
