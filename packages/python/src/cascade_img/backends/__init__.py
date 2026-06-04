@@ -1,12 +1,9 @@
 """Backend interface and implementations.
 
-Backends are the pluggable boundary between the orchestration layer (composer,
-client, curation, log, MCP server) and a specific image-generation provider.
-v0.1 ships the Midjourney-via-Discord backend. Flux, DALL-E, Stable Diffusion,
-Imagen, Ideogram, Recraft, and an official MJ Enterprise backend are planned.
-
-Adding a backend is a few hundred lines of HTTP wrapping plus a capability
-declaration. Everything above this boundary in the architecture is backend-agnostic.
+A backend is the boundary between the orchestration layer (composer, client,
+curation, log, MCP server) and a specific image-generation provider. v0.1 ships
+the Midjourney-via-Discord backend; other providers (Flux, DALL-E, Imagen)
+implement the same interface.
 """
 
 from cascade_img.backends.base import ImageGenerationBackend
