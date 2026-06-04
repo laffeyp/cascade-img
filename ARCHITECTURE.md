@@ -143,10 +143,12 @@ Recency is **not** used — the channel is
 shared, and a foreign job's result interleaving the window would mis-route.
 `animate_*` lands as an animated WebP (`image/webp`), not an mp4; `favorite`
 produces no artifact and is a no-op. This is grounded in a live capture, not
-guessed. Known v0.1 limit: for
-`upscale="all"` only the last SOLO's derived results route (one
-`upscale_message_id` is retained), and a derived grid is recorded but not itself
-re-tracked for further actions.
+guessed. For `upscale="all"` the bridge keeps every per-slot SOLO message id
+(`Job.upscale_message_ids`), so `mj_action(..., slot=N)` can target any of the
+four images and a derived result replying to any of them routes home. Known v0.1
+limit: a derived result that is itself a grid (vary/zoom/pan) is recorded in
+`Job.derived` but not re-tracked as a new job, so its quadrants can't be acted on
+in turn.
 
 ## Resilience
 

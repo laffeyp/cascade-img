@@ -43,7 +43,7 @@ Available via the `cascade-mcp` MCP server. Each returns `{ok: bool, result: ...
 | `wait(job_id, timeout)` | Block until `done` or `failed` |
 | `status(job_id)` | Non-blocking status read |
 | `bridge_health()` | Is the daemon running? Is Discord connected? |
-| `mj_action(job_id, action)` | Press a response-message button on a completed job's **upscaled** image (see below). Needs an upscaled image first. |
+| `mj_action(job_id, action, slot=None)` | Press a response-message button on a completed job's **upscaled** image (see below). `slot` (1-4) targets a specific image when the job ran `upscale="all"`; omit it for the canonical one. Needs an upscaled image first. |
 | `crop_grid(src, quadrant, dest)` | Pull one quadrant from a 2x2 grid (0 = whole) |
 | `score_grid(src)` | Rank a grid's four quadrants on sharpness/contrast/edge-density so you pick on evidence before reading with vision |
 | `contact_sheet(src, dest, labels)` | Composite a 2x2 grid into one labelled sheet — a better single input for vision selection than four separate reads |
@@ -59,7 +59,7 @@ Output paths from `imagine` + `wait` are deterministic: `{output_dir}/{asset_id}
 
 ## Driving the response-message buttons
 
-A finished upscale carries the buttons a human would otherwise click in Discord. `mj_action(job_id, action)` presses them for you — no human, no clicking. It requires the job to have an **upscaled** image (run `imagine` with `upscale=1-4` or `"all"` first); on a grid-only job it returns `error.code == "NO_UPSCALED_IMAGE"`.
+A finished upscale carries the buttons a human would otherwise click in Discord. `mj_action(job_id, action, slot=None)` presses them for you — no human, no clicking. It requires the job to have an **upscaled** image (run `imagine` with `upscale=1-4` or `"all"` first); on a grid-only job it returns `error.code == "NO_UPSCALED_IMAGE"`. When the job ran `upscale="all"`, pass `slot=1-4` to act on a specific one of the four images; omit `slot` for the canonical image (the first upscale that landed).
 
 `action` is one of:
 
@@ -70,7 +70,7 @@ A finished upscale carries the buttons a human would otherwise click in Discord.
 - **Animate** (image → video): `animate_high`, `animate_low`
 - **Favorite**: `favorite`
 
-The pressed action's result — a new grid for vary/zoom/pan, a single image for `upscale_*`, a short animation for `animate_*` — is routed back to the originating job automatically: the bridge downloads it and appends an entry to the job's `derived` list (`{action_kind, mj_uuid, path, content_type, ...}`), which you read via `status(job_id)`. `animate_*` arrives as an animated WebP (`image/webp`, ~125 frames), not an mp4. `favorite` only rates the image — it produces no artifact, so nothing lands in `derived`. (Known v0.1 limit: with `upscale="all"` only the most recent upscaled image's derived results are tracked; a derived grid is recorded but not re-tracked for further button presses.)
+The pressed action's result — a new grid for vary/zoom/pan, a single image for `upscale_*`, a short animation for `animate_*` — is routed back to the originating job automatically: the bridge downloads it and appends an entry to the job's `derived` list (`{action_kind, mj_uuid, path, content_type, ...}`), which you read via `status(job_id)`. `animate_*` arrives as an animated WebP (`image/webp`, ~125 frames), not an mp4. `favorite` only rates the image — it produces no artifact, so nothing lands in `derived`. With `upscale="all"` every per-slot image is actionable and a derived result replying to any of them routes home. (Known v0.1 limit: a derived result that is itself a grid — vary/zoom/pan — is recorded in `derived` but not re-tracked as a new job, so you can't then `mj_action` on its quadrants.)
 
 ## V7 facets
 
