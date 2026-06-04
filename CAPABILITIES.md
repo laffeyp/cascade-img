@@ -39,7 +39,6 @@ construction, so a bad value fails before it reaches Midjourney.
 | `exp` | `--exp` | 0–100 (whole number) | v7 experimental aesthetics — more detail/dynamism. Above ~25 can overwhelm `stylize`/`p`. |
 | `chaos` | `--chaos` | 0–100 | Variety across the four grid candidates. |
 | `weird` | `--weird` | 0–3000 | Offbeat / unconventional aesthetics. |
-| `stop` | `--stop` | 10–100 | Halt the render early for a rougher draft. |
 | `quality` | `--q` | 1, 2, or 4 | GPU-cost lever on the initial grid (no `--q 3` in v7). |
 | `seed` | `--seed` | 0–4294967295 | Near-reproducibility within a fixed model + params. |
 
@@ -84,3 +83,5 @@ so the boundary is explicit rather than implied:
   Animation is available instead via the `animate_*` action above.
 - **Character Reference (`--cref` / `--cw`).** Superseded in v7 by Omni Reference
   (`--oref` / `--ow`), which **is** supported.
+- **`--stop`.** A v6 parameter; **v7 rejects it** ("--stop is not compatible with
+  --version 7"), so it's not exposed.
