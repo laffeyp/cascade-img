@@ -726,8 +726,8 @@ def _extract_mj_uuid(components) -> str | None:
 
 
 # Action -> stable substring of the live custom_id MJ assigns the button on a
-# SOLO upscaled-image message (captured 2026-06-02; see
-# reviews/wave-f-button-capture.md). The full custom_id embeds the job uuid and
+# SOLO upscaled-image message (captured 2026-06-02 from a live run). The full
+# custom_id embeds the job uuid and
 # is read off the live component at press time — these markers only *locate* the
 # right button, they are never sent as-is. Distinct pairs (subtle/creative,
 # low/high variation, Outpaint::50/::75) keep each lookup unambiguous.
@@ -845,7 +845,7 @@ def _capture_raw_message(message, event: str) -> None:
 # ---------------------------------------------------------------------------
 # Wave F receive side: route derived results (vary / zoom / pan / upscale-variant
 # / animation) back to the parent job. Grounded entirely in the 2026-06-02 live
-# capture (reviews/wave-f-receive-capture.md): MJ posts each derived result as a
+# capture: MJ posts each derived result as a
 # Discord reply whose message_reference is the SOLO upscaled-image message id
 # (== Job.upscale_message_id). That reference is the ONLY signal present on every
 # family; the channel is shared, so recency/adjacency matching is unsafe — a
@@ -882,8 +882,8 @@ def _job_by_upscale_message_id(message_id: int) -> Job | None:
 
 def _classify_derived(content: str) -> str:
     # animation's rewritten prompt carries MJ's video signature INSIDE the bolded
-    # prompt ("... --motion high --video 1 --aspect 1:1**", per the live capture in
-    # reviews/wave-f-receive-capture.md); the other families are named only in the
+    # prompt ("... --motion high --video 1 --aspect 1:1**", per the 2026-06-02 live
+    # capture); the other families are named only in the
     # suffix MJ appends after the prompt's closing "**". Scan that suffix for them
     # so a family word inside the prompt body (e.g. an asset literally about "zoom")
     # cannot mislabel the result.

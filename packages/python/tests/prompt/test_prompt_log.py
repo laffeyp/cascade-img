@@ -18,28 +18,31 @@ def test_append_then_read_roundtrip(tmp_path: Path):
     clear()
     log = PromptLog(tmp_path / "log.jsonl")
     log.append(
-        asset_id="bird",
-        prompt="pixel-art finch --ar 1:1 --v 7",
+        asset_id="mountain-icon",
+        prompt="a mountain icon --ar 1:1 --v 7",
         backend="midjourney_discord",
         job_id="abc123",
         upscale="1",
-        outputs={"image_path": "/tmp/bird.png", "grid_path": "/tmp/bird_grid.webp"},
+        outputs={
+            "image_path": "/tmp/mountain-icon.png",
+            "grid_path": "/tmp/mountain-icon_grid.webp",
+        },
     )
     log.append(
-        asset_id="clue_a",
-        prompt="a wet feather --ar 1:1 --v 7",
+        asset_id="hero-portrait",
+        prompt="a hero portrait --ar 1:1 --v 7",
         backend="midjourney_discord",
         job_id="def456",
     )
     records = log.read()
     assert len(records) == 2
-    assert records[0]["asset_id"] == "bird"
+    assert records[0]["asset_id"] == "mountain-icon"
     assert records[0]["job_id"] == "abc123"
-    assert records[1]["asset_id"] == "clue_a"
+    assert records[1]["asset_id"] == "hero-portrait"
     # signal contract
     tags = [r["tag"] for r in snapshot()]
     assert tags == ["PROMPT_LOGGED", "PROMPT_LOGGED"]
-    assert snapshot()[0]["payload"]["asset_id"] == "bird"
+    assert snapshot()[0]["payload"]["asset_id"] == "mountain-icon"
     assert snapshot()[0]["payload"]["has_job_id"] is True
 
 
@@ -114,17 +117,17 @@ def test_concurrent_appends_are_all_recorded(tmp_path: Path):
 def test_render_markdown_contains_prompts(tmp_path: Path):
     log = PromptLog(tmp_path / "log.jsonl")
     log.append(
-        asset_id="bird",
-        prompt="pixel-art finch",
+        asset_id="mountain-icon",
+        prompt="a mountain icon",
         backend="midjourney_discord",
         job_id="abc",
-        outputs={"image_path": "/tmp/bird.png"},
+        outputs={"image_path": "/tmp/mountain-icon.png"},
     )
     md = log.render_markdown()
-    assert "bird" in md
-    assert "pixel-art finch" in md
+    assert "mountain-icon" in md
+    assert "a mountain icon" in md
     assert "abc" in md
-    assert "/tmp/bird.png" in md
+    assert "/tmp/mountain-icon.png" in md
 
 
 def test_append_with_error_marks_signal(tmp_path: Path):
@@ -146,7 +149,7 @@ def test_append_with_agent_decision(tmp_path: Path):
     clear()
     log = PromptLog(tmp_path / "log.jsonl")
     log.append(
-        asset_id="bird",
+        asset_id="mountain-icon",
         prompt="...",
         backend="midjourney_discord",
         job_id="abc",

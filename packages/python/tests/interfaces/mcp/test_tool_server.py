@@ -70,7 +70,7 @@ def _tags() -> list[str]:
 async def test_compose_prompt_envelope_and_signals():
     clear()
     r = await compose_prompt(
-        subject="a small finch",
+        subject="a mountain",
         constraints=["side view"],
         moodboard="m1",
         sref="https://cdn/x.png",
@@ -134,7 +134,7 @@ async def test_log_append_and_read_roundtrip(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(_envelope, "_log", PromptLog(tmp_path / "log.jsonl"))
 
     r = await log_append(
-        asset_id="bird",
+        asset_id="mountain-icon",
         prompt="x",
         backend="midjourney_discord",
         job_id="abc",
@@ -197,7 +197,7 @@ async def test_imagine_tool_envelope_and_signals(monkeypatch):
 
     clear()
     monkeypatch.setattr(_envelope, "_backend", _FakeBackend())
-    r = await imagine(prompt="a finch --v 7", asset_id="bird", upscale=None)
+    r = await imagine(prompt="a mountain --v 7", asset_id="mountain-icon", upscale=None)
     assert r["ok"] is True
     assert r["result"]["job_id"] == "job-1"
     tags = _tags()

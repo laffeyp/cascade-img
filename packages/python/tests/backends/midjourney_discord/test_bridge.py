@@ -46,12 +46,15 @@ def test_match_grid_routes_by_token_not_substring():
     request_token disambiguates."""
     _reset_jobs()
     job_a = Job(
-        job_id="a", asset_id="bird", prompt="pixel-art sprite of a finch", request_token="aaa11111"
+        job_id="a",
+        asset_id="mountain-icon",
+        prompt="a mountain icon at dawn",
+        request_token="aaa11111",
     )
     job_b = Job(
         job_id="b",
-        asset_id="finch",
-        prompt="pixel-art sprite of a finch in flight",
+        asset_id="river-scene",
+        prompt="a mountain icon at dawn over water",
         request_token="bbb22222",
     )
     with LOCK:
@@ -61,14 +64,12 @@ def test_match_grid_routes_by_token_not_substring():
         bridge.PENDING_GRID.append("b")
 
     # MJ message for job B — contains the prompt AND token B
-    msg_for_b = (
-        "pixel-art sprite of a finch in flight --no cscidnocollidebbb22222 (Waiting to start)"
-    )
+    msg_for_b = "a mountain icon at dawn over water --no cscidnocollidebbb22222 (Waiting to start)"
     matched = _match_grid(msg_for_b)
     assert matched is not None
     assert matched.job_id == "b"
 
-    msg_for_a = "pixel-art sprite of a finch --no cscidnocollideaaa11111 (Waiting to start)"
+    msg_for_a = "a mountain icon at dawn --no cscidnocollideaaa11111 (Waiting to start)"
     matched = _match_grid(msg_for_a)
     assert matched is not None
     assert matched.job_id == "a"

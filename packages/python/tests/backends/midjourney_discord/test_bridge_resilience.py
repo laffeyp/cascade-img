@@ -292,7 +292,7 @@ def test_imagine_returns_503_on_discord_not_ready(monkeypatch):
     )
 
     client = bridge.app.test_client()
-    resp = client.post("/imagine", json={"prompt": "a small finch", "asset_id": "bird"})
+    resp = client.post("/imagine", json={"prompt": "a mountain", "asset_id": "mountain-icon"})
 
     assert resp.status_code == 503
     body = resp.get_json()
@@ -330,7 +330,7 @@ def test_imagine_returns_202_on_submit_timeout(monkeypatch, exc):
     )
 
     client = bridge.app.test_client()
-    resp = client.post("/imagine", json={"prompt": "a small finch", "asset_id": "bird"})
+    resp = client.post("/imagine", json={"prompt": "a mountain", "asset_id": "mountain-icon"})
 
     assert resp.status_code == 202
     body = resp.get_json()
@@ -378,14 +378,14 @@ def test_safe_output_path_no_collision_returns_intended(tmp_path):
     clear()
     p = _safe_output_path(
         output_dir=tmp_path,
-        asset_id="bird",
+        asset_id="mountain-icon",
         suffix="_grid",
         ext=".png",
         request_token="tok12345",
         kind="grid",
         job_id="jid",
     )
-    assert p == tmp_path / "bird_grid.png"
+    assert p == tmp_path / "mountain-icon_grid.png"
     # No collision signal.
     assert "OUTPUT_PATH_COLLISION" not in _tags()
 
@@ -393,42 +393,42 @@ def test_safe_output_path_no_collision_returns_intended(tmp_path):
 def test_safe_output_path_collision_appends_token_and_emits(tmp_path):
     clear()
     # Pre-create the intended path so the second job hits a collision.
-    (tmp_path / "bird_grid.png").write_bytes(b"first job got here first")
+    (tmp_path / "mountain-icon_grid.png").write_bytes(b"first job got here first")
 
     p = _safe_output_path(
         output_dir=tmp_path,
-        asset_id="bird",
+        asset_id="mountain-icon",
         suffix="_grid",
         ext=".png",
         request_token="abc99999",
         kind="grid",
         job_id="job-2",
     )
-    assert p == tmp_path / "bird_abc99999_grid.png"
+    assert p == tmp_path / "mountain-icon_abc99999_grid.png"
 
     collisions = [r for r in snapshot() if r["tag"] == "OUTPUT_PATH_COLLISION"]
     assert len(collisions) == 1
     payload = collisions[0]["payload"]
-    assert payload["asset_id"] == "bird"
+    assert payload["asset_id"] == "mountain-icon"
     assert payload["job_id"] == "job-2"
     assert payload["kind"] == "grid"
-    assert payload["intended_path"].endswith("bird_grid.png")
-    assert payload["actual_path"].endswith("bird_abc99999_grid.png")
+    assert payload["intended_path"].endswith("mountain-icon_grid.png")
+    assert payload["actual_path"].endswith("mountain-icon_abc99999_grid.png")
 
 
 def test_safe_output_path_collision_upscale_kind(tmp_path):
     clear()
-    (tmp_path / "bird_u2.png").write_bytes(b"existing")
+    (tmp_path / "mountain-icon_u2.png").write_bytes(b"existing")
     p = _safe_output_path(
         output_dir=tmp_path,
-        asset_id="bird",
+        asset_id="mountain-icon",
         suffix="_u2",
         ext=".png",
         request_token="zz99",
         kind="upscale",
         job_id="job-x",
     )
-    assert p.name == "bird_zz99_u2.png"
+    assert p.name == "mountain-icon_zz99_u2.png"
     collisions = [r for r in snapshot() if r["tag"] == "OUTPUT_PATH_COLLISION"]
     assert collisions[0]["payload"]["kind"] == "upscale"
 
@@ -438,7 +438,7 @@ def test_safe_output_path_collision_upscale_kind(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def _make_upscale_job(asset_id: str = "bird", upscale: str = "all") -> Job:
+def _make_upscale_job(asset_id: str = "mountain-icon", upscale: str = "all") -> Job:
     j = Job(job_id="jid-" + asset_id, asset_id=asset_id, prompt="p", upscale=upscale)
     j.status = Status.UPSCALING
     j.upscale_pending = [1, 2, 3, 4] if upscale == "all" else [int(upscale)]

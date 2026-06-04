@@ -105,9 +105,9 @@ def test_assert_signal_returns_matching_record():
 
 def test_assert_signal_partial_payload_match():
     clear()
-    emit("IMAGINE_FIRED", asset_id="bird", job_id="abc", prompt_chars=100, upscale="1")
-    emit("IMAGINE_FIRED", asset_id="clue_a", job_id="def", prompt_chars=80, upscale=None)
-    rec = assert_signal("IMAGINE_FIRED", asset_id="clue_a")
+    emit("IMAGINE_FIRED", asset_id="mountain-icon", job_id="abc", prompt_chars=100, upscale="1")
+    emit("IMAGINE_FIRED", asset_id="hero-portrait", job_id="def", prompt_chars=80, upscale=None)
+    rec = assert_signal("IMAGINE_FIRED", asset_id="hero-portrait")
     assert rec["payload"]["job_id"] == "def"
 
 
