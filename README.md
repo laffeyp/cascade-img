@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/cascade-img.svg)](https://pypi.org/project/cascade-img/)
 [![Python](https://img.shields.io/pypi/pyversions/cascade-img.svg)](https://pypi.org/project/cascade-img/)
 [![CI](https://github.com/greenrosesystems/cascade-img/actions/workflows/ci.yml/badge.svg)](https://github.com/greenrosesystems/cascade-img/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
 An image-generation pipeline an LLM can drive. It runs Midjourney through Discord today; Flux, DALL-E, and Imagen will use the same interface later.
 
@@ -152,7 +152,7 @@ Compared to other OSS Midjourney drivers:
 | MCP server | yes | no | no | no |
 | Structured-error envelope with stable codes | yes | no | not documented | partial |
 | Pluggable backend (Flux / DALL-E / Imagen on the same interface in v0.2+) | interface; backends v0.2+ | MJ only | MJ only | provider-locked |
-| License | MIT | Apache-2.0 | Apache 2.0 | proprietary |
+| License | Apache-2.0 | Apache-2.0 | Apache 2.0 | proprietary |
 
 ---
 
@@ -219,4 +219,4 @@ The HTTP contract between the bridge and the client is the main boundary between
 
 ## License
 
-MIT. See [LICENSE](./LICENSE).
+Apache-2.0. See [LICENSE](./LICENSE).

@@ -39,4 +39,4 @@ output of `cascade-mj-bridge --doctor`.
 
 ## License
 
-By contributing you agree your contribution is licensed under the MIT License.
+By contributing you agree your contribution is licensed under the Apache License 2.0.
