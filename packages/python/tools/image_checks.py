@@ -34,6 +34,23 @@ def is_animated(path: str | Path) -> bool:
         return bool(getattr(img, "is_animated", False)) or int(getattr(img, "n_frames", 1)) > 1
 
 
+def is_valid_image(path: str | Path) -> bool:
+    """True if the path is a real, decodable image — the baseline "an artifact
+    actually came back" check for grid/upscale/vary/zoom/pan/param renders."""
+    try:
+        with Image.open(path) as img:
+            img.load()
+        return True
+    except Exception:
+        return False
+
+
+def dimensions(path: str | Path) -> tuple[int, int]:
+    """(width, height) of the image."""
+    with Image.open(path) as img:
+        return img.size
+
+
 def has_transparency(path: str | Path, *, min_transparent_fraction: float = 0.01) -> bool:
     """True if the image has an alpha channel with a meaningful number of
     fully/partly transparent pixels — i.e. ``alpha_key`` actually keyed a
