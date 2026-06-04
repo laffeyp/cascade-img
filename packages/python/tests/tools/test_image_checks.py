@@ -36,6 +36,17 @@ def test_still_image_is_not_animated(tmp_path: Path):
     assert image_checks.frame_count(p) == 1
 
 
+def test_is_valid_image_and_dimensions(tmp_path: Path):
+    good = tmp_path / "good.png"
+    Image.new("RGB", (12, 8), (1, 2, 3)).save(good)
+    assert image_checks.is_valid_image(good) is True
+    assert image_checks.dimensions(good) == (12, 8)
+
+    junk = tmp_path / "junk.png"
+    junk.write_bytes(b"not an image")
+    assert image_checks.is_valid_image(junk) is False
+
+
 def test_has_transparency(tmp_path: Path):
     keyed = tmp_path / "keyed.png"
     img = Image.new("RGBA", (10, 10), (255, 0, 0, 255))
