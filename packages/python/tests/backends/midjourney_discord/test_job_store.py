@@ -99,7 +99,9 @@ def test_roundtrip_through_disk_preserves_data(tmp_path):
         )
     )
     s1.close()
-    rows = JobStore(db).load_nonterminal()
+    s2 = JobStore(db)
+    rows = s2.load_nonterminal()
+    s2.close()
     assert len(rows) == 1
     r = rows[0]
     assert r["upscale"] == "all"

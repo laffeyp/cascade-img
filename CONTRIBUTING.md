@@ -25,8 +25,11 @@ CASCADE_LIVE=1 CASCADE_ENV_FILE=/path/to/.env pytest -m e2e
 
 ## A few conventions
 
-- Python 3.10+, type annotations on public functions, `from __future__ import
-  annotations` at the top of each module.
+- Python 3.14 — cascade-img targets the latest stable Python only, so write for
+  3.14 and use its features freely. CI runs the full suite, `mypy`, and
+  `ruff format --check` on 3.14; keep all of them green. Type annotations on
+  public functions, `from __future__ import annotations` at the top of each
+  module.
 - cascade-img is built to be driven by LLM agents, so keep tool outputs
   structured and deterministic (the `{ok, result | error}` envelope, stable
   error codes). See [AGENTS.md](./AGENTS.md).

@@ -22,21 +22,21 @@ Published by [Green Rose Systems](https://greenrosesystems.com).
 
 ## Why this exists
 
-cascade-img grew out of building a sprite-based 2D game — by someone with the taste to know what the art should be, but not the hand-skills to draw it. Midjourney could produce the art; the work that actually mattered was the *discovery loop*: try a direction, see it, judge it, adjust, go again, until the result matches the thing in your head. Doing that by hand through Discord — one prompt, one click, one download at a time — was the bottleneck.
+cascade-img grew out of building a sprite-based 2D game that needed a lot of art. Midjourney could produce it, but the work that mattered was the iteration loop: try a direction, look at it, decide what to change, go again, until the result matches what you're after. Done by hand through Discord — one prompt, one click, one download at a time — that loop is slow.
 
-The point isn't to hand creative judgment to a model. The taste, the direction, the call on what's right still come from the person. What an LLM agent and image generation change is the *speed* of discovery: the agent runs the mechanical loop — compose from reusable parts, fire, wait, curate the winner, log what was tried — so you converge on what you actually want in a fraction of the time. No existing open-source Midjourney driver let an agent close that loop, so the missing layer got built — first for one game's pipeline, then generalized.
+Most of that loop is mechanical: compose the prompt from reusable parts, fire it, wait, crop and curate the result, write down what was tried. That part can be handed to an LLM agent, while the person still makes the judgment calls about what's right. No existing open-source Midjourney driver let an agent run the loop end to end, so the missing layer got built — first for the one game's pipeline, then generalized into this package.
 
-The style-specific lessons (holding a non-photoreal look, locking a subject's identity across rolls) are still in the [RUNBOOK](./RUNBOOK.md) because they're genuinely useful, but nothing in the tool assumes you're making sprites.
+The style-specific lessons (holding a non-photoreal look, locking a subject's identity across rolls) are still in the [RUNBOOK](./RUNBOOK.md) because they're useful, but nothing in the tool assumes you're making sprites.
 
 ---
 
 ## Quickstart
 
 **Prerequisites.** A Midjourney subscription and a Discord account that can run
-`/imagine` in a channel where the Midjourney bot is present, plus Python 3.10+.
-cascade-img drives *your own* Midjourney account through Discord — it is not a
-hosted service, and there is no copy-paste shortcut around the credential setup
-in step 2.
+`/imagine` in a channel where the Midjourney bot is present, plus Python 3.14
+(the current stable release — cascade-img targets the latest stable Python).
+cascade-img drives *your own* Midjourney account through Discord and runs
+locally on your machine.
 
 ### 1. Install
 
@@ -50,10 +50,14 @@ This puts three console scripts on your `PATH`: `cascade-mj-bridge` (the daemon)
 ### 2. Configure (one-time)
 
 cascade-img reaches Midjourney through your Discord account. Three values are
-required — a Discord user token, your MJ channel ID, and the current `/imagine`
-command version — plus your server (guild) ID whenever the channel lives in a
-Discord server (almost always). These are captured from the Discord desktop
-app's DevTools — a genuine one-time procedure, not a 60-second paste.
+required:
+
+- a Discord user token
+- your MJ channel ID
+- the current `/imagine` command version
+
+plus your server (guild) ID whenever the channel lives in a Discord server
+(almost always). These are captured from the Discord desktop app's DevTools.
 **[RUNBOOK.md](./RUNBOOK.md) is the step-by-step guide**: enabling DevTools, the
 token-capture snippet, and what each value means.
 
@@ -86,12 +90,14 @@ Drop this into your host's MCP config:
 }
 ```
 
-Your agent gets sixteen tools with introspectable JSON schemas — generation
-(`imagine`, `wait`, `status`, `bridge_health`, `mj_action`), composition
-(`compose_prompt`), curation (`crop_grid`, `alpha_key`, `auto_trim`,
-`palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `promote`),
-and working memory (`log_append`, `read_prompt_log`). [AGENTS.md](./AGENTS.md) is
-the operator's guide an agent reads once.
+Your agent gets sixteen tools with introspectable JSON schemas:
+
+- **generation** — `imagine`, `wait`, `status`, `bridge_health`, `mj_action`
+- **composition** — `compose_prompt`
+- **curation** — `crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `promote`
+- **working memory** — `log_append`, `read_prompt_log`
+
+[AGENTS.md](./AGENTS.md) is the operator's guide an agent reads once.
 
 ### 4b. Drive it from the CLI
 
@@ -122,7 +128,7 @@ JSON to stdout, exit 0 on `done`; generated images land in `./generated`.
 
 ## How this differs
 
-cascade-img adds a layer above the Midjourney bridge: it composes the prompt from named parts, curates the output, and records each attempt so the loop can iterate.
+Most Midjourney tools just pass your prompt through and hand back the image. cascade-img does the work around that: it builds the prompt from reusable named parts, crops and cleans up the result, and keeps a record of every attempt so each round can build on the last.
 
 ```python
 from cascade_img.prompt.composer import PromptComposer, Subject, StyleStack, IdentityStack
@@ -170,12 +176,7 @@ All three emit structured JSON; all three follow the same `{ok, result | error: 
 
 ## Structured logging and errors
 
-The daemon emits structured JSON log lines across the job lifecycle — config validated; Discord connected, disconnected, reconnecting; imagine fired; submit timed out (the job stays in `PENDING_GRID`, it is not failed); grid matched; output-path collision; upscale received; job completed; job failed. Failures carry a stable error code for every known Discord failure mode, so a caller can branch on the code rather than parse a message.
-
-```
-$ pytest packages/python/tests/ -q
-... all green in ~1s
-```
+The daemon emits structured JSON log lines across the whole job lifecycle, and every failure carries a stable error `code` (e.g. `DISCORD_401`, `MJ_UUID_MISSING`, `UPSCALE_BUTTON_FAILED`) — so a caller branches on the code instead of parsing a message. The full catalog of log events and error codes is in [vocabulary/0.1.json](./vocabulary/0.1.json), and each failure mode's remediation is in [RUNBOOK.md](./RUNBOOK.md).
 
 ---
 
@@ -208,7 +209,7 @@ top-level Markdown plus that package.
 
 | version | headline |
 |---|---|
-| v0.1 (current) | MJ V7 backend, facet composer, curation kit (crop + flood-fill alpha key + promote), MCP server, AGENTS.md, prompt templates, Python package. **Python-only** — TypeScript wrapper is a v0.2 deliverable (the `@greenrosesystems/cascade-img` placeholder on npm reserves the name). |
+| v0.1 (current) | MJ V7 backend, prompt composer, curation kit (crop + flood-fill alpha key + promote), MCP server, AGENTS.md, prompt templates, Python package. **Python-only** — TypeScript wrapper is a v0.2 deliverable (the `@greenrosesystems/cascade-img` placeholder on npm reserves the name). |
 | v0.2 | TypeScript wrapper (BridgeClient + PromptComposer + Zod types + Node-native MCP server), Flux via Fal + OpenAI `gpt-image-1` backends, Windows bridge |
 | v0.3 | Flux Kontext (instruction-edit), bundled-binary install path |
 | v0.4 | Imagen, Ideogram, Recraft backends |

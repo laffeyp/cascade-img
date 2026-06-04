@@ -34,8 +34,8 @@ asset already?" without scraping prose.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -43,7 +43,7 @@ from typing import Any
 from cascade_img.vocabulary import emit
 
 
-class AgentDecision(str, Enum):
+class AgentDecision(StrEnum):
     """The closed set of decisions an LLM operator may record on a roll.
 
     Enforced at append time so the prompt log doesn't accumulate freeform
@@ -94,7 +94,7 @@ class PromptLog:
         decision_value = agent_decision.value if isinstance(agent_decision, AgentDecision) else None
 
         record: dict[str, Any] = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "asset_id": asset_id,
             "prompt": prompt,
             "backend": backend,

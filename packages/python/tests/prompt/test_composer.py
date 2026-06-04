@@ -1,6 +1,6 @@
 """Behavior contract for PromptComposer.
 
-Validates the v7 prompt-string assembly across the four facet combinations
+Validates the v7 prompt-string assembly across the four prompt-part combinations
 the consumer can build, plus the signal payload on each.
 """
 

@@ -4,6 +4,14 @@ All notable changes to cascade-img are recorded here. Format follows [Keep a Cha
 
 ## [Unreleased]
 
+### Python support — latest stable only
+
+- **cascade-img now targets the latest stable Python and nothing else: `requires-python = ">=3.14"`.** As an operator-run tool (not a library other projects embed), it tracks the current stable interpreter rather than carrying a back-compat matrix. Classifiers, `ruff` target, `mypy` version, and CI all name 3.14 alone; the docs say so plainly.
+- **Removed the `audioop` warning filter** — dead on 3.14 (discord.py-self pulls the `audioop-lts` backport, so the stdlib-removal deprecation never fires). The `asyncio.iscoroutinefunction` filter stays, but is now purely for discord.py-self's import-time call.
+- **Migrated our own `asyncio.iscoroutinefunction` to `inspect.iscoroutinefunction`** (`interfaces/mcp/_envelope.py`) so cascade-img's own code carries no 3.14 deprecation and the warning filter covers only the third-party dependency.
+- **Closed a leaked sqlite connection in the JobStore test suite** (`test_job_store.py`) that 3.14's stricter GC/unraisable-exception handling surfaced as a `ResourceWarning` and the strict warning gate turned into a failure.
+- **CI now enforces what CONTRIBUTING documents**: added `mypy src/cascade_img` and `ruff format --check` as CI gates (previously lint ran `ruff check` only).
+
 ### Package restructure (internal layout — public API unchanged)
 
 - Reorganized `cascade_img` into concern-based packages so the tree is self-describing on a scan. `from cascade_img import …` is unchanged (the root re-exports everything); the three console scripts (`cascade-mj`, `cascade-mcp`, `cascade-mj-bridge`) are unchanged.

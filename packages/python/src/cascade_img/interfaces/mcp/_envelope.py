@@ -16,6 +16,7 @@ per call.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import os
 import time
 from pathlib import Path
@@ -37,7 +38,7 @@ _log = PromptLog(CASCADE_PROMPT_LOG)
 
 
 def _is_coro(fn) -> bool:
-    return asyncio.iscoroutinefunction(fn)
+    return inspect.iscoroutinefunction(fn)
 
 
 async def _run_tool(name: str, fn, **kwargs) -> dict[str, Any]:

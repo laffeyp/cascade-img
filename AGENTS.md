@@ -13,7 +13,7 @@ You — the agent — are the primary user. Everything below is shaped around wh
 The agent's job, per asset:
 
 ```
-1. compose:  build the prompt from facets (subject + style stack + identity stack + ar)
+1. compose:  build the prompt from its parts (subject + style + identity + aspect ratio)
 2. fire:     imagine(prompt, asset_id, upscale)              → job_id
 3. wait:     wait(job_id, timeout=180|360|600)               → job record
 4. inspect:  read the PNG at job.image_path with vision
@@ -38,7 +38,7 @@ Available via the `cascade-mcp` MCP server. Each returns `{ok: bool, result: ...
 
 | tool | purpose |
 |---|---|
-| `compose_prompt(subject, constraints, moodboard, sref, stylize, style_raw, oref, ow, aspect_ratio)` | Build a v7 prompt string from structured facets |
+| `compose_prompt(subject, constraints, moodboard, sref, stylize, style_raw, oref, ow, aspect_ratio)` | Build a v7 prompt string from structured parts |
 | `imagine(prompt, asset_id, upscale)` | Fire the prompt at the bridge; returns `job_id` |
 | `wait(job_id, timeout)` | Block until `done` or `failed` |
 | `status(job_id)` | Non-blocking status read |

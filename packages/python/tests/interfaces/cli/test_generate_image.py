@@ -154,7 +154,7 @@ def test_missing_registry_returns_structured_error(tmp_path):
     assert "CLI_ROLL_FAILED" in _tags()
 
 
-def test_identity_lock_facets_flow_through(tmp_path):
+def test_identity_lock_parts_flow_through(tmp_path):
     """hero-portrait has oref+ow set in the registry — the composed prompt must
     include --oref and --ow."""
     reg_path = _write_registry(tmp_path, REGISTRY_SAMPLE)

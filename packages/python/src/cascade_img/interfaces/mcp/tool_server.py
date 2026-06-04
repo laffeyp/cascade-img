@@ -133,7 +133,7 @@ def main() -> None:
     try:
         _signal.signal(_signal.SIGINT, _sig)
         _signal.signal(_signal.SIGTERM, _sig)
-    except (ValueError, OSError):
+    except ValueError, OSError:
         pass
 
     try:

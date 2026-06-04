@@ -40,7 +40,7 @@ from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import asdict, dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 import discord  # discord.py-self
@@ -234,7 +234,7 @@ log = logging.getLogger("cascade_img.bridge")
 # ---------------------------------------------------------------------------
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     QUEUED = "queued"  # accepted, not yet sent to Discord
     SUBMITTED = "submitted"  # /imagine fired, Discord ack'd, awaiting MJ message
     # Discord interaction POST timed out before returning. MJ may or may not
@@ -1537,7 +1537,7 @@ def http_imagine():
     fut = asyncio.run_coroutine_threadsafe(_send_imagine(job.tagged_prompt()), _running_loop())
     try:
         resp = fut.result(timeout=SUBMIT_TIMEOUT_SECONDS)
-    except (TimeoutError, FuturesTimeoutError):
+    except TimeoutError, FuturesTimeoutError:
         # ``run_coroutine_threadsafe`` returns a concurrent.futures.Future, whose
         # ``.result()`` raises concurrent.futures.TimeoutError — NOT a subclass of
         # the builtin TimeoutError until Python 3.11 (we support 3.10). Catch both.
@@ -1638,7 +1638,7 @@ def http_wait(job_id):
     timeout_raw = request.args.get("timeout", "120")
     try:
         timeout = float(timeout_raw)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return jsonify(
             ok=False,
             error={
@@ -1707,7 +1707,7 @@ def http_action(job_id):
     if slot is not None:
         try:
             slot = int(slot)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return jsonify(
                 ok=False,
                 error={
@@ -1786,7 +1786,7 @@ def http_action(job_id):
             ok=False,
             error={"code": "DISCORD_NOT_READY", "message": str(e), "remediation": e.remediation},
         ), 503
-    except (TimeoutError, FuturesTimeoutError):
+    except TimeoutError, FuturesTimeoutError:
         # concurrent.futures.TimeoutError on Python 3.10 is not a builtin
         # TimeoutError; catch both so the timeout doesn't fall through to the
         # generic handler with an opaque, undeclared error code.
@@ -2188,7 +2188,7 @@ def main() -> None:
     try:
         signal.signal(signal.SIGINT, _signal_handler)
         signal.signal(signal.SIGTERM, _signal_handler)
-    except (ValueError, OSError):
+    except ValueError, OSError:
         # Non-main-thread or platform without signal support — atexit catches it.
         pass
 

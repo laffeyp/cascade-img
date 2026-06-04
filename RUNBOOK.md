@@ -10,16 +10,16 @@ How to run `cascade-img` end-to-end against a real Midjourney account, what brea
 
 ## One-time setup
 
-### Python 3.10 or newer
+### Python 3.14
 
-The daemon uses PEP 604 union syntax (`dict[str, X | None]`) which Python 3.9 cannot parse. macOS system Python is often 3.9; Homebrew gives you 3.11+.
+cascade-img targets the latest stable Python (3.14). macOS system Python is older; Homebrew gives you 3.14.
 
 ```bash
-which python3.11        # should resolve to /opt/homebrew/bin/python3.11
-python3.11 --version    # >= 3.11.x
+which python3.14        # should resolve to /opt/homebrew/bin/python3.14
+python3.14 --version    # >= 3.14.x
 ```
 
-If missing: `brew install python@3.11`.
+If missing: `brew install python@3.14`.
 
 ### Install the package
 

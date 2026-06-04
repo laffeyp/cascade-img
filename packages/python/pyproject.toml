@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "LLM-operable image-generation pipeline. Midjourney via Discord at v0.1, pluggable backends after."
 readme = "README.md"
 license = { text = "Apache-2.0" }
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 authors = [
     { name = "Green Rose Systems", email = "info@greenrosesystems.com" },
 ]
@@ -37,9 +37,7 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Multimedia :: Graphics",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -129,12 +127,13 @@ filterwarnings = [
     # mcp's pydantic schema emits a deprecation warning we can't fix downstream.
     "ignore::DeprecationWarning:mcp",
     "ignore::DeprecationWarning:pydantic",
-    # discord.py-self hard-imports the stdlib audioop module at import time
-    # (PEP 594: deprecated in 3.11/3.12, removed in 3.13). pytest attributes
-    # the warning to the audioop import frame, not the discord package, so a
-    # module-anchored "ignore::DeprecationWarning:discord" misses it and the
-    # whole suite fails to collect. Match by message instead.
-    "ignore:'audioop' is deprecated:DeprecationWarning",
+    # discord.py-self's @client.event decorator calls asyncio.iscoroutinefunction
+    # (client.py:1796), which Python 3.14 deprecates (removal slated 3.16). It
+    # fires at import time, so without this the suite fails to collect. This is
+    # purely third-party: our own code uses inspect.iscoroutinefunction. matched
+    # by message because pytest attributes the warning to the asyncio frame, not
+    # the discord package. Drop when discord.py-self migrates upstream.
+    "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning",
 ]
 
 # ---------------------------------------------------------------------------
@@ -164,7 +163,7 @@ precision = 1
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py314"
 extend-exclude = ["_source", "build", "dist"]
 
 [tool.ruff.lint]
@@ -197,7 +196,7 @@ indent-style = "space"
 # ---------------------------------------------------------------------------
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.14"
 strict = false
 warn_unused_configs = true
 warn_redundant_casts = true
