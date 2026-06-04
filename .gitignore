@@ -34,3 +34,6 @@ htmlcov/
 generated/
 smoke-output/
 cascade-prompt-log.jsonl
+
+# SDD kit — process/reference material pasted in locally; not part of the product
+sdd-kit-2/
