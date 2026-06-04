@@ -109,6 +109,14 @@ JSON to stdout, exit 0 on `done`; generated images land in `./generated`.
 
 ---
 
+## Why this exists
+
+cascade-img grew out of building a sprite-based 2D game. The art had to be generated, curated, and iterated on at volume, and Midjourney gave the best results — but there was no way to put an LLM agent in the driver's seat. The existing open-source Midjourney drivers stopped at "send a prompt, get back an image"; none let an agent run the whole loop: compose a prompt from reusable parts, fire it, wait, judge the four candidates, crop and clean the winner, and log the attempt so the next iteration knows what was already tried.
+
+So the missing layer got built — first for that one game's pipeline, then generalized. The style-specific lessons (holding a non-photoreal look, locking a subject's identity across rolls) are still in the [RUNBOOK](./RUNBOOK.md) because they're genuinely useful, but nothing in the tool assumes you're making sprites.
+
+---
+
 ## How this differs
 
 cascade-img adds a layer above the Midjourney bridge: it composes the prompt from named parts, curates the output, and records each attempt so the loop can iterate.
