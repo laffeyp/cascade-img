@@ -29,6 +29,7 @@ MIDJOURNEY_DISCORD_CAPABILITIES = BackendCapabilities(
     prompt_parts=[
         "moodboard",
         "sref",
+        "sw",
         "stylize",
         "style_raw",
         "oref",
@@ -37,6 +38,7 @@ MIDJOURNEY_DISCORD_CAPABILITIES = BackendCapabilities(
         "image_prompt",
         "image_weight",
         "tile",
+        "exp",
         "chaos",
         "weird",
         "stop",

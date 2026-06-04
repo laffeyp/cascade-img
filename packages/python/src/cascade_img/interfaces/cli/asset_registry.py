@@ -37,6 +37,7 @@ class AssetEntry:
     constraints: list[str] = field(default_factory=list)
     moodboard: str | None = None
     sref: str | None = None
+    sw: int | None = None
     stylize: int | None = None
     style_raw: bool = True
     oref: str | None = None
@@ -52,6 +53,7 @@ class AssetEntry:
             constraints=list(raw.get("constraints") or []),
             moodboard=raw.get("moodboard"),
             sref=raw.get("sref"),
+            sw=raw.get("sw"),
             stylize=raw.get("stylize"),
             style_raw=bool(raw.get("style_raw", True)),
             oref=raw.get("oref"),

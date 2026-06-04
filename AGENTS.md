@@ -84,7 +84,7 @@ The composer assembles these into the prompt string. The most-used:
 - **Oref (`--oref`)** / **Ow (`--ow`)**: V7 omni-reference identity lock (single-image URL, not a grid) and its weight (0-1000; 100 loose, 400 tight, 1000 max).
 - **Aspect ratio (`--ar`)**: "1:1", "16:9", "9:16", etc.
 
-The composer also accepts `negatives` (`--no`), image prompts + `image_weight` (`--iw`), and the render-control params `tile`, `chaos`, `weird`, `stop`, `quality` (`--q`), and `seed`. **[CAPABILITIES.md](./CAPABILITIES.md) is the complete reference** — every part, its range, every `mj_action`, and the v7 features intentionally not wired (`--sw`, draft mode, `--repeat`, …). cascade-img is v7-only by design.
+The composer also accepts `sw` (`--sw` style weight, only with `sref`), `negatives` (`--no`), image prompts + `image_weight` (`--iw`), and the render-control params `tile`, `exp` (`--exp` experimental aesthetics), `chaos`, `weird`, `stop`, `quality` (`--q`), and `seed`. **[CAPABILITIES.md](./CAPABILITIES.md) is the complete reference** — every part, its range, every `mj_action`, and the v7 features intentionally not wired (`--sw`, draft mode, `--repeat`, …). cascade-img is v7-only by design.
 
 ## Holding a non-photoreal style
 

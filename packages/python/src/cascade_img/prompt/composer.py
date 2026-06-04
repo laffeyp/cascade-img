@@ -3,9 +3,10 @@
 The consumer supplies a subject, an optional style stack, an optional
 identity stack, an optional render-parameter stack, and an aspect ratio.
 The composer emits the backend-specific prompt string. v0.1 emits Midjourney
-v7 syntax: ``--ar``, ``--v 7``, ``--style raw``, ``--p``, ``--sref``, ``--s``,
-``--oref``, ``--ow``, ``--no``, ``--tile``, ``--chaos``, ``--weird``,
-``--stop``, ``--q``, ``--seed``, ``--iw``, and leading image-prompt URLs.
+v7 syntax: ``--ar``, ``--v 7``, ``--style raw``, ``--p``, ``--sref``, ``--sw``,
+``--s``, ``--oref``, ``--ow``, ``--no``, ``--tile``, ``--exp``, ``--chaos``,
+``--weird``, ``--stop``, ``--q``, ``--seed``, ``--iw``, and leading
+image-prompt URLs.
 
 Every range is validated at construction (``__post_init__``) so a bad value
 fails before it reaches the wire, in the same place the consumer built it.
@@ -76,6 +77,9 @@ class StyleStack:
       (e.g. ``m`` followed by a long digit string). The composer doesn't
       enforce a prefix convention; pass the code as-is.
     - ``sref`` is Midjourney's ``--sref`` style-reference URL or integer code.
+    - ``sw`` is Midjourney's ``--sw`` style weight (0-1000; default 100 at
+      Midjourney's end): how strongly the ``sref`` pulls. Only meaningful with
+      ``sref``, so setting it without one is rejected at construction.
     - ``stylize`` is Midjourney's ``--s`` value (0-1000; validated at
       construction). Default 100 if omitted at Midjourney's end.
     - ``style_raw`` toggles the ``--style raw`` flag that suppresses
@@ -84,6 +88,7 @@ class StyleStack:
 
     moodboard: str | None = None
     sref: str | None = None
+    sw: int | None = None
     stylize: int | None = None
     style_raw: bool = True
 
@@ -93,6 +98,16 @@ class StyleStack:
                 f"StyleStack.stylize must be 0-1000 per Midjourney's --s "
                 f"range; got {self.stylize!r}."
             )
+        if self.sw is not None:
+            if not (self.sref and self.sref.strip()):
+                raise ValueError(
+                    "StyleStack.sw (--sw) is only meaningful with a style "
+                    "reference; supply sref or drop sw."
+                )
+            if not 0 <= self.sw <= 1000:
+                raise ValueError(
+                    f"StyleStack.sw must be 0-1000 per Midjourney's --sw range; got {self.sw!r}."
+                )
 
 
 @dataclass
@@ -120,6 +135,8 @@ class ParamStack:
     Each range is the current Midjourney v7 range, validated at construction:
 
     - ``tile`` toggles ``--tile`` (seamless, repeating output).
+    - ``exp`` is ``--exp`` (0-100, whole number): v7 experimental aesthetics —
+      more detail/dynamism. Values above ~25 can overwhelm ``stylize``/``p``.
     - ``chaos`` is ``--chaos`` (0-100): grid variety.
     - ``weird`` is ``--weird`` (0-3000): offbeat aesthetics.
     - ``stop`` is ``--stop`` (10-100): halt the render early for rough drafts.
@@ -131,6 +148,7 @@ class ParamStack:
     """
 
     tile: bool = False
+    exp: int | None = None
     chaos: int | None = None
     weird: int | None = None
     stop: int | None = None
@@ -138,6 +156,11 @@ class ParamStack:
     seed: int | None = None
 
     def __post_init__(self) -> None:
+        if self.exp is not None and not 0 <= self.exp <= 100:
+            raise ValueError(
+                f"ParamStack.exp must be 0-100 (whole number) per Midjourney's "
+                f"--exp range; got {self.exp!r}."
+            )
         if self.chaos is not None and not 0 <= self.chaos <= 100:
             raise ValueError(
                 f"ParamStack.chaos must be 0-100 per Midjourney's --chaos "
@@ -202,6 +225,9 @@ class PromptComposer:
             if style.sref:
                 flags.append(f"--sref {style.sref}")
                 prompt_parts_used.append("sref")
+                if style.sw is not None:
+                    flags.append(f"--sw {style.sw}")
+                    prompt_parts_used.append("sw")
             if style.stylize is not None:
                 flags.append(f"--s {style.stylize}")
                 prompt_parts_used.append("stylize")
@@ -217,6 +243,9 @@ class PromptComposer:
             if params.tile:
                 flags.append("--tile")
                 prompt_parts_used.append("tile")
+            if params.exp is not None:
+                flags.append(f"--exp {params.exp}")
+                prompt_parts_used.append("exp")
             if params.chaos is not None:
                 flags.append(f"--chaos {params.chaos}")
                 prompt_parts_used.append("chaos")
