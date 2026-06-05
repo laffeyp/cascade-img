@@ -40,7 +40,7 @@ Then give me, in plain language and in this order:
   - WHAT IT IS, in two sentences.
   - THE MENTAL MODEL: composable prompt parts -> compose -> imagine -> wait ->
     curate (crop / alpha-key / promote) -> log; and the split between the
-    long-running bridge daemon and the CLI/MCP front doors.
+    long-running bridge daemon and the CLI/MCP entry points.
   - HOW TO RUN IT end to end: the three console scripts (names taken verbatim
     from [project.scripts]), the required .env values (from RUNBOOK.md), and the
     minimal happy path from install to a first generated image.

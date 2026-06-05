@@ -5,16 +5,16 @@
 [![CI](https://github.com/greenrosesystems/cascade-img/actions/workflows/ci.yml/badge.svg)](https://github.com/greenrosesystems/cascade-img/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
-An image-generation pipeline an LLM can drive. It runs Midjourney through Discord today; Flux, DALL-E, and Imagen will use the same interface later.
+An image-generation pipeline an LLM can drive. It runs Midjourney through Discord today; it will run other image generation service API's using the same interface later.
 
-The Midjourney prompt is split into composable parts you set independently — subject, moodboard (`--p`), style reference (`--sref`), identity reference (`--oref`) and its weight (`--ow`), aspect ratio. A curation kit crops the 2×2 grid into quadrants and, optionally, removes a uniform background. A JSONL prompt log records every attempt so the next iteration knows what's been tried. An MCP server exposes all of this to Claude Desktop, Cursor, Cline, or any MCP-aware host — so an agent can compose, generate, curate, and log without a human on every attempt.
+The Midjourney prompt is split into composable parts you can set independently. A JSONL prompt log records every attempt so the next iteration knows what's been tried. An MCP server exposes all of this to Claude Desktop, Cursor, Cline, or any MCP-aware host — so an agent can compose, generate, curate, and log without a human on every attempt.
 
-> **The point: an agent runs the loop.** cascade-img's headline mode is letting an LLM agent drive the whole loop over the MCP tools — compose → generate → wait → inspect → curate → log, iterating on its own prompt log without a human on every roll. The CLI and Python API are conveniences for scripting and embedding; the agent loop is why the package exists. [AGENTS.md](./AGENTS.md) is the operator's guide.
+> **The point: an agent runs the loop.** cascade-img's main mode is letting an LLM agent drive the whole loop over the MCP tools — compose → generate → wait → inspect → curate → log, iterating on its own prompt log without a human on every roll. The CLI and Python API are conveniences for scripting and embedding; the agent loop is why the package exists. [AGENTS.md](./AGENTS.md) is the operator's guide.
 
 
-Midjourney comes first by design. Midjourney has no public API, so driving it through a Discord user account is the established, accepted OSS pattern for programmatic access — and the existing tools that do this are sparsely maintained, which is what cascade-img sets out to improve on with a best-in-class take on that pattern. It is tackled first precisely because, lacking an API, it is the hardest of the image providers to integrate; with that done, adding the rest (Flux, DALL-E, Imagen) is the easier work.
+Midjourney comes first by design. Midjourney has no public API, so driving it through a Discord acount is actually already an established way of using it. It is tackled first precisely because it is more work. With that done, adding the other integrations is the easier work.
 
-> **Context.** Midjourney has no public API. Driving it through a Discord user account is the established OSS pattern for programmatic access. Both Discord and Midjourney's Terms of Service prohibit user-account automation. See [TOS.md](./TOS.md).
+> **Context.** Midjourney has no public API. Driving it through a Discord user account is the established OSS pattern for programmatic access. Of course, both Discord and Midjourney's Terms of Service prohibit user-account automation. See [TOS.md](./TOS.md).
 
 Published by [Green Rose Systems](https://greenrosesystems.com).
 
@@ -22,11 +22,9 @@ Published by [Green Rose Systems](https://greenrosesystems.com).
 
 ## Why this exists
 
-cascade-img grew out of building a sprite-based 2D game that needed a lot of art. Midjourney could produce it, but the work that mattered was the iteration loop: try a direction, look at it, decide what to change, go again, until the result matches what you're after. Done by hand through Discord — one prompt, one click, one download at a time — that loop is slow.
+This exists so that a person driving an LLM can now easily and programmatically generate visual assets via Midjourney. This is extremely useful in a number of settings, and allows someone with a good idea of what they want visually to get there much quicker.  It allows someone who doesn't to experiment faster. 
 
-Most of that loop is mechanical: compose the prompt from reusable parts, fire it, wait, crop and curate the result, write down what was tried. That part can be handed to an LLM agent, while the person still makes the judgment calls about what's right. No existing open-source Midjourney driver let an agent run the loop end to end, so the missing layer got built — first for the one game's pipeline, then generalized into this package.
-
-The style-specific lessons (holding a non-photoreal look, locking a subject's identity across rolls) are still in the [RUNBOOK](./RUNBOOK.md) because they're useful, but nothing in the tool assumes you're making sprites.
+Most of the loop is mechanical: compose the prompt from reusable parts, fire it, wait, crop and curate the result, write down what was tried.  No existing open-source Midjourney driver let an agent run the loop end to end, so cascade-img provides it.
 
 ---
 
@@ -74,7 +72,7 @@ cascade-mj-bridge --check-env --pretty   # validates the .env and names anything
 cascade-mj-bridge          # long-running; the only process that talks to Discord
 ```
 
-Leave it running. Both front doors below connect to it over local HTTP.
+Leave it running. Both entry points below connect to it over local HTTP.
 
 ### 4a. Drive it from an MCP host (Claude Desktop, Cursor, Cline)
 

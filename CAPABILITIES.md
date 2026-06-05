@@ -28,8 +28,8 @@ construction, so a bad value fails before it reaches Midjourney.
 | `moodboard` | `--p` | personalization profile code | Applies a saved Midjourney personalization/moodboard profile. |
 | `sref` | `--sref` | style-reference URL or code | Steers the output toward a reference style. |
 | `sw` | `--sw` | 0–1000 (default 100) | Style weight: how strongly the `sref` pulls. Only meaningful with `sref`. |
-| `stylize` | `--s` | 0–1000 | Strength of Midjourney's house aesthetic. Lower lets the `sref` dominate. |
-| `style_raw` | `--style raw` | on/off (default on) | Suppresses Midjourney's default opinion injection. |
+| `stylize` | `--s` | 0–1000 | Strength of Midjourney's default aesthetic. Lower lets the `sref` dominate. |
+| `style_raw` | `--style raw` | on/off (default on) | Suppresses Midjourney's automatic style adjustments. |
 | `oref` | `--oref` | single-image URL | Omni-reference: v7's identity lock — "same subject, new pose/angle". |
 | `ow` | `--ow` | 0–1000 (default 100) | Omni-weight: how tightly to hold the `oref` identity. |
 | `negatives` | `--no` | list of phrases | Things to suppress (text, watermarks, extra limbs). Emitted as the final flag. |

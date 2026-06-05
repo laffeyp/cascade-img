@@ -1,8 +1,5 @@
 # Architecture
 
-How cascade-img fits together, for a contributor adding a backend or anyone
-tracing the data flow.
-
 ## Components
 
 | Module | Role |
@@ -20,12 +17,13 @@ tracing the data flow.
 
 ## Data flow
 
-There are two front doors and one daemon. Both front doors speak to the bridge
-over HTTP; the bridge is the only thing that touches Discord.
+cascade-img has two entry points — the `cascade-mj` CLI and the `cascade-mcp`
+MCP server — and one long-running daemon, the bridge. Either entry point reaches
+the bridge over local HTTP; the bridge is the only component that talks to Discord.
 
 ```
    ┌───────────────────┐          ┌────────────────────────┐
-   │  cascade-mj  (CLI) │          │ cascade-mcp (MCP server)│   front doors:
+   │  cascade-mj  (CLI) │          │ cascade-mcp (MCP server)│   entry points:
    │  human / script    │          │  agent host             │   one composes & rolls,
    └─────────┬──────────┘          └───────────┬─────────────┘   one exposes tools
              └───────────────┬─────────────────┘
@@ -44,11 +42,11 @@ over HTTP; the bridge is the only thing that touches Discord.
             └──────────────────┘         └──────────────────┘
 ```
 
-A generation round: the front door composes a prompt and calls `imagine`; the
+A generation round: the caller composes a prompt and calls `imagine`; the
 backend POSTs it to the bridge; the bridge fires the `/imagine` slash command
 over Discord and tracks a job; Midjourney posts the grid (and, if requested,
 upscales) back as Discord messages; the bridge matches those messages to the
-job, downloads the images, and resolves the job. The front door long-polls
+job, downloads the images, and resolves the job. The caller long-polls
 `/wait/<id>` until the job is terminal, then curates and logs.
 
 **Two stores, often confused.** cascade-img keeps two separate persistent
@@ -105,8 +103,8 @@ QUEUED ──> SUBMITTED ──────────────> PROGRESS �
 ## Routing: per-job request token
 
 Several jobs can be in flight with similar prompts. To route Midjourney's
-echoed messages to the right job without prefix collisions, the bridge weaves a
-per-job token into each prompt as `--no cscidnocollide{token}`. The grid and
+echoed messages to the right job without prefix collisions, the bridge adds a
+per-job token to each prompt as `--no cscidnocollide{token}`. The grid and
 upscale matchers key on that token substring, not on the prompt text. A user
 who supplies their own `--no` negatives must have them merged into the single
 `--no` clause alongside the routing token (see the composer and `Job.tagged_prompt`).

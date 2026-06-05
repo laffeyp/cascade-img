@@ -79,7 +79,7 @@ The composer assembles these into the prompt string. The most-used:
 - **Subject**: the literal subject sentence + optional `constraints` list (folded in for emphasis — MJ weights repeated concepts higher).
 - **Moodboard (`--p`)**: MJ's personalization profile code. Human supplies once.
 - **Sref (`--sref`)**: style-reference URL or integer code. Human supplies once.
-- **Stylize (`--s`)**: 0-1000. Default 100 in MJ; lower constrains MJ's prettifier and lets the sref dominate.
+- **Stylize (`--s`)**: 0-1000. Default 100 in MJ; lower constrains MJ's stylization and lets the sref dominate.
 - **Style raw**: toggles `--style raw`. Default on for cascade-img's locked-style use case.
 - **Oref (`--oref`)** / **Ow (`--ow`)**: V7 omni-reference identity lock (single-image URL, not a grid) and its weight (0-1000; 100 loose, 400 tight, 1000 max).
 - **Aspect ratio (`--ar`)**: "1:1", "16:9", "9:16", etc.
@@ -133,7 +133,7 @@ You should not ask the human for:
 
 - Which quadrant of a grid is best — read the PNG with vision and decide.
 - Whether to re-roll — apply the policy above.
-- Whether to alpha-key — read the cropped PNG; if it needs transparency, call `alpha_key` (default `method="flood"`, `tolerance=24`). The tool envelope returns `keyed_ratio`. Healthy band is 0.1-0.9. Under 0.1 means the keyer found no background (swap `method="threshold"` or skip alpha-key). Over 0.9 means it ate the subject (reject and reroll with higher-contrast composition, or skip alpha-key for this asset).
+- Whether to alpha-key — read the cropped PNG; if it needs transparency, call `alpha_key` (default `method="flood"`, `tolerance=24`). The tool envelope returns `keyed_ratio`. Healthy band is 0.1-0.9. Under 0.1 means the keyer found no background (swap `method="threshold"` or skip alpha-key). Over 0.9 means it keyed out the subject itself (reject and reroll with higher-contrast composition, or skip alpha-key for this asset).
 
 You should ask the human for:
 

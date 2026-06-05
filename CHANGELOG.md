@@ -44,13 +44,13 @@ All notable changes to cascade-img are recorded here. Format follows [Keep a Cha
 
 ### Filename collision detection
 
-- New helper `_safe_output_path` checks for an existing artifact at the intended `<asset_id>{suffix}{ext}` path before writing. On collision (two concurrent jobs sharing an asset_id), the request_token is woven into the filename — `<asset_id>_<token>{suffix}{ext}` — and `OUTPUT_PATH_COLLISION` is emitted with `intended_path`, `actual_path`, `kind` ('grid' or 'upscale'). The artifact lands either way; the operator learns from the signal that two jobs collided.
+- New helper `_safe_output_path` checks for an existing artifact at the intended `<asset_id>{suffix}{ext}` path before writing. On collision (two concurrent jobs sharing an asset_id), the request_token is inserted into the filename — `<asset_id>_<token>{suffix}{ext}` — and `OUTPUT_PATH_COLLISION` is emitted with `intended_path`, `actual_path`, `kind` ('grid' or 'upscale'). The artifact lands either way; the operator learns from the signal that two jobs collided.
 
 ### Alpha keyer redesign
 
 - `alpha_key_corners` defaults to `method="flood"` — 4-connected flood-fill from the four corners with per-channel tolerance. Subject regions surrounded by a darker outline stay opaque because the outline blocks the flood (the white penguin belly on a white background that the old global-threshold algorithm destroyed). A pure-Python BFS fallback handles the rare sentinel-color collision (`(255, 0, 255)` in the source image).
 - `method="threshold"` preserves the original global-distance algorithm for callers in domains where flood-fill leaks (broken outlines, intentional gradients).
-- The MCP `alpha_key` tool envelope now returns `method`, `tolerance`, `keyed_count`, `total_count`, and `keyed_ratio` (0.0–1.0). The agent can branch on the ratio: <0.1 means the keyer found no background; >0.9 means it ate the subject. Both warrant reject / reroll / swap method / skip alpha-keying.
+- The MCP `alpha_key` tool envelope now returns `method`, `tolerance`, `keyed_count`, `total_count`, and `keyed_ratio` (0.0–1.0). The agent can branch on the ratio: <0.1 means the keyer found no background; >0.9 means it keyed out the subject. Both warrant reject / reroll / swap method / skip alpha-keying.
 
 ### Vocabulary additions
 

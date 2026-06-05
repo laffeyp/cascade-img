@@ -57,9 +57,9 @@ Cmd+Q Discord (a full quit, not window close), reopen, then **Cmd+Option+I** ope
 
 Drop a `.env` file in the working directory of `cascade-mj-bridge` (the daemon resolves it from its current working directory). If you run the daemon under a process manager (launchd, systemd, Docker) where the working directory isn't the `.env`'s directory, set `CASCADE_DOTENV=/abs/path/to/.env` to point at it explicitly.
 
-What the bridge actually demands, precisely:
+What the bridge requires, precisely:
 
-- **Required** (the daemon refuses to start without them): `DISCORD_USER_TOKEN`, `MJ_CHANNEL_ID`, `MJ_IMAGINE_VERSION`.
+- **Required** (the daemon will not start without them): `DISCORD_USER_TOKEN`, `MJ_CHANNEL_ID`, `MJ_IMAGINE_VERSION`.
 - **Conditionally required:** `MJ_GUILD_ID` — needed whenever the MJ channel lives in a Discord server (a "guild"), which in practice is almost always. Config validation passes without it, but the first `/imagine` then fails `DISCORD_400_UNKNOWN_CHANNEL`.
 - **Defaulted:** `MJ_IMAGINE_COMMAND_ID` ships with a working default (`938956540159881230`); only set it if interactions start 404ing.
 
@@ -262,7 +262,7 @@ Midjourney v7 sometimes posts the final grid as a separate new message rather th
 
 ### Bridge restarted mid-job
 
-Bridge tracks jobs in memory. A restart vaporizes in-flight state. MJ-side generation continues server-side but the bridge can't surface results. Re-fire after restart.
+Bridge tracks jobs in memory. A restart drops in-flight state. MJ-side generation continues server-side but the bridge can't surface results. Re-fire after restart.
 
 ### `DISCORD_NOT_READY` (HTTP 503)
 
@@ -282,7 +282,7 @@ Two concurrent jobs shared an `asset_id`. The bridge detects the existing artifa
 
 ---
 
-## Fighting photoreal drift
+## Holding a non-photoreal style
 
 Whatever non-photoreal look you're after — flat vector icon, pixel-art sprite, watercolor, line art — Midjourney tends to fall back to photorealism, even with `--style raw`, especially on small or natural subjects. A style reference plus moodboard alone often isn't enough. The fix is to name the target aesthetic explicitly in the subject and repeat its key descriptors:
 
@@ -301,7 +301,7 @@ transparent background
 
 The redundant aesthetic phrases (pixel-art / low-resolution / limited palette / handmade / readable silhouette) are intentional: Midjourney weights repeated concepts higher, and a style reference alone needs reinforcement. Swap the descriptors for whatever your target style is. The `PromptComposer` folds `Subject.constraints` into the subject text, so this stays a one-liner.
 
-If subject + sref + moodboard still drifts photoreal, raise the sref weight (`--sref <url>::2` or `::3`) and reduce `stylize` (e.g. `stylize=50`) to constrain Midjourney's prettifier.
+If subject + sref + moodboard still drifts photoreal, raise the sref weight (`--sref <url>::2` or `::3`) and reduce `stylize` (e.g. `stylize=50`) to constrain Midjourney's stylization.
 
 ---
 
@@ -364,9 +364,9 @@ promote(src="staging/mountain-icon_keyed.png", dest="out/mountain-icon.png")
 Two algorithms ship under `alpha_key_corners`:
 
 - **`method="flood"` (default)** — 4-connected flood-fill from each corner. Subject regions surrounded by a darker outline stay opaque because the outline blocks the flood (the case where a light subject sits on a light background). Correct for most MJ outputs with a uniform background.
-- **`method="threshold"`** — global per-pixel distance from the corner-average color. Faster, simpler, but eats subject pixels whose color is close to the background. Available for cases where flood-fill leaks (broken outlines, intentional gradients from bg into subject).
+- **`method="threshold"`** — global per-pixel distance from the corner-average color. Faster, simpler, but removes subject pixels whose color is close to the background. Available for cases where flood-fill leaks (broken outlines, intentional gradients from bg into subject).
 
-`tolerance` (0-255 per channel) controls how permissive each algorithm is. Default 24 works for MJ's anti-aliased output. The MCP `alpha_key` envelope returns `keyed_count`, `total_count`, and `keyed_ratio` (0.0-1.0). A clean subject-on-uniform-background frame typically keys 0.4-0.8. Ratios under 0.1 mean the keyer found no background (gradient, vignette, wrong tolerance, wrong method). Ratios over 0.9 mean the keyer ate the subject — reject and reroll, swap method, or skip alpha-keying for this asset.
+`tolerance` (0-255 per channel) controls how permissive each algorithm is. Default 24 works for MJ's anti-aliased output. The MCP `alpha_key` envelope returns `keyed_count`, `total_count`, and `keyed_ratio` (0.0-1.0). A clean subject-on-uniform-background frame typically keys 0.4-0.8. Ratios under 0.1 mean the keyer found no background (gradient, vignette, wrong tolerance, wrong method). Ratios over 0.9 mean the keyer removed the subject itself — reject and reroll, swap method, or skip alpha-keying for this asset.
 
 Full-scene images (backgrounds, landscapes, anything where the whole frame is the asset) should not be alpha-keyed.
 
