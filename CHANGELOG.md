@@ -72,6 +72,7 @@ All notable changes to cascade-img are recorded here. Format follows [Keep a Cha
 - README ToS notice rewritten as context (no prescriptions): Midjourney has no public API; driving it through a Discord user account is the established OSS pattern; both Discord's and Midjourney's Terms of Service prohibit user-account automation.
 - `TOS.md` rewritten without behavioral prescriptions.
 - `vocabulary/README.md` explains the catalog in plain language for first-time readers.
+- Plain-language pass across the human-facing docs: dropped the "front door" metaphor in `ARCHITECTURE.md` / `README.md` / `AGENT_RUNDOWN.md` (now "entry points" / "the caller"), and replaced coined phrasing (`prettifier`, "opinion injection", "house aesthetic", "ate the subject", "weaves", "vaporizes", "Fighting photoreal drift") with plain technical wording per the PR-template rule. Prose only — no tag, code, or vocabulary changes.
 
 ### Known limits (heading into 0.1.0)
 
