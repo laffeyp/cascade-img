@@ -33,8 +33,9 @@ Most of the loop is mechanical: compose the prompt from reusable parts, fire it,
 **Prerequisites.** A Midjourney subscription and a Discord account that can run
 `/imagine` in a channel where the Midjourney bot is present, plus Python 3.14
 (the current stable release — cascade-img targets the latest stable Python).
-cascade-img drives *your own* Midjourney account through Discord and runs
-locally on your machine.
+cascade-img drives *your own* Midjourney account
+[through Discord](https://docs.midjourney.com/hc/en-us/sections/32013439485197-Using-Discord)
+and runs locally on your machine.
 
 ### 1. Install
 
@@ -155,7 +156,7 @@ Compared to other OSS Midjourney drivers:
 | Append-only prompt log | yes | no | no | no |
 | MCP server | yes | no | no | no |
 | Structured-error envelope with stable codes | yes | no | not documented | partial |
-| Pluggable backend (Flux / DALL-E / Imagen on the same interface in v0.2+) | interface; backends v0.2+ | MJ only | MJ only | provider-locked |
+| Pluggable backend (Flux / DALL-E / Imagen on the same interface in v0.3+) | interface; backends v0.3+ | MJ only | MJ only | provider-locked |
 | License | Apache-2.0 | Apache-2.0 | Apache 2.0 | proprietary |
 
 ---
@@ -194,7 +195,7 @@ cascade-img/
 │   ├── src/cascade_img/     #   prompt/, interfaces/, backends/, curation/, vocabulary/
 │   ├── tests/               #   behavior tests
 │   └── tools/               #   live smoke walk
-├── packages/typescript/        # npm name reservation for the v0.2 TypeScript wrapper (placeholder)
+├── packages/typescript/        # npm name reservation for the v0.3 TypeScript wrapper (placeholder)
 ├── examples/              # two short, generic walkthroughs of the operating loop
 ├── vocabulary/0.1.json     # mirror of the package's event log-line catalog
 └── *.md                    # README, ARCHITECTURE, RUNBOOK, AGENTS, AGENT_RUNDOWN, SECURITY, SUPPORT, …
@@ -207,10 +208,11 @@ top-level Markdown plus that package.
 
 | version | headline |
 |---|---|
-| v0.1 (current) | MJ V7 backend, prompt composer, curation kit (crop + flood-fill alpha key + promote), MCP server, AGENTS.md, prompt templates, Python package. **Python-only** — TypeScript wrapper is a v0.2 deliverable (the `@greenrosesystems/cascade-img` placeholder on npm reserves the name). |
-| v0.2 | TypeScript wrapper (BridgeClient + PromptComposer + Zod types + Node-native MCP server), Flux via Fal + OpenAI `gpt-image-1` backends, Windows bridge |
-| v0.3 | Flux Kontext (instruction-edit), bundled-binary install path |
-| v0.4 | Imagen, Ideogram, Recraft backends |
+| v0.1 (current) | MJ V7 backend, prompt composer, curation kit (crop + flood-fill alpha key + promote), MCP server, AGENTS.md, prompt templates, Python package. **Python-only** — TypeScript wrapper is a v0.3 deliverable (the `@greenrosesystems/cascade-img` placeholder on npm reserves the name). |
+| v0.2 | Midjourney command expansion: `/describe`, `/show`, Vary Region (inpaint), `/blend`, `/shorten`, `/tune`, `/info` |
+| v0.3 | TypeScript wrapper (BridgeClient + PromptComposer + Zod types + Node-native MCP server), Flux via Fal + OpenAI `gpt-image-1` backends, Windows bridge |
+| v0.4 | Flux Kontext (instruction-edit), bundled-binary install path |
+| v0.5 | Imagen, Ideogram, Recraft backends |
 | v1.0 | API stable across two minor releases, three backends in production |
 
 Because every backend implements one interface, a later release can chain them: generate on one provider, refine or instruction-edit on a second (e.g. Flux Kontext), then upscale or restyle on a third — passing each image as the next step's input. cascade-img becomes the relay that moves an image between providers, using each for what it does best.

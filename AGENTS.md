@@ -4,7 +4,7 @@ Drop this in front of any LLM agent that needs to operate cascade-img. The file 
 
 ## What cascade-img is
 
-A Python package and an MCP server that let an LLM agent generate, curate, and log Midjourney images autonomously through a Discord self-bot bridge. v0.1 ships the MJ backend; v0.2+ adds Flux, DALL-E, Imagen, etc. behind the same interface.
+A Python package and an MCP server that let an LLM agent generate, curate, and log Midjourney images autonomously through a Discord self-bot bridge. v0.1 ships the MJ backend; v0.3+ adds Flux, DALL-E, Imagen, etc. behind the same interface.
 
 You — the agent — are the primary user. Everything below is shaped around what you need to drive the loop without a human in the room for every roll.
 

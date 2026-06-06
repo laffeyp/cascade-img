@@ -424,9 +424,9 @@ Exit 0 means every tool returned `ok: true`, the promoted artifact landed, and t
 - No automatic retry on moderation rejection.
 - No webhook support; clients poll `/wait` (Condition-based wake on terminal — no polling, no thread-per-request spin).
 - No `/blend` command support yet.
-- Windows bridge is v0.2; macOS and Linux only at v0.1.
-- Only the MJ backend; Flux / DALL-E / Imagen land v0.2+.
-- Background removal is a corner-anchored heuristic (flood-fill or threshold). It handles the common "subject on uniform bg" case; complex matting (hair, fur, semi-transparency, multi-tone backgrounds) needs a learned model — slated as a v0.2 backend.
+- Windows bridge is v0.3; macOS and Linux only at v0.1.
+- Only the MJ backend; Flux / DALL-E / Imagen land v0.3+.
+- Background removal is a corner-anchored heuristic (flood-fill or threshold). It handles the common "subject on uniform bg" case; complex matting (hair, fur, semi-transparency, multi-tone backgrounds) needs a learned model — slated as a v0.3 backend.
 
 ---
 

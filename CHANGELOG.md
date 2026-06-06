@@ -76,11 +76,11 @@ All notable changes to cascade-img are recorded here. Format follows [Keep a Cha
 
 ### Known limits (heading into 0.1.0)
 
-- MJ-only backend; Flux, DALL-E, Imagen are v0.2+ work.
+- MJ-only backend; Flux, DALL-E, Imagen are v0.3+ work.
 - Bridge tracks jobs in memory; restart drops in-flight state.
 - `JOBS` is now LRU+TTL bounded (`MAX_JOBS`, `TERMINAL_AGE_SECONDS`) and emits `JOB_EVICTED`. Non-terminal jobs are never evicted, so an operator that submits faster than MJ completes can push the dict past `MAX_JOBS`; that's surfaced via `/health.total_jobs`.
 - `/wait` is `threading.Condition`-based — no polling, no thread-per-request spin. Concurrent waits multiplex on `TERMINAL_CV`.
 - `MidjourneyDiscordBackend` is synchronous (`requests`); the MCP server dispatches sync backend calls via `asyncio.to_thread` so concurrent MCP tool calls don't serialize.
-- macOS and Linux only; Windows bridge is a v0.2 item.
+- macOS and Linux only; Windows bridge is a v0.3 item.
 - No webhook support; clients long-poll `/wait`.
-- **TypeScript wrapper is a v0.2 deliverable.** The `@greenrosesystems/cascade-img` 0.0.1 placeholder on npm reserves the name. v0.1 is a Python-only ship; Node consumers either wait for the wrapper or call the bridge daemon's HTTP API directly.
+- **TypeScript wrapper is a v0.3 deliverable.** The `@greenrosesystems/cascade-img` 0.0.1 placeholder on npm reserves the name. v0.1 is a Python-only ship; Node consumers either wait for the wrapper or call the bridge daemon's HTTP API directly.
