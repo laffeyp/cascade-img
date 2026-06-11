@@ -7,6 +7,7 @@ shell-level orchestration.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -24,3 +25,29 @@ import check_vocabulary_parity  # type: ignore  # noqa: E402
 def test_parity_clean():
     rc = check_vocabulary_parity.main([])
     assert rc == 0, "vocabulary parity drift — see stdout for the offending emit() callsites"
+
+
+@pytest.mark.contract
+def test_stored_tag_set_hash_matches_catalog():
+    """The committed tag_set_hash must equal the recomputed hash — the real
+    catalog passes its own lock-integrity check."""
+    data = json.loads(
+        (PKG_ROOT / "src/cascade_img/vocabulary/versions/0.1.json").read_text(encoding="utf-8")
+    )
+    assert data["tag_set_hash"] == check_vocabulary_parity.compute_tag_set_hash(data)
+
+
+@pytest.mark.contract
+def test_tag_set_hash_detects_unacknowledged_mutation(tmp_path):
+    """A tag added without updating tag_set_hash fails the parity check. Mutate a
+    COPY so the real catalog is untouched (the card's no-commit mutation probe)."""
+    data = json.loads(
+        (PKG_ROOT / "src/cascade_img/vocabulary/versions/0.1.json").read_text(encoding="utf-8")
+    )
+    data["tags"].append(
+        {"name": "ZZ_FAKE_TAG", "category": "job", "stratum": "event", "payload": ["x"]}
+    )
+    mutated = tmp_path / "0.1.json"
+    mutated.write_text(json.dumps(data), encoding="utf-8")
+    rc = check_vocabulary_parity.main(["--vocab", str(mutated), "--src", "src/cascade_img"])
+    assert rc == 1, "a tag added without updating tag_set_hash should fail parity"

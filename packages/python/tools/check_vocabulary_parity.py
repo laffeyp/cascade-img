@@ -19,9 +19,21 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import sys
 from pathlib import Path
+
+
+def compute_tag_set_hash(data: dict) -> str:
+    """sha256 over the sorted ``"<name>:<comma-joined required payload>"`` lines —
+    the tag surface consumers actually key on (tag names + required payload
+    fields). Notes, sequence/timing rules, and ``optional_payload`` are
+    deliberately excluded so prose edits and additive rule-field work (sprint 013)
+    never churn the hash; only a change to a tag's name or required payload does.
+    """
+    lines = sorted(f"{t['name']}:{','.join(t.get('payload', []))}" for t in data.get("tags", []))
+    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
 
 
 def find_emit_calls(root: Path) -> list[tuple[Path, int, str]]:
@@ -81,6 +93,31 @@ def main(argv: list[str] | None = None) -> int:
     if not src_path.exists():
         print(f"[parity] source root not found: {src_path}", file=sys.stderr)
         return 2
+
+    # Lock-integrity hash (additive to the existing checks). When the catalog is
+    # locked, the stored tag_set_hash must match the current tag surface. This
+    # forces every tag addition/change to acknowledge itself by updating the hash
+    # in the SAME commit — catching silent catalog drift like the 47-vs-48
+    # companion-doc desync (2026-06-10), which rode in with a tag addition.
+    raw = json.loads(vocab_path.read_text(encoding="utf-8"))
+    if raw.get("locked"):
+        stored = raw.get("tag_set_hash")
+        expected = compute_tag_set_hash(raw)
+        if stored is not None and stored != expected:
+            print(
+                "[parity] TAG-SET HASH MISMATCH: the tag surface changed but "
+                "tag_set_hash was not updated.",
+                file=sys.stderr,
+            )
+            print(f"[parity]   stored   = {stored}", file=sys.stderr)
+            print(f"[parity]   expected = {expected}", file=sys.stderr)
+            print(
+                "[parity]   catalog changed: if intentional, update tag_set_hash to the "
+                "expected value in the same commit (both catalog copies) — see "
+                "vocabulary/README.md 'How to extend'.",
+                file=sys.stderr,
+            )
+            return 1
 
     vocab = load_vocab(vocab_path)
     calls = find_emit_calls(src_path)

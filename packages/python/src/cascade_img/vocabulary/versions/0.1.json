@@ -3,6 +3,7 @@
   "locked": true,
   "locked_at": "2026-06-02",
   "locked_by": "Green Rose Systems",
+  "tag_set_hash": "414cd7b37ae61d86120eeaff0562094296aba178cc063645c3932723d05ca14b",
   "prior_version": null,
   "categories": ["session", "config", "bridge", "job", "discord", "backend", "curation", "composer", "log", "mcp", "cli"],
 
