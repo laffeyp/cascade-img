@@ -79,9 +79,7 @@ def test_sink_failure_does_not_raise(tmp_path, monkeypatch, caplog):
     e = Emitter(vocabulary())
 
     with caplog.at_level(logging.WARNING, logger="cascade_img.vocabulary"):
-        sig = e.emit(
-            "CASCADE_INIT", package_version="0.1.0", backend="midjourney_discord"
-        )
+        sig = e.emit("CASCADE_INIT", package_version="0.1.0", backend="midjourney_discord")
 
     assert sig.tag == "CASCADE_INIT"  # emit returned normally
     assert any(s.tag == "CASCADE_INIT" for s in e.snapshot())  # buffer intact
