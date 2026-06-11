@@ -42,7 +42,11 @@ def build_enum_index(vocab: dict) -> dict[str, list[tuple[str, list[str]]]]:
     return index
 
 
-def render(vocab: dict) -> str:
+def render_reference(vocab: dict) -> str:
+    """Render the per-tag reference markdown for ``vocab`` (the parsed catalog).
+    Pure: takes the catalog dict, returns the document string — the same bytes
+    the script writes to ``0.1-reference.md``. Importable so a contract test can
+    assert the committed doc equals a fresh render (sprint 018)."""
     emitters = build_emitter_index(vocab)
     enums = build_enum_index(vocab)
     version = vocab["vocabulary_version"]
@@ -92,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     vocab = json.loads(VOCAB_PATH.read_text(encoding="utf-8"))
-    rendered = render(vocab)
+    rendered = render_reference(vocab)
 
     if args.check:
         current = REFERENCE_PATH.read_text(encoding="utf-8") if REFERENCE_PATH.exists() else ""

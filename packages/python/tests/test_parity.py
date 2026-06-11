@@ -51,3 +51,19 @@ def test_tag_set_hash_detects_unacknowledged_mutation(tmp_path):
     mutated.write_text(json.dumps(data), encoding="utf-8")
     rc = check_vocabulary_parity.main(["--vocab", str(mutated), "--src", "src/cascade_img"])
     assert rc == 1, "a tag added without updating tag_set_hash should fail parity"
+
+
+@pytest.mark.contract
+def test_reference_doc_matches_fresh_render():
+    """vocabulary/0.1-reference.md must equal a fresh render of the catalog, so a
+    catalog change that forgets to regenerate the reference fails here with a fix
+    instruction — same posture as the tag_set_hash check. Uses the renderer's own
+    VOCAB_PATH/REFERENCE_PATH constants (repo-root resolution lives in the tool)."""
+    import render_vocabulary_reference as rvr
+
+    vocab = json.loads(rvr.VOCAB_PATH.read_text(encoding="utf-8"))
+    committed = rvr.REFERENCE_PATH.read_text(encoding="utf-8")
+    assert committed == rvr.render_reference(vocab), (
+        "vocabulary/0.1-reference.md is stale: regenerate with "
+        "`python3.14 tools/render_vocabulary_reference.py`"
+    )
