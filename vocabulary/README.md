@@ -10,10 +10,10 @@ At runtime, the package validates every event against this catalog. An unknown t
 
 ## How to read and use it
 
-`0.1.json` is the current catalog. Open it to see the full list of tags and their payloads. To find what a given operation emits, look up its tag.
+`0.1.json` is the current catalog. For a readable per-tag listing (payload fields, emitter, allowed values, when it fires), see [`0.1-reference.md`](0.1-reference.md) — generated from the JSON, kept fresh by CI. [`0.1-context.md`](0.1-context.md) explains how the events fit together: the happy-path sequence, the error codes, and which artifact each tag corresponds to.
 
 ## How to extend
 
-Add a new tag entry to `0.1.json` before any callsite that emits that tag. The parity check (`packages/python/tools/check_vocabulary_parity.py`) walks the source tree and fails if any callsite references an undeclared tag.
+Add a new tag entry to `0.1.json` (and the identical package-data copy under `packages/python/src/cascade_img/vocabulary/versions/`) before any callsite that emits that tag, then regenerate the reference with `python3 packages/python/tools/render_vocabulary_reference.py`. The parity check (`packages/python/tools/check_vocabulary_parity.py`) walks the source tree and fails if any callsite references an undeclared tag.
 
-Once `0.1` is locked, structural changes bump to `0.2`. Backwards-incompatible removals are deprecation entries, not deletes.
+`0.1` is locked: existing tags are frozen (no renames, removals, or payload changes), but new tags may still be added. Breaking changes bump to `0.2`, where removals are deprecation entries, not deletes.

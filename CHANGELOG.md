@@ -2,6 +2,14 @@
 
 All notable changes to cascade-img are recorded here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic versioning per [semver.org](https://semver.org/).
 
+## [Unreleased]
+
+### Vocabulary docs
+
+- **Generated per-tag reference.** `vocabulary/0.1-reference.md` is rendered from `0.1.json` by `tools/render_vocabulary_reference.py` (payload fields, emitter, enum-locked values, when each tag fires); a new CI step fails when it goes stale.
+- **`vocabulary/0.1-context.md` rewritten around reader questions** — the four entities, the happy-path sequence, the error codes, the tag-to-artifact table, and a short design-rules section — replacing the layer-numbered framework presentation. Fixed the stale tag count (48, not 47) and dropped the sign-off block.
+- **Lock semantics stated explicitly** (README + context doc): locked means existing tags are frozen — no renames, removals, or payload changes; new tags may still be added within 0.1; breaking changes bump to 0.2.
+
 ## [0.1.0] - 2026-06-10
 
 First tagged release.
