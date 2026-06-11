@@ -91,6 +91,16 @@ No snippet — each is a quick copy inside Discord:
 
 Optional: `MJ_OUTPUT_DIR` (default `./generated`), `PORT` (default `5000`), `CASCADE_BRIDGE_URL` (default `http://127.0.0.1:5000`), `CASCADE_PROMPT_LOG` (default `./cascade-prompt-log.jsonl`), `CASCADE_DOTENV` (explicit `.env` path; overrides the cwd search), `CASCADE_JOB_DB` (persistent job store path; default `<MJ_OUTPUT_DIR>/cascade-jobs.db`).
 
+Tuning and diagnostics (all optional):
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `CASCADE_MAX_JOBS` | `1000` | Cap on the bridge's in-memory job table; over the cap, the oldest *terminal* jobs are LRU-evicted. |
+| `CASCADE_TERMINAL_AGE_SECONDS` | `3600` | TTL for terminal (done/failed) jobs before eviction. |
+| `CASCADE_INFLIGHT_TIMEOUT_SECONDS` | `900` | Max silence (no `updated_at` advance) before a non-terminal job is reaped as `RESUBMIT_REQUIRED`. |
+| `CASCADE_CAPTURE_RAW` | off | Path; when set, the bridge appends every watched MJ message verbatim (structure only) for observation/debugging. |
+| `CASCADE_STRICT_SIGNALS` | `true` | When true, an `emit()` that violates the vocabulary raises; set `false` to log-and-continue instead. |
+
 ### Pre-flight check
 
 Before starting the daemon, run the pre-flight to surface any missing-config trap with a structured remediation:
@@ -262,7 +272,12 @@ Midjourney v7 sometimes posts the final grid as a separate new message rather th
 
 ### Bridge restarted mid-job
 
-Bridge tracks jobs in memory. A restart drops in-flight state. MJ-side generation continues server-side but the bridge can't surface results. Re-fire after restart.
+The bridge mirrors every job to a SQLite store (`CASCADE_JOB_DB`) and rehydrates non-terminal jobs at startup — do NOT blanket re-fire after a restart; that double-bills any job the restart actually recovered. What happens per status:
+
+- `progress` / `upscaling`: the job resumes. If MJ posts the grid or SOLO upscale messages after the daemon is back, the matchers claim them and the job completes normally. If the results never arrive, the in-flight reaper fails the job `RESUBMIT_REQUIRED` after `CASCADE_INFLIGHT_TIMEOUT_SECONDS` (default 900s) of silence.
+- `queued` / `submitted` / `submitted_unconfirmed` (pre-grid): unrecoverable — whether MJ processed the `/imagine` is unknowable across a restart, so the job is failed `RESUBMIT_REQUIRED` immediately at rehydration.
+
+Re-fire only the jobs whose `/status` shows `error_code: RESUBMIT_REQUIRED`, and verify in the MJ channel that the original didn't land before re-firing.
 
 ### `DISCORD_NOT_READY` (HTTP 503)
 
@@ -361,10 +376,11 @@ promote(src="staging/mountain-icon_keyed.png", dest="out/mountain-icon.png")
 
 ### Alpha-key method and tolerance
 
-Two algorithms ship under `alpha_key_corners`:
+Three algorithms ship under `alpha_key_corners`:
 
 - **`method="flood"` (default)** — 4-connected flood-fill from each corner. Subject regions surrounded by a darker outline stay opaque because the outline blocks the flood (the case where a light subject sits on a light background). Correct for most MJ outputs with a uniform background.
 - **`method="threshold"`** — global per-pixel distance from the corner-average color. Faster, simpler, but removes subject pixels whose color is close to the background. Available for cases where flood-fill leaks (broken outlines, intentional gradients from bg into subject).
+- **`method="rembg"`** — ML background removal via the optional `rembg` dependency (`pip install cascade-img[ml]`). For gradient backgrounds and broken outlines that defeat both geometric methods. Note the result may come back auto-cropped (different dimensions than the input).
 
 `tolerance` (0-255 per channel) controls how permissive each algorithm is. Default 24 works for MJ's anti-aliased output. The MCP `alpha_key` envelope returns `keyed_count`, `total_count`, and `keyed_ratio` (0.0-1.0). A clean subject-on-uniform-background frame typically keys 0.4-0.8. Ratios under 0.1 mean the keyer found no background (gradient, vignette, wrong tolerance, wrong method). Ratios over 0.9 mean the keyer removed the subject itself — reject and reroll, swap method, or skip alpha-keying for this asset.
 
@@ -420,7 +436,7 @@ Exit 0 means every tool returned `ok: true`, the promoted artifact landed, and t
 
 ## Known limits (v0.1)
 
-- Bridge tracks jobs in memory; restart drops in-flight state. `JOBS` is LRU+TTL bounded so memory doesn't grow unboundedly, but non-terminal jobs are never evicted — an operator submitting faster than MJ completes can push `total_jobs` past `MAX_JOBS`. Surfaced on `/health`.
+- Bridge jobs live in memory with a write-through SQLite mirror; a restart rehydrates in-flight jobs (pre-grid jobs fail `RESUBMIT_REQUIRED` — see "Bridge restarted mid-job"). `JOBS` is LRU+TTL bounded so memory doesn't grow unboundedly, but non-terminal jobs are never evicted — an operator submitting faster than MJ completes can push `total_jobs` past `MAX_JOBS` (the stalled-job reaper eventually fails silent ones). Surfaced on `/health`.
 - No automatic retry on moderation rejection.
 - No webhook support; clients poll `/wait` (Condition-based wake on terminal — no polling, no thread-per-request spin).
 - No `/blend` command support yet.

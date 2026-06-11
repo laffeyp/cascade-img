@@ -149,13 +149,13 @@ class PromptLog:
             except (json.JSONDecodeError, ValueError) as e:
                 log.warning("skipping unparseable prompt-log line in %s: %s", self.path, e)
         if n is not None:
-            return records[-n:]
+            # records[-0:] is the whole list, not none of it — guard n=0.
+            return records[-n:] if n > 0 else []
         return records
 
     def render_markdown(self) -> str:
-        """Render the full log as the markdown shape the demo's runbook
-        produces. Useful for ``cat``-ing in a terminal or pasting into a
-        review.
+        """Render the full log as human-readable markdown. Useful for
+        ``cat``-ing in a terminal or pasting into a review.
 
         Reads every field defensively (``.get`` with defaults) so a
         schema-incomplete record — a hand-edited or older-schema line that

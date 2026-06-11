@@ -2,7 +2,37 @@
 
 All notable changes to cascade-img are recorded here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic versioning per [semver.org](https://semver.org/).
 
-## [Unreleased]
+## [0.1.0] - 2026-06-10
+
+First tagged release.
+
+### Job durability and safe retries
+
+- **SQLite job store rehydration is now the documented restart story.** Non-terminal jobs are restored at startup: `progress`/`upscaling` jobs resume (late-arriving grids and SOLO upscales still match); pre-grid jobs (`queued`/`submitted`/`submitted_unconfirmed`) fail `RESUBMIT_REQUIRED` because MJ processing is unconfirmable across the gap. RUNBOOK/ARCHITECTURE updated — the old "restart drops in-flight state, re-fire" guidance instructed a double-bill and is gone.
+- **`imagine` accepts an optional `idempotency_key`.** Reusing the key on a retry replays the live job (`idempotent_replay: true`) instead of submitting and billing again — closes the cancelled-mid-imagine double-submit window. Fresh roll = fresh key (or none).
+- **Stalled-job reaper.** A non-terminal job silent past `CASCADE_INFLIGHT_TIMEOUT_SECONDS` (default 900s) is failed `RESUBMIT_REQUIRED` so phantoms can't pin the job table forever.
+- **Persist-layer sentinel fix.** Reservation sentinels (`""` grid/upscale paths snapshotted mid-download) are stripped on write, so a restart re-claims and re-downloads instead of rehydrating permanently-empty slots.
+- **Per-slot upscale download failures** are tracked (`upscale_download_failures`); under `upscale="all"` the job completes on surviving slots and only terminates `UPSCALE_DOWNLOAD_FAILED` when no slot can land.
+
+### Typed backend contract
+
+- `ImageGenerationBackend` (`backends/base.py`) is now fully typed: `upscale: str | None`, `idempotency_key: str | None`, and `TypedDict` return shapes (`ImagineResult`, `JobState`, `HealthReport`) for `imagine`/`wait`/`status`/`health`. This is the public extension point — typed before anyone subclasses it.
+
+### Input validation
+
+- `PromptComposer.compose` rejects malformed `aspect_ratio` (must match `digits:digits`) — a typo like `"16x9"` or `"16:9 --tile"` no longer rides into `--ar` as a malformed or injected flag.
+- `Subject.text` / `constraints` / `negatives` reject `--` at construction: free text carrying a flag would be parsed by MJ as a render parameter, silently changing the output. Flags belong in the typed stacks.
+- `PromptLog.read(n=0)` returns no records instead of all of them (`[-0:]` slice bug).
+
+### Curation fixes
+
+- `crop_quadrant`: right/bottom quadrants of odd-dimension grids no longer silently lose their last pixel column/row.
+- `contact_sheet`: index badges are alpha-composited via an overlay instead of written into the sheet's pixels, so the saved PNG no longer has semi-transparent holes where the badges sit.
+
+### Release engineering
+
+- `release.yml` extracts the tagged version's CHANGELOG section into the GitHub release body (it previously pasted the whole file) and fails loudly if the section is missing.
+- RUNBOOK documents the five tuning/diagnostic env vars (`CASCADE_MAX_JOBS`, `CASCADE_TERMINAL_AGE_SECONDS`, `CASCADE_INFLIGHT_TIMEOUT_SECONDS`, `CASCADE_CAPTURE_RAW`, `CASCADE_STRICT_SIGNALS`) and the `rembg` alpha-key method; AGENTS.md documents `idempotency_key`; SECURITY.md states the bridge HTTP API's unauthenticated-on-loopback trust boundary.
 
 ### Python support — latest stable only
 
@@ -77,7 +107,7 @@ All notable changes to cascade-img are recorded here. Format follows [Keep a Cha
 ### Known limits (heading into 0.1.0)
 
 - MJ-only backend; Flux, DALL-E, Imagen are v0.3+ work.
-- Bridge tracks jobs in memory; restart drops in-flight state.
+- Bridge jobs live in memory with a write-through SQLite mirror; pre-grid jobs are not recoverable across a restart (failed `RESUBMIT_REQUIRED`).
 - `JOBS` is now LRU+TTL bounded (`MAX_JOBS`, `TERMINAL_AGE_SECONDS`) and emits `JOB_EVICTED`. Non-terminal jobs are never evicted, so an operator that submits faster than MJ completes can push the dict past `MAX_JOBS`; that's surfaced via `/health.total_jobs`.
 - `/wait` is `threading.Condition`-based — no polling, no thread-per-request spin. Concurrent waits multiplex on `TERMINAL_CV`.
 - `MidjourneyDiscordBackend` is synchronous (`requests`); the MCP server dispatches sync backend calls via `asyncio.to_thread` so concurrent MCP tool calls don't serialize.

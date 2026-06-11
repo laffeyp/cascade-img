@@ -17,9 +17,17 @@ HTTP call, alongside the daemon-side state transitions the bridge emits.
 
 from __future__ import annotations
 
+from typing import cast
+
 import requests
 
-from cascade_img.backends.base import BackendCapabilities, ImageGenerationBackend
+from cascade_img.backends.base import (
+    BackendCapabilities,
+    HealthReport,
+    ImageGenerationBackend,
+    ImagineResult,
+    JobState,
+)
 from cascade_img.vocabulary import emit
 
 # Every composable part PromptComposer can emit, by the token it records in the
@@ -97,7 +105,13 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
     def __init__(self, base_url: str = "http://127.0.0.1:5000") -> None:
         self.base_url = base_url.rstrip("/")
 
-    def imagine(self, prompt: str, asset_id: str, upscale=None, idempotency_key=None) -> dict:
+    def imagine(
+        self,
+        prompt: str,
+        asset_id: str,
+        upscale: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> ImagineResult:
         body: dict = {"prompt": prompt, "asset_id": asset_id}
         if upscale is not None:
             body["upscale"] = upscale
@@ -117,7 +131,7 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
                 _raise_for_envelope(r)
             return r.json()
 
-    def wait(self, job_id: str, timeout: int = 180) -> dict:
+    def wait(self, job_id: str, timeout: int = 180) -> JobState:
         """Long-poll until the job is terminal or the wait times out.
 
         A wait-timeout is deliberately NOT raised as an error: the bridge
@@ -149,14 +163,14 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
                 if not isinstance(data, dict):
                     data = {}
                 data["timed_out"] = True
-                return data
+                return cast(JobState, data)
             if r.status_code >= 400:
                 # 404 unknown job / 410 evicted-during-wait keep their stable
                 # code (or HTTP_<status>) instead of flattening to HTTPError.
                 _raise_for_envelope(r)
             return r.json()
 
-    def status(self, job_id: str) -> dict:
+    def status(self, job_id: str) -> JobState:
         with requests.get(f"{self.base_url}/status/{job_id}", timeout=10) as r:
             emit(
                 "BACKEND_HTTP_CALLED", method="GET", path=f"/status/{job_id}", status=r.status_code
@@ -165,7 +179,7 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
                 _raise_for_envelope(r)
             return r.json()
 
-    def health(self) -> dict:
+    def health(self) -> HealthReport:
         with requests.get(f"{self.base_url}/health", timeout=5) as r:
             emit("BACKEND_HTTP_CALLED", method="GET", path="/health", status=r.status_code)
             if r.status_code >= 400:

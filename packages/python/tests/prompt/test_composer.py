@@ -275,3 +275,24 @@ def test_multi_part_prompt_keeps_no_clause_last():
         params=ParamStack(chaos=10, seed=7),
     )
     assert p.rstrip().endswith("--no text")
+
+
+def test_aspect_ratio_validated():
+    """Malformed aspect ratios fail loudly instead of riding into --ar."""
+    composer = PromptComposer()
+    subject = Subject(text="a mountain")
+    for bad in ("16x9", "16:9 --tile", "", "ratio", "1:"):
+        with pytest.raises(ValueError, match="aspect_ratio"):
+            composer.compose(subject, aspect_ratio=bad)
+    assert "--ar 16:9" in composer.compose(subject, aspect_ratio="16:9")
+
+
+def test_free_text_fields_reject_flag_injection():
+    """'--' in subject text/constraints/negatives would be parsed by MJ as a
+    flag, silently changing render parameters — rejected at construction."""
+    with pytest.raises(ValueError, match="--"):
+        Subject(text="a mountain --no hands")
+    with pytest.raises(ValueError, match="--"):
+        Subject(text="a mountain", constraints=["centered --tile"])
+    with pytest.raises(ValueError, match="--"):
+        Subject(text="a mountain", negatives=["--seed 5"])

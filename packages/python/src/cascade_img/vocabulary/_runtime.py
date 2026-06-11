@@ -211,7 +211,7 @@ class Emitter:
     def clear(self) -> None:
         with self._lock:
             self._buffer.clear()
-        self._session_start = time.monotonic()
+            self._session_start = time.monotonic()
 
     def flush_to_file(self, path: Path | str) -> int:
         records = self.snapshot()

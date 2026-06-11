@@ -6,4 +6,6 @@ cascade-img holds a Discord user-account token (in your `.env`) that grants full
 
 If a token leaks, change your Discord password (that invalidates every token) and re-capture per [RUNBOOK.md](./RUNBOOK.md).
 
+The bridge daemon's HTTP API is **unauthenticated on loopback by design** — its trust boundary is "same machine". Anything that can reach the port can submit jobs on your Midjourney subscription. Don't bind it to a non-loopback interface or port-forward it without putting authentication (a reverse proxy or an SSH tunnel) in front.
+
 Out of scope: Discord's and Midjourney's own Terms of Service (see [TOS.md](./TOS.md)), and vulnerabilities in upstream dependencies (report those upstream).

@@ -159,7 +159,9 @@ in turn.
 - `/wait` multiplexes waiters on a single `threading.Condition` rather than
   spending a thread per request.
 - The job table evicts terminal jobs by age and count (LRU + TTL) but never
-  drops an in-flight job. (In-memory at v0.1 — a restart drops in-flight state.)
+  drops an in-flight job. (The SQLite job store rehydrates non-terminal jobs
+  across a restart; pre-grid jobs fail `RESUBMIT_REQUIRED` because MJ
+  processing is unconfirmable across the gap.)
 
 ## Adding a backend
 

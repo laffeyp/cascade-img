@@ -13,9 +13,30 @@ fails before it reaches the wire, in the same place the consumer built it.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from cascade_img.vocabulary import emit
+
+_ASPECT_RATIO_RE = re.compile(r"^\d+:\d+$")
+
+
+def _reject_flag_injection(value: str, where: str) -> str:
+    """Reject ``--`` inside a free-text prompt field.
+
+    The composed prompt is a flat string, so a stray ``--no hands`` typed into a
+    subject/constraint/negative would be parsed by Midjourney as a *flag*, not
+    text — silently changing render parameters. Flags belong in the typed
+    stacks; free text carrying ``--`` is almost certainly a misplaced flag, so
+    it fails loudly at construction (the module's validate-at-construction
+    contract) rather than corrupting the render."""
+    if "--" in value:
+        raise ValueError(
+            f"{where} must not contain '--' (Midjourney would parse it as a "
+            f"flag, silently altering render parameters); got {value!r}. "
+            f"Pass flags through StyleStack/IdentityStack/ParamStack instead."
+        )
+    return value
 
 
 @dataclass
@@ -53,6 +74,11 @@ class Subject:
                 "Subject.text must be a non-empty description; "
                 "empty/whitespace subjects render as noise."
             )
+        _reject_flag_injection(self.text, "Subject.text")
+        for c in self.constraints:
+            _reject_flag_injection(c, "Subject.constraints entries")
+        for n in self.negatives:
+            _reject_flag_injection(n, "Subject.negatives entries")
         if self.image_weight is not None:
             if not any(u.strip() for u in self.image_prompts):
                 raise ValueError(
@@ -209,6 +235,13 @@ class PromptComposer:
         aspect_ratio: str = "1:1",
     ) -> str:
         """Return a Midjourney v7 prompt string."""
+        # Validate here, not in a dataclass: aspect_ratio is a bare argument. A
+        # typo like "16x9" or "16:9 --tile" would otherwise ride into "--ar ..."
+        # and be parsed by MJ as a malformed flag (or an injected extra one).
+        if not _ASPECT_RATIO_RE.fullmatch(aspect_ratio):
+            raise ValueError(
+                f"aspect_ratio must look like '16:9' (digits:digits); got {aspect_ratio!r}."
+            )
         parts: list[str] = [subject.text.strip()]
         for c in subject.constraints:
             c = c.strip()

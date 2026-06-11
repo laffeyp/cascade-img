@@ -41,7 +41,12 @@ def contact_sheet(
     w, h = sheet.size
     qw, qh = w // 2, h // 2
     if labels:
-        draw = ImageDraw.Draw(sheet)
+        # Draw badges on a transparent overlay and alpha-composite it: ImageDraw
+        # on the sheet itself would *write* the badge's alpha (200) into the
+        # pixels, punching a semi-transparent hole in the saved PNG instead of
+        # blending a translucent badge over the artwork.
+        overlay = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
         font = ImageFont.load_default()
         pad = 4
         for slot, (fx, fy) in QUADRANT_OFFSETS.items():
@@ -56,6 +61,7 @@ def contact_sheet(
                 fill=(0, 0, 0, 200),
             )
             draw.text((x + 2 * pad, y + 2 * pad), text, fill=(255, 255, 255, 255), font=font)
+        sheet = Image.alpha_composite(sheet, overlay)
 
     dest_p.parent.mkdir(parents=True, exist_ok=True)
     sheet.save(dest_p)

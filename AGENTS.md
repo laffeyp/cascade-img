@@ -133,6 +133,8 @@ Every error returned to you carries a stable `code`. The codes that matter for t
 
 A `/imagine` that returns HTTP 202 with `status: "submitted_unconfirmed"` is NOT a failure — the Discord interaction took longer than 35s but MJ may have processed it. Poll `/wait` for the actual outcome. DO NOT re-fire `/imagine` for the same asset before `/wait` resolves; that would double-bill if MJ processed the original.
 
+`imagine` accepts an optional `idempotency_key`. Pass one (any unique string, e.g. a UUID you generate per attempt) and reuse it on a retry of the *same* attempt: if the original submission actually landed, the bridge replays the existing job (`idempotent_replay: true` in the response) instead of submitting and billing again. Use a fresh key (or none) for a deliberate re-roll — the key dedupes retries, not assets.
+
 Everything else (generic backend exceptions, timeouts): re-roll up to N times (3 is a reasonable default), then escalate.
 
 ## When to ask the human

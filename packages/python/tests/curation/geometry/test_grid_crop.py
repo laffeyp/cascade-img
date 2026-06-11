@@ -78,3 +78,19 @@ def test_zero_returns_copy_not_the_loader(tmp_path: Path):
     src.unlink()
     assert out.size == (100, 100)
     assert out.getpixel((10, 10)) == (255, 0, 0)
+
+
+def test_odd_dimensions_lose_no_pixels(tmp_path: Path):
+    """On an odd-sized grid the right/bottom quadrants extend to the full edge;
+    every pixel lands in exactly one quadrant (101 = 50 + 51 per axis)."""
+    img = Image.new("RGB", (101, 101), (0, 0, 0))
+    p = tmp_path / "odd.png"
+    img.save(p)
+    u1 = crop_quadrant(p, 1)
+    u2 = crop_quadrant(p, 2)
+    u3 = crop_quadrant(p, 3)
+    u4 = crop_quadrant(p, 4)
+    assert u1.size == (50, 50)
+    assert u2.size == (51, 50)
+    assert u3.size == (50, 51)
+    assert u4.size == (51, 51)

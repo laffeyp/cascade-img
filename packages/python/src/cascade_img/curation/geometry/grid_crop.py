@@ -58,7 +58,14 @@ def crop_quadrant(src: str | Path | Image.Image, quadrant: int) -> Image.Image:
         w, h = img.size
         qw, qh = w // 2, h // 2
         fx, fy = QUADRANT_OFFSETS[quadrant]
-        box = (fx * qw, fy * qh, fx * qw + qw, fy * qh + qh)
+        # Right/bottom quadrants extend to the full edge so odd-dimension grids
+        # don't silently lose their last pixel column/row to the // 2 floor.
+        box = (
+            fx * qw,
+            fy * qh,
+            w if fx else qw,
+            h if fy else qh,
+        )
         cropped = img.crop(box)
         emit("CROP_QUADRANT", quadrant=quadrant, w=cropped.size[0], h=cropped.size[1])
         return cropped

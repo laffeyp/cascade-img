@@ -57,10 +57,21 @@ jobs:
       - name: Extract version from tag
         id: ver
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+      - name: Extract this version's CHANGELOG section
+        run: |
+          awk -v ver="${{ steps.ver.outputs.version }}" '
+            $0 ~ "^## \\[" ver "\\]" {hit=1; next}
+            hit && /^## \[/ {exit}
+            hit {print}
+          ' CHANGELOG.md > RELEASE_BODY.md
+          if ! [ -s RELEASE_BODY.md ]; then
+            echo "No CHANGELOG section found for ${{ steps.ver.outputs.version }}" >&2
+            exit 1
+          fi
       - name: Cut release with CHANGELOG section
         uses: softprops/action-gh-release@v2
         with:
           name: v${{ steps.ver.outputs.version }}
-          body_path: CHANGELOG.md
+          body_path: RELEASE_BODY.md
           draft: false
           prerelease: ${{ contains(steps.ver.outputs.version, 'a') || contains(steps.ver.outputs.version, 'b') || contains(steps.ver.outputs.version, 'rc') }}

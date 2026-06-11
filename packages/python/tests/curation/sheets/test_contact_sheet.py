@@ -38,3 +38,16 @@ def test_contact_sheet_labels_change_pixels(tmp_path):
     plain = contact_sheet(src, tmp_path / "plain.png", labels=False)
     labelled = contact_sheet(src, tmp_path / "labelled.png", labels=True)
     assert plain.read_bytes() != labelled.read_bytes()
+
+
+def test_badge_does_not_punch_alpha_hole(tmp_path):
+    """The translucent badge must be composited over the artwork, not written
+    into the pixels — the saved sheet stays fully opaque under the badge."""
+    src = tmp_path / "grid.png"
+    Image.new("RGB", (100, 100), (40, 120, 200)).save(src)
+    dest = tmp_path / "sheet.png"
+    contact_sheet(src, dest)
+    with Image.open(dest) as sheet:
+        rgba = sheet.convert("RGBA")
+        # Sample inside the slot-1 badge rectangle.
+        assert rgba.getpixel((8, 8))[3] == 255

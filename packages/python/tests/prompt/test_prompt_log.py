@@ -212,3 +212,11 @@ def test_append_with_agent_decision(tmp_path: Path):
     records = log.read()
     assert records[0]["agent_decision"] == "promote"
     assert "matches identity lock" in records[0]["agent_reason"]
+
+
+def test_read_n_zero_returns_no_records(tmp_path: Path):
+    """read(n=0) means 'last zero records' — [], not the [-0:] whole-list slice."""
+    plog = PromptLog(tmp_path / "log.jsonl")
+    plog.append(asset_id="a", prompt="p", backend="b")
+    assert plog.read(n=0) == []
+    assert len(plog.read(n=1)) == 1
