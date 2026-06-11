@@ -194,7 +194,7 @@ All three emit structured JSON; all three follow the same `{ok, result | error: 
 
 ## Structured logging and errors
 
-The daemon emits structured JSON log lines across the whole job lifecycle, and every failure carries a stable error `code` (e.g. `DISCORD_401`, `MJ_UUID_MISSING`, `UPSCALE_BUTTON_FAILED`) — so a caller branches on the code instead of parsing a message. The full catalog of log events and error codes is in [vocabulary/0.1.json](./vocabulary/0.1.json), and each failure mode's remediation is in [RUNBOOK.md](./RUNBOOK.md).
+The daemon emits structured JSON log lines across the whole job lifecycle, and every failure carries a stable error `code` (e.g. `DISCORD_401`, `MJ_UUID_MISSING`, `UPSCALE_BUTTON_FAILED`) — so a caller branches on the code instead of parsing a message. The full catalog of log events and error codes is in [vocabulary/0.1.json](./vocabulary/0.1.json), and each failure mode's remediation is in [RUNBOOK.md](./RUNBOOK.md). The catalog also declares the legal order of those events (which must precede which, per `job_id`) and their timing bands; a trace checker (`cascade-trace-check`) enforces those rules over a recorded run, and the test suite runs it on every CI change and against each live end-to-end run.
 
 ---
 
