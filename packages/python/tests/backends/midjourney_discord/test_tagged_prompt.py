@@ -45,3 +45,18 @@ def test_job_tagged_prompt_uses_merge():
     assert tagged == "a mountain --v 7 --no text, cscidnocollidetok"
     assert tagged.count("--no") == 1
     assert _token_needle("tok") in tagged
+
+
+def test_valueless_no_does_not_swallow_following_flag():
+    """A hand-crafted raw prompt with a value-less ``--no`` immediately followed
+    by a flag (``--no --ar 1:1``) must not fold that flag into the negative-prompt
+    list. Without the ``(?!--)`` guard the value group consumed ``--ar 1:1`` and
+    silently dropped the aspect ratio; with it the ``--no`` doesn't match, the
+    needle is appended as a fresh clause, and the real flag survives. (review #10)"""
+    out = _merge_no_clause("a cat --no --ar 1:1", "tok")
+    # The aspect-ratio flag is preserved verbatim — not eaten into the negatives.
+    assert "--ar 1:1" in out
+    assert _token_needle("tok") in out
+    # And the needle reads cleanly as a value (no "--ar" smuggled into it).
+    assert "cscidnocollidetok, --ar" not in out
+    assert "--no --ar 1:1, cscidnocollidetok" not in out

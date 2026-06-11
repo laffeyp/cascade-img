@@ -34,6 +34,7 @@ asset already?" without scraping prose.
 from __future__ import annotations
 
 import json
+import logging
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -41,6 +42,8 @@ from threading import Lock
 from typing import Any
 
 from cascade_img.vocabulary import emit
+
+log = logging.getLogger("cascade_img.prompt_log")
 
 
 class AgentDecision(StrEnum):
@@ -132,7 +135,19 @@ class PromptLog:
                 lines = self.path.read_text(encoding="utf-8").splitlines()
             except FileNotFoundError:
                 return []
-        records = [json.loads(line) for line in lines if line.strip()]
+        # Skip-and-continue per line. A single torn or hand-edited line must not
+        # abort the whole read: this log IS the agent's working memory across
+        # loop iterations, and losing every record to one corrupt line is the
+        # larger failure. The bad line is logged (not silently dropped) so the
+        # corruption is observable, and the surviving records are returned.
+        records: list[dict[str, Any]] = []
+        for line in lines:
+            if not line.strip():
+                continue
+            try:
+                records.append(json.loads(line))
+            except (json.JSONDecodeError, ValueError) as e:
+                log.warning("skipping unparseable prompt-log line in %s: %s", self.path, e)
         if n is not None:
             return records[-n:]
         return records
@@ -140,18 +155,25 @@ class PromptLog:
     def render_markdown(self) -> str:
         """Render the full log as the markdown shape the demo's runbook
         produces. Useful for ``cat``-ing in a terminal or pasting into a
-        review."""
+        review.
+
+        Reads every field defensively (``.get`` with defaults) so a
+        schema-incomplete record — a hand-edited or older-schema line that
+        :meth:`read` deliberately tolerates — degrades to placeholders instead of
+        aborting the whole render with a ``KeyError``. (``read`` is hand-edit
+        tolerant; this keeps the renderer consistent with it.)"""
         records = self.read()
         if not records:
             return ""
         chunks: list[str] = ["# Prompt log\n", "*Append-only. One block per roll.*\n"]
         for r in records:
             chunks.append(
-                f"\n## {r['ts']} — {r['asset_id']} (upscale={r.get('upscale') or 'grid'})\n"
+                f"\n## {r.get('ts', '?')} — {r.get('asset_id', '?')} "
+                f"(upscale={r.get('upscale') or 'grid'})\n"
             )
-            chunks.append("\nPrompt:\n```\n" + r["prompt"] + "\n```\n")
+            chunks.append("\nPrompt:\n```\n" + (r.get("prompt") or "") + "\n```\n")
             if r.get("job_id"):
-                chunks.append(f"\nJob: `{r['job_id']}` — backend={r['backend']}\n")
+                chunks.append(f"\nJob: `{r['job_id']}` — backend={r.get('backend') or 'unknown'}\n")
             outputs = r.get("outputs") or {}
             for k, v in outputs.items():
                 chunks.append(f"{k.title()}: `{v}`\n")

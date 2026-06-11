@@ -97,10 +97,16 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
     def __init__(self, base_url: str = "http://127.0.0.1:5000") -> None:
         self.base_url = base_url.rstrip("/")
 
-    def imagine(self, prompt: str, asset_id: str, upscale=None) -> dict:
+    def imagine(self, prompt: str, asset_id: str, upscale=None, idempotency_key=None) -> dict:
         body: dict = {"prompt": prompt, "asset_id": asset_id}
         if upscale is not None:
             body["upscale"] = upscale
+        # Optional idempotency key: reusing it on a retry makes the call safe —
+        # the bridge replays the existing job instead of submitting (and billing)
+        # again. Closes the cancelled-mid-imagine double-submit window. A fresh
+        # roll passes a fresh key (or none) and gets a fresh job.
+        if idempotency_key is not None:
+            body["idempotency_key"] = idempotency_key
         # Must exceed the bridge's 35 s submit budget, or a slow-but-successful
         # submission reads as a client-side Timeout (and a retry double-bills).
         with requests.post(f"{self.base_url}/imagine", json=body, timeout=40) as r:
@@ -129,7 +135,19 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
         ) as r:
             emit("BACKEND_HTTP_CALLED", method="GET", path=f"/wait/{job_id}", status=r.status_code)
             if r.status_code == 504:
-                data = r.json()
+                # Guard r.json() exactly as _raise_for_envelope does: a 504 from
+                # an intermediary (reverse proxy / LB) commonly carries an HTML
+                # body, and an unguarded r.json() there raises JSONDecodeError
+                # (a ValueError) — which a caller would mistake for a hard
+                # failure instead of the "still rendering, poll, do NOT re-roll"
+                # timeout this branch must convey. Fall back to an empty record
+                # (also coercing a non-dict JSON body) and keep timed_out=True.
+                try:
+                    data = r.json()
+                except ValueError:
+                    data = {}
+                if not isinstance(data, dict):
+                    data = {}
                 data["timed_out"] = True
                 return data
             if r.status_code >= 400:

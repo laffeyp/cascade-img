@@ -29,6 +29,20 @@ from pathlib import Path
 from typing import Any
 
 
+def _int_or_none(value: Any) -> int | None:
+    """Coerce an optional numeric registry field to ``int | None``.
+
+    ``sw`` and ``stylize`` reach the composer's ParamStack as ints; a string or
+    float slipping through un-coerced (the loader previously passed them through
+    raw, unlike ``ow``/``aspect_ratio``) would surface only when the composer or
+    backend choked — crashing the CLI with a raw traceback instead of the
+    structured ``CLI_ROLL_FAILED`` envelope. Coercing here means a malformed
+    value raises at load time, where :func:`load_registry` already wraps it into
+    a ``ValueError`` the CLI envelopes.
+    """
+    return None if value is None else int(value)
+
+
 @dataclass
 class AssetEntry:
     """One entry from the registry. ``subject`` is the only required field."""
@@ -53,8 +67,8 @@ class AssetEntry:
             constraints=list(raw.get("constraints") or []),
             moodboard=raw.get("moodboard"),
             sref=raw.get("sref"),
-            sw=raw.get("sw"),
-            stylize=raw.get("stylize"),
+            sw=_int_or_none(raw.get("sw")),
+            stylize=_int_or_none(raw.get("stylize")),
             style_raw=bool(raw.get("style_raw", True)),
             oref=raw.get("oref"),
             ow=int(raw.get("ow", 100)),

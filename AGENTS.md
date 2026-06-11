@@ -8,6 +8,14 @@ A Python package and an MCP server that let an LLM agent generate, curate, and l
 
 You — the agent — are the primary user. Everything below is shaped around what you need to drive the loop without a human in the room for every roll.
 
+## How to operate in this repo
+
+Two working habits — borrowed from how this project is maintained — that make you a better operator here.
+
+**Read in full.** When this guide, the [RUNBOOK](./RUNBOOK.md), or the person you're helping points you at a file, doc, or folder, read the whole thing — not an excerpt, not the first screen, no `offset`/`limit`, and don't hand the read off to a sub-agent that returns only snippets. The parts that strand an operator (the Discord token capture, the env vars, each error's remediation) live in the details, so a half-read of the RUNBOOK is how setup fails. If a set is genuinely too large to read at once, stop and say which files and how big, rather than skimming or silently truncating.
+
+**Reverse-explain — bridge to the person.** Most people running cascade-img through you are not engineers; bridging the tool to them is part of the job. When you explain a step or a term (what a moodboard is, why the bridge has to stay running, what "upscale" means), expose just enough of the surrounding context to make it land at their level — scope-correct, not maximal. Backfill the one prior idea they need, or compress a detail up into its parent concept; don't dump the whole dependency graph, and don't leave a term undefined that the next step depends on. Good explanation is dependency management under scope control.
+
 ## The loop
 
 The agent's job, per asset:
@@ -84,7 +92,7 @@ The composer assembles these into the prompt string. The most-used:
 - **Oref (`--oref`)** / **Ow (`--ow`)**: V7 omni-reference identity lock (single-image URL, not a grid) and its weight (0-1000; 100 loose, 400 tight, 1000 max).
 - **Aspect ratio (`--ar`)**: "1:1", "16:9", "9:16", etc.
 
-The composer also accepts `sw` (`--sw` style weight, only with `sref`), `negatives` (`--no`), image prompts + `image_weight` (`--iw`), and the render-control params `tile`, `exp` (`--exp` experimental aesthetics), `chaos`, `weird`, `quality` (`--q`), and `seed`. **[CAPABILITIES.md](./CAPABILITIES.md) is the complete reference** — every part, its range, every `mj_action`, and the v7 features intentionally not wired (`--sw`, draft mode, `--repeat`, …). cascade-img is v7-only by design.
+The composer also accepts `sw` (`--sw` style weight, only with `sref`), `negatives` (`--no`), image prompts + `image_weight` (`--iw`), and the render-control params `tile`, `exp` (`--exp` experimental aesthetics), `chaos`, `weird`, `quality` (`--q`), and `seed`. **[CAPABILITIES.md](./CAPABILITIES.md) is the complete reference** — every part, its range, every `mj_action`, and the v7 features intentionally not wired (draft mode, `--repeat`, GPU/stealth modes, …). cascade-img is v7-only by design.
 
 ## Holding a non-photoreal style
 
@@ -129,9 +137,11 @@ Everything else (generic backend exceptions, timeouts): re-roll up to N times (3
 
 ## When to ask the human
 
-You should not ask the human for:
+The human's preference about involvement comes first. If they've asked to see the grids, to pick the quadrant themselves, or to sign off on a step, do that — wanting to be looped in always beats your autonomy. Check what they want before deciding things on their behalf.
 
-- Which quadrant of a grid is best — read the PNG with vision and decide.
+Absent that, you're capable of deciding these on your own, so don't reflexively ask:
+
+- Which quadrant of a grid is best — you can read the PNG with vision and pick. But if the human would rather see the grid and choose, show it to them and let them.
 - Whether to re-roll — apply the policy above.
 - Whether to alpha-key — read the cropped PNG; if it needs transparency, call `alpha_key` (default `method="flood"`, `tolerance=24`). The tool envelope returns `keyed_ratio`. Healthy band is 0.1-0.9. Under 0.1 means the keyer found no background (swap `method="threshold"` or skip alpha-key). Over 0.9 means it keyed out the subject itself (reject and reroll with higher-contrast composition, or skip alpha-key for this asset).
 

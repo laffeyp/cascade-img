@@ -2,8 +2,9 @@
 
 Replaces a one-file-per-sprite tree with a single sheet a game engine loads
 once and indexes by name. Cells are sized to the largest sprite; frames are
-keyed by each source file's stem. The map is written next to the atlas as
-``<dest>.frames.json``.
+keyed by each source file's stem, with a numeric suffix disambiguating inputs
+that share a stem so no placed cell is dropped. The map is written next to the
+atlas as ``<dest>.frames.json``.
 """
 
 from __future__ import annotations
@@ -66,7 +67,20 @@ def sprite_sheet(
     for i, (s, im) in enumerate(loaded):
         cx, cy = (i % cols) * cell_w, (i // cols) * cell_h
         sheet.paste(im, (cx, cy))
-        frames[s.stem] = {"x": cx, "y": cy, "w": im.size[0], "h": im.size[1]}
+        # Cells are placed by unique index, but the map is keyed by file stem —
+        # two inputs sharing a stem (re-rolls of one name, a cross-dir gather)
+        # would otherwise overwrite each other's entry, silently dropping a
+        # placed cell and leaving SPRITE_SHEET_PACKED count != len(frames).
+        # Disambiguate so every placed cell gets a distinct key: the first
+        # occurrence keeps the bare stem; later collisions get a "_2", "_3", ...
+        # suffix. len(frames) == n holds by construction.
+        key = s.stem
+        if key in frames:
+            dup = 2
+            while f"{s.stem}_{dup}" in frames:
+                dup += 1
+            key = f"{s.stem}_{dup}"
+        frames[key] = {"x": cx, "y": cy, "w": im.size[0], "h": im.size[1]}
 
     dest_p = Path(dest)
     dest_p.parent.mkdir(parents=True, exist_ok=True)

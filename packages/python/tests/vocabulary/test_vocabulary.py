@@ -26,8 +26,11 @@ def test_vocabulary_loads_from_package_data():
     assert v.locked is True
     # Pin the exact count: a tag added or dropped without updating the catalog
     # (or a regression that loses tags) fails loudly here. Bump with the lock.
-    assert len(v.tags()) == 47
+    # 48 since 2026-06-06 (Wave N): UPSCALE_DOWNLOAD_DROPPED added in-place
+    # (pre-release living vocabulary; no version bump per Architect direction).
+    assert len(v.tags()) == 48
     assert "CASCADE_INIT" in v.tags()
+    assert "UPSCALE_DOWNLOAD_DROPPED" in v.tags()
 
 
 def test_unknown_tag_raises_at_emit():

@@ -15,6 +15,8 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import threading
+import time
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -35,6 +37,7 @@ from cascade_img.backends.midjourney_discord.bridge import (
     _safe_output_path,
     _session_id_or_raise,
 )
+from cascade_img.backends.midjourney_discord.job_store import JobStore
 from cascade_img.vocabulary import clear, snapshot
 
 
@@ -797,3 +800,369 @@ def test_concurrent_upscale_ingest_only_downloads_once(monkeypatch, tmp_path):
     tags = _tags()
     assert tags.count("UPSCALE_RECEIVED") == 1
     assert tags.count("JOB_COMPLETED") == 1
+
+
+# ---------------------------------------------------------------------------
+# /imagine idempotency key (review #3 — double-submit window)
+# ---------------------------------------------------------------------------
+
+
+def test_imagine_idempotency_key_replays_not_resubmits(monkeypatch):
+    """Two /imagine POSTs with the same idempotency_key produce ONE job: the
+    second is replayed (no second submission, no second MJ bill), closing the
+    double-submit window a cancelled-mid-imagine MCP call opens (the orphaned
+    worker-thread POST lands, then the agent retries with the same key).
+    (review #3 idempotency)"""
+    _reset_bridge_state()
+    clear()
+    bridge._ready.set()
+    _patch_coroutine_threadsafe(monkeypatch, _FakeFuture(returns=_FakeResponse(204)))
+
+    client = bridge.app.test_client()
+    r1 = client.post(
+        "/imagine", json={"prompt": "a mountain", "asset_id": "m", "idempotency_key": "K1"}
+    )
+    assert r1.status_code == 200
+    job_id_1 = r1.get_json()["job_id"]
+
+    r2 = client.post(
+        "/imagine", json={"prompt": "a mountain", "asset_id": "m", "idempotency_key": "K1"}
+    )
+    assert r2.status_code == 200
+    body2 = r2.get_json()
+    assert body2["job_id"] == job_id_1  # same job, not a new submission
+    assert body2["idempotent_replay"] is True
+    with LOCK:
+        assert len(JOBS) == 1  # only one job ever created
+    # The replay did NOT re-submit, so only one IMAGINE_FIRED.
+    assert _tags().count("IMAGINE_FIRED") == 1
+
+
+def test_imagine_distinct_keys_make_distinct_jobs(monkeypatch):
+    """Distinct idempotency keys make distinct jobs — re-rolls are NOT
+    deduplicated (the whole point of not keying on asset_id). (review #3)"""
+    _reset_bridge_state()
+    clear()
+    bridge._ready.set()
+    _patch_coroutine_threadsafe(monkeypatch, _FakeFuture(returns=_FakeResponse(204)))
+
+    client = bridge.app.test_client()
+    r1 = client.post(
+        "/imagine", json={"prompt": "a mountain", "asset_id": "m", "idempotency_key": "A"}
+    )
+    r2 = client.post(
+        "/imagine", json={"prompt": "a mountain", "asset_id": "m", "idempotency_key": "B"}
+    )
+    assert r1.get_json()["job_id"] != r2.get_json()["job_id"]
+    assert r2.get_json().get("idempotent_replay") is None
+    with LOCK:
+        assert len(JOBS) == 2
+
+
+def test_imagine_without_key_always_new_job(monkeypatch):
+    """No idempotency key -> every POST is a fresh job (existing behavior
+    preserved; idempotency is strictly opt-in). (review #3)"""
+    _reset_bridge_state()
+    clear()
+    bridge._ready.set()
+    _patch_coroutine_threadsafe(monkeypatch, _FakeFuture(returns=_FakeResponse(204)))
+
+    client = bridge.app.test_client()
+    r1 = client.post("/imagine", json={"prompt": "x", "asset_id": "m"})
+    r2 = client.post("/imagine", json={"prompt": "x", "asset_id": "m"})
+    assert r1.get_json()["job_id"] != r2.get_json()["job_id"]
+    with LOCK:
+        assert len(JOBS) == 2
+
+
+# ---------------------------------------------------------------------------
+# Reservation-sentinel strip symmetry (review #4)
+# ---------------------------------------------------------------------------
+
+
+def test_grid_and_upscale_sentinels_stripped_on_persist(tmp_path):
+    """A concurrent touch() can snapshot a job mid-download while grid_path /
+    upscale_paths still hold the "" reservation sentinel. Persisting that ""
+    would rehydrate as a claimed-but-empty slot the matchers never re-claim (the
+    grid matcher skips ``grid_path is not None``; the upscale matcher skips
+    ``idx in upscale_paths``) — a permanent non-terminal phantom. _persist strips
+    the sentinels, exactly as it already does for derived rows. (review #4)"""
+    _reset_bridge_state()
+    store = JobStore(":memory:")
+    bridge._store = store
+    try:
+        job = Job(job_id="sent", asset_id="A", prompt="p")
+        job.status = Status.UPSCALING
+        job.grid_path = ""  # reservation sentinel, mid grid-download
+        job.upscale_paths = {1: "/real/u1.png", 2: ""}  # slot 2 mid-download
+        bridge._persist(job)
+
+        rows = store.load_nonterminal()
+        assert len(rows) == 1
+        assert rows[0]["grid_path"] is None  # "" stripped on the persist side
+        # JSON stringifies dict keys; slot 2's "" sentinel is gone, slot 1 stays.
+        assert rows[0]["upscale_paths"] == {"1": "/real/u1.png"}
+    finally:
+        bridge._store = None
+        store.close()
+
+
+def test_job_from_row_strips_baked_in_sentinels():
+    """_job_from_row strips the sentinels symmetrically on the read side, so a
+    row persisted by an older build (with "" baked in) still rehydrates clean and
+    re-matchable. (review #4)"""
+    base = Job(job_id="old", asset_id="A", prompt="p")
+    base.status = Status.UPSCALING
+    base.grid_path = ""
+    base.upscale_paths = {1: "/real/u1.png", 2: ""}
+    base.upscale_pending = [2, 3]
+    row = asdict(base)
+
+    job = bridge._job_from_row(row)
+    assert job.grid_path is None  # re-matchable: grid matcher will re-claim it
+    assert job.upscale_paths == {1: "/real/u1.png"}  # slot 2 sentinel dropped
+    assert 2 in job.upscale_pending  # slot 2 still pending -> re-matchable
+
+
+# ---------------------------------------------------------------------------
+# Partial-tolerance on the upscale DOWNLOAD path (review #6)
+# ---------------------------------------------------------------------------
+
+
+def _solo_upscale_msg(slot: int, msg_id: int, token: str):
+    """Build a fake MJ SOLO-upscale message for ``slot`` that _match_upscale will
+    claim (token needle + 'Image #<slot>' in content, no reference)."""
+
+    class _Att:
+        url = f"https://cdn/u{slot}.png"
+        filename = f"u{slot}.png"
+
+    class _Author:
+        id = bridge.MJ_BOT_ID
+
+    class _Channel:
+        id = 1  # matches the test cfg.channel_id
+
+    class _Msg:
+        id = msg_id
+        content = f"**a sprite cscidnocollide{token} --raw** - Image #{slot} <@u>"
+        guild = None
+        reference = None
+
+        def __init__(self):
+            self.author = _Author()
+            self.channel = _Channel()
+            self.attachments = [_Att()]
+            self.components = []
+
+    return _Msg()
+
+
+def _upscale_cfg(tmp_path):
+    return bridge.Config(
+        discord_token="t",
+        channel_id=1,
+        guild_id=None,
+        mj_imagine_version="v",
+        mj_imagine_command_id="c",
+        output_dir=tmp_path,
+        port=5000,
+    )
+
+
+def test_partial_upscale_download_failure_keeps_job_and_completes_on_survivors(
+    monkeypatch, tmp_path
+):
+    """Under upscale='all', one slot's DOWNLOAD failure must not fail the whole
+    job and discard siblings that landed or are still in flight. The press path
+    already tolerates partial failure; the download path used to abandon it,
+    job-wide _fail-ing on the first slot's download error. The failed slot is
+    recorded and dropped from pending, and the job completes on the survivors.
+    (review #6)"""
+    _reset_bridge_state()
+    clear()
+    bridge.cfg = _upscale_cfg(tmp_path)
+
+    job = Job(job_id="dlJ", asset_id="dlA", prompt="p", request_token="tokDL", upscale="all")
+    job.status = Status.UPSCALING
+    job.upscale_pending = [1, 2, 3, 4]
+    job.mj_job_uuid = "uuuuuuuu-uuuu-uuuu-uuuu-uuuuuuuuuuuu"
+    job.message_id = 100  # grid id, distinct from the SOLO ids below
+    JOBS[job.job_id] = job
+
+    def fake_download(url, path):
+        if "_u2" in str(path):
+            raise OSError("disk full on U2")
+        Path(path).write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 50)
+        return 58
+
+    monkeypatch.setattr(bridge, "_download_to", fake_download)
+
+    # Slot 2 lands first and its download fails — the job must survive.
+    bridge._ingest_message(_solo_upscale_msg(2, 902, "tokDL"))
+    assert job.status == Status.UPSCALING  # NOT failed
+    assert 2 in job.upscale_download_failures
+    assert 2 not in job.upscale_pending
+    assert "JOB_FAILED" not in _tags()
+
+    # The surviving slots land and the job completes on them.
+    bridge._ingest_message(_solo_upscale_msg(1, 901, "tokDL"))
+    bridge._ingest_message(_solo_upscale_msg(3, 903, "tokDL"))
+    bridge._ingest_message(_solo_upscale_msg(4, 904, "tokDL"))
+
+    assert job.status == Status.DONE
+    assert set(job.upscale_paths) == {1, 3, 4}  # U2 absent (its download failed)
+    assert all(v for v in job.upscale_paths.values())  # all real paths, no "" sentinel
+    tags = _tags()
+    assert tags.count("JOB_COMPLETED") == 1
+    assert "JOB_FAILED" not in tags
+    completed = next(r for r in snapshot() if r["tag"] == "JOB_COMPLETED")
+    assert completed["payload"]["upscales_completed"] == 3
+    # The download surface emits a per-slot incident (observability parity with
+    # the press path's UPSCALE_PRESS_FAILED) for the one slot that failed.
+    dropped = [r for r in snapshot() if r["tag"] == "UPSCALE_DOWNLOAD_DROPPED"]
+    assert len(dropped) == 1
+    assert dropped[0]["payload"]["slot"] == 2
+    assert dropped[0]["payload"]["error_code"] == "OSError"
+
+
+def test_last_slot_download_failure_after_survivor_completes_not_hangs(monkeypatch, tmp_path):
+    """The adversarial ordering: a survivor lands FIRST, then the LAST pending
+    slot's download fails. The job must complete on the survivor rather than
+    hang in UPSCALING with empty pending (a phantom only the reaper would catch
+    much later). Guards the failure-path's complete-on-empty-pending branch.
+    (review #6)"""
+    _reset_bridge_state()
+    clear()
+    bridge.cfg = _upscale_cfg(tmp_path)
+
+    job = Job(job_id="lastF", asset_id="lastA", prompt="p", request_token="tokL", upscale="all")
+    job.status = Status.UPSCALING
+    job.upscale_pending = [1, 2]
+    job.mj_job_uuid = "uuuuuuuu-uuuu-uuuu-uuuu-uuuuuuuuuuuu"
+    job.message_id = 300
+    JOBS[job.job_id] = job
+
+    def fake_download(url, path):
+        if "_u2" in str(path):
+            raise OSError("disk full on U2")
+        Path(path).write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 50)
+        return 58
+
+    monkeypatch.setattr(bridge, "_download_to", fake_download)
+
+    # Slot 1 lands; job stays UPSCALING (slot 2 still pending).
+    bridge._ingest_message(_solo_upscale_msg(1, 301, "tokL"))
+    assert job.status == Status.UPSCALING
+    # Slot 2 (the last pending one) fails — job completes on the survivor U1.
+    bridge._ingest_message(_solo_upscale_msg(2, 302, "tokL"))
+    assert job.status == Status.DONE
+    assert set(job.upscale_paths) == {1}
+    assert 2 in job.upscale_download_failures
+    tags = _tags()
+    assert tags.count("JOB_COMPLETED") == 1
+    assert "JOB_FAILED" not in tags
+
+
+def test_all_upscale_downloads_fail_fails_job(monkeypatch, tmp_path):
+    """When every slot's download fails (nothing landed, nothing still pending),
+    the job DOES terminate with UPSCALE_DOWNLOAD_FAILED — partial-tolerance only
+    keeps the job alive while some slot can still land. (review #6)"""
+    _reset_bridge_state()
+    clear()
+    bridge.cfg = _upscale_cfg(tmp_path)
+
+    job = Job(job_id="dlF", asset_id="dlA", prompt="p", request_token="tokF", upscale="all")
+    job.status = Status.UPSCALING
+    job.upscale_pending = [1, 2]
+    job.mj_job_uuid = "uuuuuuuu-uuuu-uuuu-uuuu-uuuuuuuuuuuu"
+    job.message_id = 200
+    JOBS[job.job_id] = job
+
+    def fake_download(url, path):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(bridge, "_download_to", fake_download)
+
+    # First slot fails but slot 2 is still pending — job stays alive.
+    bridge._ingest_message(_solo_upscale_msg(1, 201, "tokF"))
+    assert job.status == Status.UPSCALING
+
+    # Last slot fails too — nothing can land, so the job fails.
+    bridge._ingest_message(_solo_upscale_msg(2, 202, "tokF"))
+    assert job.status == Status.FAILED
+    assert job.error_code == "UPSCALE_DOWNLOAD_FAILED"
+    assert {1, 2} <= set(job.upscale_download_failures)
+    # A per-slot UPSCALE_DOWNLOAD_DROPPED fired for each failed download, in
+    # addition to the terminal JOB_FAILED — exactly as the press path pairs
+    # UPSCALE_PRESS_FAILED with UPSCALE_ALL_BUTTONS_FAILED.
+    assert _tags().count("UPSCALE_DOWNLOAD_DROPPED") == 2
+
+
+# ---------------------------------------------------------------------------
+# Inflight-stall reaper (review #7, #8)
+# ---------------------------------------------------------------------------
+
+
+def test_reaper_fails_stalled_inflight_jobs_resubmit_required(monkeypatch):
+    """A non-terminal job whose updated_at hasn't advanced past
+    INFLIGHT_TIMEOUT_SECONDS is a stall: MJ stopped editing the progress message,
+    or a rehydrated UPSCALING job's upscales never landed (its presses fired
+    pre-restart and can't be safely re-fired), or a SUBMITTED_UNCONFIRMED job MJ
+    never processed. Eviction only drops DONE/FAILED, so without the reaper it
+    sits as a permanent phantom row against MAX_JOBS. The reaper fails it
+    RESUBMIT_REQUIRED (already in the JOB_FAILED enum) so it becomes terminal and
+    evictable, and tells the operator to re-submit and verify. (review #7, #8)"""
+    _reset_bridge_state()
+    clear()
+    monkeypatch.setattr(bridge, "INFLIGHT_TIMEOUT_SECONDS", 100.0)
+    now = time.time()
+
+    def _job(jid, status, age):
+        j = Job(job_id=jid, asset_id=jid.upper(), prompt="p")
+        j.status = status
+        j.updated_at = now - age
+        return j
+
+    stalled_progress = _job("sp", Status.PROGRESS, 200)
+    stalled_upscaling = _job("su", Status.UPSCALING, 300)  # the #7 rehydrate phantom
+    stalled_unconfirmed = _job("sx", Status.SUBMITTED_UNCONFIRMED, 500)
+    fresh = _job("fr", Status.PROGRESS, 10)  # actively progressing — must survive
+    done = _job("dn", Status.DONE, 99999)  # terminal — never a candidate
+    with LOCK:
+        for j in (stalled_progress, stalled_upscaling, stalled_unconfirmed, fresh, done):
+            JOBS[j.job_id] = j
+        PENDING_GRID.extend(["sp", "su", "sx"])
+
+    reaped = bridge._reap_stalled_jobs()
+
+    assert reaped == 3
+    for j in (stalled_progress, stalled_upscaling, stalled_unconfirmed):
+        assert j.status == Status.FAILED
+        assert j.error_code == "RESUBMIT_REQUIRED"
+        assert j.job_id not in PENDING_GRID  # pulled from pending on reap
+    assert fresh.status == Status.PROGRESS  # untouched
+    assert done.status == Status.DONE  # untouched
+    failed = [r for r in snapshot() if r["tag"] == "JOB_FAILED"]
+    assert len(failed) == 3
+    assert all(r["payload"]["error_code"] == "RESUBMIT_REQUIRED" for r in failed)
+
+    # Idempotent: the reaped jobs are now terminal, so a second sweep is a no-op.
+    assert bridge._reap_stalled_jobs() == 0
+
+
+def test_reaper_noop_when_all_fresh(monkeypatch):
+    """No job past the timeout -> nothing reaped, nothing emitted. (review #8)"""
+    _reset_bridge_state()
+    clear()
+    monkeypatch.setattr(bridge, "INFLIGHT_TIMEOUT_SECONDS", 100.0)
+    now = time.time()
+    j = Job(job_id="fresh", asset_id="A", prompt="p")
+    j.status = Status.UPSCALING
+    j.updated_at = now - 5
+    with LOCK:
+        JOBS[j.job_id] = j
+
+    assert bridge._reap_stalled_jobs() == 0
+    assert j.status == Status.UPSCALING
+    assert "JOB_FAILED" not in _tags()

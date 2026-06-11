@@ -9,6 +9,7 @@ signal sequence (``MCP_TOOL_CALLED`` then ``MCP_TOOL_COMPLETED`` or
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -35,7 +36,7 @@ class _FakeBackend:
     v0.1; _run_tool dispatches them via asyncio.to_thread). Lets the
     bridge-facing tools be exercised with no live daemon."""
 
-    def imagine(self, prompt: str, asset_id: str, upscale=None) -> dict:
+    def imagine(self, prompt: str, asset_id: str, upscale=None, idempotency_key=None) -> dict:
         return {"job_id": "job-1", "asset_id": asset_id, "status": "submitted", "upscale": upscale}
 
     def wait(self, job_id: str, timeout: int = 180) -> dict:
@@ -206,6 +207,27 @@ async def test_imagine_tool_envelope_and_signals(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_imagine_tool_forwards_idempotency_key(monkeypatch):
+    """The imagine tool threads idempotency_key through to the backend so a
+    retried-with-the-same-key call can be replayed by the bridge instead of
+    double-submitting. (review #3 idempotency)"""
+    from cascade_img.interfaces.mcp import _envelope
+
+    clear()
+    captured: dict = {}
+
+    class _Cap:
+        def imagine(self, prompt, asset_id, upscale=None, idempotency_key=None):
+            captured["idempotency_key"] = idempotency_key
+            return {"job_id": "j", "asset_id": asset_id, "status": "submitted"}
+
+    monkeypatch.setattr(_envelope, "_backend", _Cap())
+    r = await imagine(prompt="p", asset_id="a", idempotency_key="IDEM-1")
+    assert r["ok"] is True
+    assert captured["idempotency_key"] == "IDEM-1"
+
+
+@pytest.mark.asyncio
 async def test_wait_status_health_tools(monkeypatch):
     from cascade_img.interfaces.mcp import _envelope
 
@@ -281,6 +303,31 @@ async def test_failure_path_returns_structured_error(tmp_path: Path):
     assert "code" in r["error"]
     assert r["error"]["code"] == "FileNotFoundError"
     assert "MCP_TOOL_FAILED" in _tags()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_tool_emits_failed_and_reraises():
+    """asyncio.CancelledError is a BaseException, so the broad ``except
+    Exception`` in _run_tool does NOT catch it: a cancelled tool call would
+    otherwise leave MCP_TOOL_CALLED unpaired (breaching the pairing invariant)
+    and swallow the cancellation. The dedicated clause emits
+    MCP_TOOL_FAILED(CANCELLED) to close the pair and re-raises so the cancel
+    propagates to the caller. (review #3)"""
+    from cascade_img.interfaces.mcp._envelope import _run_tool
+
+    clear()
+
+    async def _cancelled(**kwargs):
+        raise asyncio.CancelledError
+
+    with pytest.raises(asyncio.CancelledError):
+        await _run_tool("imagine", _cancelled)
+
+    # The CALLED/FAILED pair is closed — no unpaired CALLED left dangling.
+    assert _tags() == ["MCP_TOOL_CALLED", "MCP_TOOL_FAILED"]
+    failed = next(r for r in snapshot() if r["tag"] == "MCP_TOOL_FAILED")
+    assert failed["payload"]["error_code"] == "CANCELLED"
+    assert failed["payload"]["tool"] == "imagine"
 
 
 def test_serve_http_sets_host_port_on_settings(monkeypatch):

@@ -29,6 +29,38 @@ def test_subject_only_emits_minimal_prompt():
     assert rec["payload"]["aspect_ratio"] == "1:1"
 
 
+def test_whitespace_only_reference_fields_are_omitted():
+    """A whitespace-only moodboard/sref/oref (e.g. from a hand-edited registry)
+    is normalized to absent, so no value-less --p/--sref/--oref flag reaches the
+    prompt (MJ would silently treat a value-less --p as a default-profile
+    fallback, and a value-less --oref would swallow the following --ow value).
+    (review bug-hunt)"""
+    p = PromptComposer().compose(
+        Subject(text="a cat"),
+        style=StyleStack(moodboard="   ", sref="\t"),
+        identity=IdentityStack(oref="  ", ow=100),
+    )
+    assert "--p" not in p
+    assert "--sref" not in p
+    assert "--oref" not in p
+    # The degenerate input collapses to the same minimal prompt as no refs at all.
+    assert p == "a cat --ar 1:1 --v 7 --style raw"
+
+
+def test_surrounding_whitespace_trimmed_on_reference_fields():
+    """Valid values with surrounding whitespace are trimmed, not dropped."""
+    p = PromptComposer().compose(
+        Subject(text="a cat"),
+        style=StyleStack(moodboard="  m1  ", sref=" https://cdn/x.png "),
+        identity=IdentityStack(oref=" https://cdn/o.png ", ow=200),
+    )
+    assert "--p m1 " in p
+    assert "--sref https://cdn/x.png " in p
+    assert "--oref https://cdn/o.png " in p
+    # No doubled/leading whitespace smuggled into a flag value.
+    assert "--p   " not in p and "--sref  " not in p and "--oref  " not in p
+
+
 def test_subject_constraints_fold_into_prompt():
     p = PromptComposer().compose(
         Subject(

@@ -91,6 +91,16 @@ class StyleStack:
     style_raw: bool = True
 
     def __post_init__(self) -> None:
+        # Normalize the free-text reference fields: strip surrounding whitespace
+        # and treat a now-empty value as absent (None). Without this, a
+        # whitespace-only moodboard/sref (e.g. "   " from a hand-edited registry)
+        # is truthy at the compose() `if style.moodboard:` guard and emits a
+        # value-less `--p` / `--sref` flag — which Midjourney silently treats as a
+        # default-profile fallback or rejects, corrupting the render. Matches how
+        # "" is already omitted and the module's "None values are omitted" +
+        # validate-at-construction contract.
+        self.moodboard = (self.moodboard or "").strip() or None
+        self.sref = (self.sref or "").strip() or None
         if self.stylize is not None and not 0 <= self.stylize <= 1000:
             raise ValueError(
                 f"StyleStack.stylize must be 0-1000 per Midjourney's --s "
@@ -120,6 +130,10 @@ class IdentityStack:
     ow: int = 100
 
     def __post_init__(self) -> None:
+        # Strip surrounding whitespace and treat a now-empty oref as absent, so a
+        # whitespace-only oref is omitted rather than emitted as a value-less
+        # `--oref` flag (which would also swallow the following `--ow` value).
+        self.oref = (self.oref or "").strip() or None
         if not 0 <= self.ow <= 1000:
             raise ValueError(
                 f"IdentityStack.ow must be 0-1000 per Midjourney's --ow range; got {self.ow!r}."

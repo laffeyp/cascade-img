@@ -4,7 +4,7 @@ How to run `cascade-img` end-to-end against a real Midjourney account, what brea
 
 > **Context.** Midjourney has no public API. Driving it through a Discord user account is the established OSS pattern for programmatic access. Both Discord's and Midjourney's Terms of Service prohibit user-account automation. See [TOS.md](./TOS.md).
 
-> **The point of the package.** cascade-img is built to be driven by an **LLM agent** over its MCP tools: the agent composes a prompt, fires the generation, waits, inspects the image, curates the winner, and logs the attempt — looping without a human on every roll, reading its own log to decide the next move. That agent loop is what cascade-img is *for*; the CLI and Python paths are conveniences for scripting and embedding. The loop itself is specified in **[LLM-agent operation](#llm-agent-operation)** below — if you read one section, read that one.
+> **The point of the package.** cascade-img is built to be driven by an **LLM agent** over its MCP tools: the agent composes a prompt, fires the generation, waits, inspects the image, curates the winner, and logs the attempt — looping without a human on every roll, reading its own log to decide the next move. Most of the time, though, you're watching it happen and directing — steering the work in plain language instead of doing it by hand, and stepping in whenever you want. That agent loop is what cascade-img is *for*; the CLI and Python paths are conveniences for scripting and embedding. The loop itself is specified in **[LLM-agent operation](#llm-agent-operation)** below — if you read one section, read that one.
 
 ---
 
@@ -26,7 +26,7 @@ If missing: `brew install python@3.14`.
 ```bash
 pip install cascade-img
 # or, into a venv:
-python3.11 -m venv .venv
+python3.14 -m venv .venv
 source .venv/bin/activate
 pip install cascade-img
 ```

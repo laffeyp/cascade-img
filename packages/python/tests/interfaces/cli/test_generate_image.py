@@ -232,3 +232,139 @@ def test_non_dry_run_dispatches_sync_backend_via_to_thread(tmp_path, monkeypatch
     records = [json.loads(line) for line in log_path.read_text().splitlines() if line.strip()]
     assert len(records) == 1
     assert records[0]["job_id"] == "stub-job-1"
+
+
+# --------------------- failure-path contracts (review remediation) ---------
+
+
+def test_failed_wait_returns_structured_error_with_code(tmp_path, monkeypatch):
+    """On a real job failure (status=='failed') the CLI must return the bridge's
+    stable error_code inside a {code, message, remediation} envelope — NOT the
+    bridge's bare error string, which drops the code a caller branches on. Every
+    other error path and the module docstring promise the structured shape; this
+    failed-wait path is the one the suite never exercised. (review #1)"""
+    clear()
+    reg_path = _write_registry(tmp_path, REGISTRY_SAMPLE)
+    log_path = tmp_path / "log.jsonl"
+
+    class _FailingBackend:
+        def __init__(self, base_url: str) -> None:
+            self.base_url = base_url
+
+        def imagine(self, prompt, asset_id, upscale=None):
+            return {"job_id": "job-fail", "asset_id": asset_id, "status": "submitted"}
+
+        def wait(self, job_id, timeout=180):
+            return {
+                "status": "failed",
+                "error": "discord 400: This command is outdated",
+                "error_code": "DISCORD_400_OUTDATED",
+                "image_path": None,
+                "grid_path": None,
+                "upscale_paths": {},
+            }
+
+    import cascade_img.interfaces.cli.generate_image as cli_mod
+
+    monkeypatch.setattr(cli_mod, "MidjourneyDiscordBackend", _FailingBackend)
+
+    result = asyncio.run(
+        cli_mod.run(
+            asset_id="mountain-icon",
+            registry_path=reg_path,
+            upscale=None,
+            bridge_url="http://127.0.0.1:9999",
+            log_path=log_path,
+            dry_run=False,
+        )
+    )
+
+    assert result["ok"] is False
+    assert result["status"] == "failed"
+    # The structured envelope carries the stable code, not the bare error string.
+    assert isinstance(result["error"], dict)
+    assert result["error"]["code"] == "DISCORD_400_OUTDATED"
+    assert "outdated" in result["error"]["message"]
+    assert "remediation" in result["error"]
+    assert "CLI_ROLL_COMPLETED" in _tags()
+
+
+def test_done_wait_carries_null_error(tmp_path, monkeypatch):
+    """The happy path's error key is None (not the bare string), mirroring the
+    corrected docstring. (review #1 / #11)"""
+    clear()
+    reg_path = _write_registry(tmp_path, REGISTRY_SAMPLE)
+
+    class _DoneBackend:
+        def __init__(self, base_url: str) -> None: ...
+
+        def imagine(self, prompt, asset_id, upscale=None):
+            return {"job_id": "job-ok", "status": "submitted"}
+
+        def wait(self, job_id, timeout=180):
+            return {"status": "done", "image_path": "/tmp/x.png", "error": None}
+
+    import cascade_img.interfaces.cli.generate_image as cli_mod
+
+    monkeypatch.setattr(cli_mod, "MidjourneyDiscordBackend", _DoneBackend)
+    result = asyncio.run(
+        cli_mod.run(
+            asset_id="mountain-icon",
+            registry_path=reg_path,
+            upscale=None,
+            bridge_url="http://127.0.0.1:9999",
+            log_path=tmp_path / "log.jsonl",
+            dry_run=False,
+        )
+    )
+    assert result["ok"] is True
+    assert result["error"] is None
+
+
+def test_sw_stylize_coerced_to_int(tmp_path):
+    """sw/stylize accept stringified numbers (registries are hand-edited JSON)
+    and reach the composer as ints, not raw strings — the loader previously
+    passed them through un-coerced, unlike ow/aspect_ratio. (review #9)"""
+    p = _write_registry(tmp_path, {"icon": {"subject": "an icon", "sw": "50", "stylize": "250"}})
+    reg = load_registry(p)
+    assert reg["icon"].sw == 50 and isinstance(reg["icon"].sw, int)
+    assert reg["icon"].stylize == 250 and isinstance(reg["icon"].stylize, int)
+
+
+def test_non_numeric_sw_rejected_at_load(tmp_path):
+    """A non-numeric sw fails at load time (where load_registry wraps it into the
+    ValueError the CLI envelopes) rather than crashing the composer with a raw
+    traceback downstream. (review #9)"""
+    p = _write_registry(tmp_path, {"icon": {"subject": "an icon", "sw": "huge"}})
+    with pytest.raises(ValueError, match="icon"):
+        load_registry(p)
+
+
+def test_compose_failure_is_enveloped(tmp_path, monkeypatch):
+    """A registry the loader accepted can still carry a value the composer
+    rejects; _compose() must run inside the envelope so the CLI returns a
+    structured CLI_ROLL_FAILED rather than crashing with a raw traceback.
+    (review #9)"""
+    clear()
+    reg_path = _write_registry(tmp_path, REGISTRY_SAMPLE)
+    import cascade_img.interfaces.cli.generate_image as cli_mod
+
+    def _boom(entry):
+        raise ValueError("composer rejected a param")
+
+    monkeypatch.setattr(cli_mod, "_compose", _boom)
+
+    result = asyncio.run(
+        cli_mod.run(
+            asset_id="mountain-icon",
+            registry_path=reg_path,
+            upscale=None,
+            bridge_url="http://127.0.0.1:9999",
+            log_path=tmp_path / "log.jsonl",
+            dry_run=True,
+        )
+    )
+    assert result["ok"] is False
+    assert result["error"]["code"] == "ValueError"
+    assert "composer rejected" in result["error"]["message"]
+    assert "CLI_ROLL_FAILED" in _tags()

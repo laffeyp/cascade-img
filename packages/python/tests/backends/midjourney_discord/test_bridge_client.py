@@ -114,3 +114,47 @@ def test_wait_504_returns_timed_out_without_raising(monkeypatch):
     )
     out = bk.MidjourneyDiscordBackend().wait("j", timeout=1)
     assert out["timed_out"] is True
+
+
+def test_wait_504_with_non_json_body_returns_timed_out(monkeypatch):
+    """A 504 from an intermediary (reverse proxy / LB) commonly carries an HTML
+    body. wait() must still return timed_out=True rather than letting r.json()'s
+    ValueError propagate — a caller would mistake that for a hard failure and
+    lose the 'still rendering, poll, do NOT re-roll' semantics. (review bug-hunt)"""
+
+    class _NonJsonResp:
+        status_code = 504
+        text = "<html>504 Gateway Timeout</html>"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def json(self):
+            raise ValueError("Expecting value: line 1 column 1 (char 0)")
+
+    monkeypatch.setattr(bk.requests, "get", lambda *a, **k: _NonJsonResp())
+    out = bk.MidjourneyDiscordBackend().wait("j", timeout=1)
+    assert out == {"timed_out": True}
+
+
+def test_imagine_sends_idempotency_key_in_body_when_given(monkeypatch):
+    """backend.imagine threads idempotency_key into the POST body so the bridge
+    can replay instead of double-submitting; it is omitted entirely when not
+    given (idempotency strictly opt-in). (review #3)"""
+    captured: dict = {}
+
+    def _fake_post(url, json=None, timeout=None):
+        captured["json"] = json
+        return _FakeResp({"job_id": "j", "asset_id": "a", "status": "submitted"})
+
+    monkeypatch.setattr(bk.requests, "post", _fake_post)
+    be = bk.MidjourneyDiscordBackend()
+
+    be.imagine("p", "a", idempotency_key="IDEM-9")
+    assert captured["json"]["idempotency_key"] == "IDEM-9"
+
+    be.imagine("p", "a")  # no key -> omitted
+    assert "idempotency_key" not in captured["json"]

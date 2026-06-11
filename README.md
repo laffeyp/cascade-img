@@ -7,12 +7,31 @@
 
 An image-generation pipeline an LLM can drive. It runs Midjourney through Discord today; it will run other image generation service API's using the same interface later.
 
-The Midjourney prompt is split into composable parts you can set independently. A JSONL prompt log records every attempt so the next iteration knows what's been tried. An MCP server exposes all of this to Claude Desktop, Cursor, Cline, or any MCP-aware host — so an agent can compose, generate, curate, and log without a human on every attempt.
+Midjourney is a text-to-image generator: you write a sentence describing a picture — "a flat-design icon of a mountain" — and it paints it, one of the strongest models for stylized, art-directed work. You drive it with an `/imagine <prompt>` command and it answers with a 2×2 grid of four candidates; you pick one and *upscale* it to full resolution. (It needs a paid subscription — [midjourney.com](https://midjourney.com).)
 
-> **The point: an agent runs the loop.** cascade-img's main mode is letting an LLM agent drive the whole loop over the MCP tools — compose → generate → wait → inspect → curate → log, iterating on its own prompt log without a human on every roll. The CLI and Python API are conveniences for scripting and embedding; the agent loop is why the package exists. [AGENTS.md](./AGENTS.md) is the operator's guide.
+cascade-img wraps that flow. The Midjourney prompt is split into composable parts you set independently, a JSONL log records every attempt so the next iteration knows what's been tried, and an MCP server — the protocol [Claude Desktop, Cursor, and Cline](https://modelcontextprotocol.io) use to call tools — exposes the whole thing so an agent can compose, generate, curate, and log without a human on every attempt.
+
+## How you actually use it
+
+The intention is that your own words are the interface. Instead of learning Midjourney's prompt syntax or clicking through Discord, you tell an AI assistant what you want and it drives everything:
+
+- **Ask in plain language** — "a set of flat-design weather icons, all in one style" — and the assistant builds the actual Midjourney prompt from reusable parts (subject, style reference, aspect ratio) for you.
+- **It runs the loop** — generates the four candidates, waits, looks at them, picks the best, crops and cleans it up, and saves it to a known folder. No command line, no `/imagine`.
+- **Everything is recorded** — each attempt (the prompt, the result, why it was kept or re-rolled) goes into a log the assistant reads back the next round, so it builds on what's been tried instead of starting over.
+- **You iterate by talking** — "tighter and more minimal," "three more like the second one," "now a wide version for a banner." It re-rolls, varies, zooms, pans, or animates without you learning any of those commands.
+
+In practice you can go from an idea to a folder of finished, consistent, organized assets in a single conversation — generating and discarding options far faster than by hand, with a written trail of exactly what produced each final image. The CLI and Python API are there for scripting and embedding, but the agent loop is the point; [AGENTS.md](./AGENTS.md) is the guide an assistant reads once.
+
+## No idea what you're doing? Start here
+
+You don't have to be a programmer, or know what any of the above means. The tool is built to be run by an AI assistant, and it ships with a step-by-step setup guide ([RUNBOOK.md](./RUNBOOK.md)) written for exactly that. Open an AI assistant that can run commands on your computer — [Claude Code](https://claude.com/claude-code), Cursor, or Cline — point it at this repository, and ask it to do the whole thing for you:
+
+> Read RUNBOOK.md and set up cascade-img on this machine, then let me make images by describing them to you. Walk me through the couple of steps only I can do.
+
+It has the full context — the guide lists every step and everything that can go wrong — so it runs the commands, handles the technical parts, and answers your questions as they come up. The two steps that are yours, a Midjourney subscription and copying a couple of values out of Discord, it walks you through as well.
 
 
-Midjourney comes first by design. Midjourney has no public API, so driving it through a Discord acount is actually already an established way of using it. It is tackled first precisely because it is more work. With that done, adding the other integrations is the easier work.
+Midjourney comes first by design. Midjourney has no public API, so driving it through a Discord account is actually already an established way of using it. It is tackled first precisely because it is more work. With that done, adding the other integrations is the easier work.
 
 > **Context.** Midjourney has no public API. Driving it through a Discord user account is the established OSS pattern for programmatic access. Of course, both Discord and Midjourney's Terms of Service prohibit user-account automation. See [TOS.md](./TOS.md).
 
@@ -30,12 +49,14 @@ Most of the loop is mechanical: compose the prompt from reusable parts, fire it,
 
 ## Quickstart
 
-**Prerequisites.** A Midjourney subscription and a Discord account that can run
-`/imagine` in a channel where the Midjourney bot is present, plus Python 3.14
-(the current stable release — cascade-img targets the latest stable Python).
-cascade-img drives *your own* Midjourney account
-[through Discord](https://docs.midjourney.com/hc/en-us/sections/32013439485197-Using-Discord)
-and runs locally on your machine.
+**Before you start, you need:**
+
+- A **paid Midjourney subscription** ([midjourney.com](https://midjourney.com)).
+- A **Discord account where you can run `/imagine`** and get a grid back — i.e. the Midjourney bot is in one of your channels. New to this: subscribe to Midjourney and use it [through Discord](https://docs.midjourney.com/hc/en-us/sections/32013439485197-Using-Discord), or invite the MJ bot to your own server.
+- **Python 3.14** (`brew install python@3.14` on macOS) — cascade-img targets the latest stable Python.
+- About five minutes to capture three values from the Discord desktop app's DevTools (token, channel ID, command version); [RUNBOOK.md](./RUNBOOK.md) walks each one.
+
+cascade-img drives *your own* Midjourney account and runs locally on your machine.
 
 ### 1. Install
 
@@ -125,9 +146,17 @@ JSON to stdout, exit 0 on `done`; generated images land in `./generated`.
 
 ---
 
+## Midjourney terms
+
+The Midjourney shorthand the rest of these docs use:
+
+**prompt** — the text + flags you send Midjourney · **grid** — the 2×2 set of four candidates Midjourney returns per prompt · **quadrant / U1–U4** — the four cells of the grid; "U2" means upscale the second · **upscale** — render one cell at full resolution · **aspect ratio (`--ar`)** — output shape (1:1, 16:9, …) · **sref** — an image whose *style* Midjourney should borrow · **oref** — an image whose *subject identity* it should keep across new poses/angles · **moodboard (`--p`)** — a saved Midjourney personalization profile · **stylize (`--s`)** — how strongly Midjourney applies its own aesthetic (lower = more literal).
+
+---
+
 ## How this differs
 
-Most Midjourney tools just pass your prompt through and hand back the image. cascade-img does the work around that: it builds the prompt from reusable named parts, crops and cleans up the result, and keeps a record of every attempt so each round can build on the last.
+Most Midjourney drivers focus on the generation step itself — fire the prompt, hand back the image. cascade-img does the work around that: it builds the prompt from reusable named parts, crops and cleans up the result, and keeps a record of every attempt so each round can build on the last.
 
 ```python
 from cascade_img.prompt.composer import PromptComposer, Subject, StyleStack, IdentityStack
@@ -145,19 +174,9 @@ prompt = PromptComposer().compose(
 )
 ```
 
-Compared to other OSS Midjourney drivers:
+Other open-source options exist — [erictik/midjourney-api](https://github.com/erictik/midjourney-api) (a Node library), [novicezk/midjourney-proxy](https://github.com/novicezk/midjourney-proxy) (a Java HTTP proxy), and a few paid REST proxies that wrap the same Discord mechanism behind a hosted API. Any of them will get you a generated image.
 
-| | cascade-img | erictik/midjourney-api | novicezk/midjourney-proxy | Paid REST proxies |
-|---|---|---|---|---|
-| Drives MJ V7 | yes | raw passthrough (no v7 awareness) | OSS no, paid fork yes | yes |
-| Composable prompt parts (moodboard, sref, oref, ow as named inputs) | yes | no | no | passes raw strings |
-| Local HTTP bridge | yes | no (library only) | yes (Java) | n/a (hosted) |
-| Curation kit (grid crop, alpha key, promote) | yes | no | no | no |
-| Append-only prompt log | yes | no | no | no |
-| MCP server | yes | no | no | no |
-| Structured-error envelope with stable codes | yes | no | not documented | partial |
-| Pluggable backend (Flux / DALL-E / Imagen on the same interface in v0.3+) | interface; backends v0.3+ | MJ only | MJ only | provider-locked |
-| License | Apache-2.0 | Apache-2.0 | Apache 2.0 | proprietary |
+What cascade-img adds is the work *around* the generation: composable prompt parts instead of raw strings, a curation kit (grid crop, alpha key, promote), an append-only prompt log, an MCP server so an LLM agent can run the whole loop, and a structured-error envelope with stable codes — with one backend interface so Flux, DALL-E, and Imagen can slot in later (v0.3+). If you just need to fire a prompt and get an image back, the simpler drivers are a fine fit; cascade-img is for driving the full iterate-and-curate loop, especially from an agent.
 
 ---
 
@@ -208,11 +227,11 @@ top-level Markdown plus that package.
 
 | version | headline |
 |---|---|
-| v0.1 (current) | MJ V7 backend, prompt composer, curation kit (crop + flood-fill alpha key + promote), MCP server, AGENTS.md, prompt templates, Python package. **Python-only** — TypeScript wrapper is a v0.3 deliverable (the `@greenrosesystems/cascade-img` placeholder on npm reserves the name). |
-| v0.2 | Midjourney command expansion: `/describe`, `/show`, Vary Region (inpaint), `/blend`, `/shorten`, `/tune`, `/info` |
-| v0.3 | TypeScript wrapper (BridgeClient + PromptComposer + Zod types + Node-native MCP server), Flux via Fal + OpenAI `gpt-image-1` backends, Windows bridge |
-| v0.4 | Flux Kontext (instruction-edit), bundled-binary install path |
-| v0.5 | Imagen, Ideogram, Recraft backends |
+| v0.1 (current) | MJ V7 backend, prompt composer, curation kit (crop + flood-fill alpha key + promote), MCP server, AGENTS.md, prompt templates, Python package. |
+| v0.2 | More Midjourney commands (`/describe`, `/show`, Vary Region inpaint, `/blend`, `/shorten`, `/tune`, `/info`); internal code cleanup — break apart the large bridge module and split the long ingest function. |
+| v0.3 | A TypeScript wrapper; the first API backends — [Flux](https://bfl.ai/) via [Fal](https://fal.ai/) (with instruction-edit through [Flux Kontext](https://bfl.ai/models/flux-kontext)) and [Ideogram](https://ideogram.ai/) for reliable in-image text; Windows bridge. |
+| v0.4 | More backends — [Google Imagen](https://deepmind.google/models/imagen/) and [Recraft](https://www.recraft.ai/) (native vector/SVG output); bundled-binary install path. |
+| v0.5 | [OpenAI gpt-image](https://openai.com/api/) and [Stable Diffusion](https://stability.ai/stable-image) backends. |
 | v1.0 | API stable across two minor releases, three backends in production |
 
 Because every backend implements one interface, a later release can chain them: generate on one provider, refine or instruction-edit on a second (e.g. Flux Kontext), then upscale or restyle on a third — passing each image as the next step's input. cascade-img becomes the relay that moves an image between providers, using each for what it does best.

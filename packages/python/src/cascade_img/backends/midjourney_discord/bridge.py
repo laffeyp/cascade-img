@@ -38,7 +38,6 @@ import time
 import uuid
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -55,6 +54,13 @@ from cascade_img.vocabulary import emit
 # tune for their own job-rate / memory profile.
 MAX_JOBS = int(os.environ.get("CASCADE_MAX_JOBS", "1000"))
 TERMINAL_AGE_SECONDS = float(os.environ.get("CASCADE_TERMINAL_AGE_SECONDS", "3600"))
+# A non-terminal job whose updated_at hasn't advanced within this window is
+# treated as stalled and failed RESUBMIT_REQUIRED by the reaper (see
+# _reap_stalled_jobs). updated_at is touched on every progress edit / slot
+# landing, so this is "max silence", not "max total duration": a healthy
+# upscale="all" job that is actively progressing never trips it. Generous by
+# default (15 min of total silence) so only genuine stalls are reaped.
+INFLIGHT_TIMEOUT_SECONDS = float(os.environ.get("CASCADE_INFLIGHT_TIMEOUT_SECONDS", "900"))
 
 
 PACKAGE_VERSION = "0.1.0"  # bumped in lock-step with pyproject.toml
@@ -251,9 +257,15 @@ class Status(StrEnum):
 # Capture the ``--no`` value up to (but not including) the next ``--flag`` or the
 # end of string. The lookahead — rather than end-anchoring — stops a ``--no`` that
 # sits mid-prompt from swallowing trailing flags like ``--ar``/``--s`` (which
-# would otherwise be folded into the negative-prompt list). The composer always
-# emits ``--no`` last, but a hand-crafted raw prompt may not.
-_NO_CLAUSE_RE = re.compile(r"--no\s+(.+?)(?=\s+--|\s*$)")
+# would otherwise be folded into the negative-prompt list). The ``(?!--)`` guard
+# covers the degenerate case the lookahead alone misses: a value-less ``--no``
+# immediately followed by a flag (``--no --ar 1:1``). Without it the value group
+# would have to consume at least one char and would swallow ``--ar 1:1`` into the
+# negative list, silently dropping the aspect ratio; with the guard the ``--no``
+# simply doesn't match, the needle is appended as a fresh clause, and the real
+# flag is left intact. The composer always emits ``--no`` last with a value, so
+# it never triggers this; a hand-crafted raw prompt may.
+_NO_CLAUSE_RE = re.compile(r"--no\s+(?!--)(.+?)(?=\s+--|\s*$)")
 
 
 def _merge_no_clause(prompt: str, token: str) -> str:
@@ -313,8 +325,23 @@ class Job:
     # every requested slot's press fails, the job terminates with
     # UPSCALE_ALL_BUTTONS_FAILED. Empty when no presses failed.
     upscale_press_failures: dict[int, str] = field(default_factory=dict)
+    # Per-slot upscale DOWNLOAD failures (slot -> error message). Mirrors
+    # upscale_press_failures for the second failure surface: under upscale="all"
+    # one slot's PNG download can fail while siblings land. The job stays
+    # UPSCALING and completes on the surviving slots; only when no slot can land
+    # (none downloaded, none still pending) does it terminate with
+    # UPSCALE_DOWNLOAD_FAILED. Empty when no downloads failed.
+    upscale_download_failures: dict[int, str] = field(default_factory=dict)
     error: str | None = None
     error_code: str | None = None
+    # Client-supplied idempotency key (optional). When a caller fires /imagine
+    # with a key already attached to a live job, the bridge replays that job
+    # instead of submitting again — closing the double-submit/double-bill window
+    # a cancelled-mid-imagine MCP call can open (the orphaned worker-thread POST
+    # lands, then the agent retries). Deliberately NOT keyed on asset_id: that
+    # would reject legitimate re-rolls. A retry must reuse the key to dedup; a
+    # fresh roll gets a fresh key (or none) and a fresh job.
+    idempotency_key: str | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     # "pending" = matched while still in PENDING_GRID; "progress_fallback" =
@@ -395,6 +422,19 @@ def _persist(job: Job) -> None:
         # restart's _job_from_row would drop the claimed-but-undownloaded entry
         # and orphan the file. Only complete (path-bearing) derived rows persist.
         row["derived"] = [d for d in row.get("derived") or [] if d.get("path")]
+        # Same reservation-sentinel hazard for the grid and per-slot upscale
+        # paths: _ingest sets ``grid_path=""`` / ``upscale_paths[idx]=""`` under
+        # LOCK before the download, and a concurrent touch() can snapshot the job
+        # mid-download. A persisted "" rehydrates as a claimed-but-empty slot the
+        # matchers treat as already-downloaded (``grid_path is not None`` /
+        # ``idx in upscale_paths``) and never re-claim — a permanent non-terminal
+        # phantom. Strip them so a restart re-matches and re-downloads, exactly
+        # as the derived path above already does.
+        if row.get("grid_path") == "":
+            row["grid_path"] = None
+        row["upscale_paths"] = {
+            k: v for k, v in (row.get("upscale_paths") or {}).items() if v != ""
+        }
         _store.put(row)
     except Exception as e:  # durability is best-effort; never break the live path
         log.warning(f"job-store persist failed for {job.job_id}: {e}")
@@ -491,19 +531,99 @@ def _evict_if_needed() -> None:
             break  # all over-cap jobs are in-flight; let it grow this round
 
 
+# Non-terminal statuses: a job in any of these is still in flight and not yet
+# evictable (eviction only drops DONE/FAILED). The reaper watches them for
+# stalls; everything not listed here is terminal.
+_NON_TERMINAL_STATUSES = (
+    Status.QUEUED,
+    Status.SUBMITTED,
+    Status.SUBMITTED_UNCONFIRMED,
+    Status.PROGRESS,
+    Status.UPSCALING,
+)
+
+
+def _reap_stalled_jobs() -> int:
+    """Fail in-flight jobs that have gone silent past INFLIGHT_TIMEOUT_SECONDS.
+
+    A non-terminal job whose ``updated_at`` hasn't advanced within the timeout is
+    a stall: MJ stopped editing the progress message, a rehydrated UPSCALING
+    job's upscales never landed (its presses fired pre-restart and can't be
+    safely re-fired), or a SUBMITTED_UNCONFIRMED job MJ never processed. Left
+    alone it sits non-terminal forever — eviction only drops DONE/FAILED, so it
+    is never TTL/LRU-reaped and remains a permanent phantom row against
+    MAX_JOBS. Failing it RESUBMIT_REQUIRED makes it terminal (hence evictable)
+    and tells the operator to re-submit and verify rather than the daemon risking
+    a double-bill by silently re-firing. Returns the count reaped.
+
+    Race-safe: each candidate is re-checked under TERMINAL_CV (an RLock-backed
+    condition, so ``_fail`` re-enters cleanly) so a job that completed between the
+    scan and the fail is left alone.
+    """
+    now = time.time()
+    reaped = 0
+    with LOCK:
+        candidates = [
+            j
+            for j in JOBS.values()
+            if j.status in _NON_TERMINAL_STATUSES
+            and (now - j.updated_at) > INFLIGHT_TIMEOUT_SECONDS
+        ]
+    for job in candidates:
+        with TERMINAL_CV:
+            if job.status not in _NON_TERMINAL_STATUSES:
+                continue  # raced to terminal between the scan and now
+            prior = job.status
+            age = int(now - job.updated_at)
+            job._fail(
+                "RESUBMIT_REQUIRED",
+                f"in-flight job stalled — no progress for {age}s (was {prior}); "
+                "Midjourney outcome unconfirmable, re-submit and verify.",
+            )
+            if job.job_id in PENDING_GRID:
+                PENDING_GRID.remove(job.job_id)
+        log.warning(
+            f"[{job.asset_id}] reaped stalled job {job.job_id} "
+            f"RESUBMIT_REQUIRED after {age}s of no progress"
+        )
+        reaped += 1
+    return reaped
+
+
+def _reaper_loop(interval: float) -> None:
+    """Periodic stalled-job sweep until shutdown. Sleeps on ``_shutdown_event``
+    so a SIGINT/SIGTERM cuts the wait short."""
+    while not _shutdown_event.wait(timeout=interval):
+        try:
+            _reap_stalled_jobs()
+        except Exception as e:  # a sweep failure must never kill the reaper
+            log.warning(f"reaper sweep failed: {type(e).__name__}: {e}")
+
+
 def _job_from_row(row: dict) -> Job:
     """Reconstruct a Job from a stored row, coercing the JSON-lossy fields:
     ``status`` back to the Status enum, and the int-keyed dicts (JSON
     stringifies dict keys) back to int keys."""
     row = dict(row)
     row["status"] = Status(row["status"])
-    row["upscale_paths"] = {int(k): v for k, v in (row.get("upscale_paths") or {}).items()}
+    # Drop reservation sentinels ("" placeholders set under LOCK before a
+    # download) symmetrically with _persist: a rehydrated "" would look like a
+    # claimed-but-empty slot the matchers never re-claim. Stripping restores the
+    # slot to a re-matchable state so the restart re-downloads.
+    if row.get("grid_path") == "":
+        row["grid_path"] = None
+    row["upscale_paths"] = {
+        int(k): v for k, v in (row.get("upscale_paths") or {}).items() if v != ""
+    }
     row["upscale_message_ids"] = {
         int(k): int(v) for k, v in (row.get("upscale_message_ids") or {}).items()
     }
     row["upscale_pending"] = [int(x) for x in (row.get("upscale_pending") or [])]
     row["upscale_press_failures"] = {
         int(k): v for k, v in (row.get("upscale_press_failures") or {}).items()
+    }
+    row["upscale_download_failures"] = {
+        int(k): v for k, v in (row.get("upscale_download_failures") or {}).items()
     }
     # Drop any derived entry still on its reservation sentinel (path==""): if a
     # concurrent touch() snapshotted the job mid-download, the store can hold a
@@ -516,8 +636,15 @@ def _rehydrate_jobs() -> int:
     """Restore non-terminal jobs from the store into JOBS at startup. Returns
     the count restored.
 
-    PROGRESS / UPSCALING jobs have a grid (or upscale) genuinely in flight that
-    the message matchers can still claim after a restart, so they resume intact.
+    PROGRESS jobs have a grid genuinely in flight that the grid matcher can still
+    claim if MJ posts it after the restart, so they resume. UPSCALING jobs are
+    subtler: their U-button presses already fired before the restart and cannot
+    be safely re-fired (a second press double-bills), so they resume ONLY if MJ
+    posts the SOLO upscale messages after the daemon is back up — the upscale
+    matcher claims those. An UPSCALING (or PROGRESS) job whose result never
+    arrives would otherwise sit non-terminal forever; the inflight reaper
+    (:func:`_reap_stalled_jobs`) catches that stall and fails it
+    RESUBMIT_REQUIRED, the same terminal the pre-grid case below uses.
 
     Pre-grid jobs (QUEUED / SUBMITTED / SUBMITTED_UNCONFIRMED) are NOT trusted:
     across a daemon restart it is unknowable whether Midjourney processed the
@@ -672,6 +799,18 @@ def _match_upscale(content: str) -> tuple[Job, int] | None:
                 continue
             if _token_needle(job.request_token) in content:
                 return job, idx
+    return None
+
+
+def _find_job_by_idempotency_key(key: str) -> Job | None:
+    """Return the newest live job created under ``key``, or None. Called under
+    LOCK. O(n) over JOBS (bounded by MAX_JOBS) — no reverse index to drift out
+    of sync with eviction/rehydration. Idempotency is naturally bounded by job
+    retention: once a job is evicted, its key no longer dedups (standard
+    idempotency-key expiry)."""
+    for job in reversed(JOBS.values()):  # newest-first by insertion order
+        if job.idempotency_key == key:
+            return job
     return None
 
 
@@ -1299,16 +1438,65 @@ def _ingest_message_impl(message, event: str = "message"):
         try:
             up_bytes = _download_to(att.url, out_path)
         except Exception as e:
+            # Partial-tolerance, mirroring the press path (see the press-failure
+            # handling above): under upscale="all" one slot's download failure
+            # must not discard siblings that already landed or are still in
+            # flight. Record the per-slot failure, drop this slot from pending,
+            # and only fail the whole job when NO slot can still land — nothing
+            # downloaded and nothing pending. The single-slot upscale case (one
+            # slot total) still fails the job, since that slot was the only
+            # result expected.
             with LOCK:
                 # Release the reservation so a later edit of the same slot can
                 # re-claim instead of seeing a permanently-reserved sentinel.
                 if parent.upscale_paths.get(idx) == "":
                     parent.upscale_paths.pop(idx, None)
-            parent._fail(
-                "UPSCALE_DOWNLOAD_FAILED",
-                f"upscale U{idx} download failed: {e}",
+                parent.upscale_download_failures[idx] = f"{type(e).__name__}: {e}"
+                if idx in parent.upscale_pending:
+                    parent.upscale_pending.remove(idx)
+                landed = any(v for v in parent.upscale_paths.values())
+                remaining = list(parent.upscale_pending)
+                parent.touch()
+            # Per-slot incident, fired for every failed download (mirrors the
+            # press path's UPSCALE_PRESS_FAILED) so the download surface has the
+            # same observability — the job's survival decision follows below.
+            emit(
+                "UPSCALE_DOWNLOAD_DROPPED",
+                asset_id=parent.asset_id,
+                job_id=parent.job_id,
+                slot=idx,
+                error_code=type(e).__name__,
+                error_message=str(e)[:500],
             )
-            log.error(f"[{parent.asset_id}] {parent.error}")
+            if not landed and not remaining:
+                # Nothing downloaded and nothing left in flight — no path to a result.
+                detail = "; ".join(
+                    f"U{n}: {d}" for n, d in sorted(parent.upscale_download_failures.items())
+                )
+                parent._fail(
+                    "UPSCALE_DOWNLOAD_FAILED",
+                    f"all upscale downloads failed — {detail}",
+                )
+                log.error(f"[{parent.asset_id}] {parent.error}")
+                return
+            if not remaining:
+                # This failed slot was the LAST pending one, but earlier slots
+                # landed — complete the job on the survivors instead of leaving it
+                # stuck in UPSCALING (which only the inflight reaper would catch,
+                # much later). Mirrors the success path's complete-on-empty-pending.
+                log.warning(
+                    f"[{parent.asset_id}] upscale U{idx} download failed "
+                    f"({type(e).__name__}: {e}); completing on survivors "
+                    f"{sorted(k for k, v in parent.upscale_paths.items() if v)}"
+                )
+                parent._complete()
+                return
+            log.warning(
+                f"[{parent.asset_id}] upscale U{idx} download failed "
+                f"({type(e).__name__}: {e}); continuing — "
+                f"landed={sorted(k for k, v in parent.upscale_paths.items() if v)} "
+                f"pending={remaining}"
+            )
             return
 
         with LOCK:
@@ -1517,13 +1705,36 @@ def http_imagine():
     asset_id_raw = body.get("asset_id") or f"asset_{uuid.uuid4().hex[:8]}"
     asset_id = "".join(c if c.isalnum() or c in "._-" else "_" for c in str(asset_id_raw))[:80]
 
-    job = Job(
-        job_id=uuid.uuid4().hex,
-        asset_id=asset_id,
-        prompt=prompt,
-        upscale=upscale,
-    )
+    idem_raw = body.get("idempotency_key")
+    idempotency_key = str(idem_raw)[:200] if idem_raw else None
+
     with LOCK:
+        # Idempotent replay: a caller firing the same key again (e.g. retrying a
+        # cancelled-mid-imagine MCP call whose orphaned POST already landed) gets
+        # the existing job back instead of a second submission/bill. Checked and
+        # the job inserted atomically under LOCK so two racing identical-key
+        # POSTs can't both create a job.
+        if idempotency_key:
+            existing = _find_job_by_idempotency_key(idempotency_key)
+            if existing is not None:
+                log.info(
+                    f"[{existing.asset_id}] idempotent replay of {existing.job_id} "
+                    f"(key={idempotency_key[:16]}…); not re-submitting"
+                )
+                return jsonify(
+                    job_id=existing.job_id,
+                    asset_id=existing.asset_id,
+                    status=existing.status,
+                    upscale=existing.upscale,
+                    idempotent_replay=True,
+                )
+        job = Job(
+            job_id=uuid.uuid4().hex,
+            asset_id=asset_id,
+            prompt=prompt,
+            upscale=upscale,
+            idempotency_key=idempotency_key,
+        )
         JOBS[job.job_id] = job
         _persist(job)
         PENDING_GRID.append(job.job_id)
@@ -1537,10 +1748,11 @@ def http_imagine():
     fut = asyncio.run_coroutine_threadsafe(_send_imagine(job.tagged_prompt()), _running_loop())
     try:
         resp = fut.result(timeout=SUBMIT_TIMEOUT_SECONDS)
-    except TimeoutError, FuturesTimeoutError:
-        # ``run_coroutine_threadsafe`` returns a concurrent.futures.Future, whose
-        # ``.result()`` raises concurrent.futures.TimeoutError — NOT a subclass of
-        # the builtin TimeoutError until Python 3.11 (we support 3.10). Catch both.
+    except TimeoutError:
+        # ``run_coroutine_threadsafe`` returns a concurrent.futures.Future whose
+        # ``.result()`` raises concurrent.futures.TimeoutError — an alias of the
+        # builtin ``TimeoutError`` on the project's 3.14 target, so catching the
+        # builtin alone covers it.
         # Discord didn't return within budget. MJ may or may not have it.
         # Don't fail the job; don't evict from PENDING_GRID. If MJ does
         # process it, the grid-match path will catch the result and resolve
@@ -1786,10 +1998,11 @@ def http_action(job_id):
             ok=False,
             error={"code": "DISCORD_NOT_READY", "message": str(e), "remediation": e.remediation},
         ), 503
-    except TimeoutError, FuturesTimeoutError:
-        # concurrent.futures.TimeoutError on Python 3.10 is not a builtin
-        # TimeoutError; catch both so the timeout doesn't fall through to the
-        # generic handler with an opaque, undeclared error code.
+    except TimeoutError:
+        # concurrent.futures.TimeoutError is an alias of the builtin TimeoutError
+        # on 3.14, so catching the builtin covers the run_coroutine_threadsafe
+        # timeout — it won't fall through to the generic handler with an opaque,
+        # undeclared error code.
         emit(
             "MJ_ACTION_FAILED",
             job_id=job_id,
@@ -2248,6 +2461,15 @@ def main() -> None:
     emit("JOB_STORE_REHYDRATED", count=rehydrated)
     if rehydrated:
         log.info(f"rehydrated {rehydrated} in-flight job(s) from {db_path}")
+
+    # Stalled-job reaper: fails in-flight jobs gone silent past
+    # INFLIGHT_TIMEOUT_SECONDS so a stuck PROGRESS / UPSCALING / unconfirmed job
+    # becomes terminal (and evictable) instead of a permanent phantom row. Sweep
+    # at most once a minute; the timeout itself is what's generous.
+    reap_interval = max(5.0, min(INFLIGHT_TIMEOUT_SECONDS, 60.0))
+    threading.Thread(
+        target=_reaper_loop, args=(reap_interval,), name="job-reaper", daemon=True
+    ).start()
 
     t = threading.Thread(target=_run_discord, daemon=True)
     t.start()

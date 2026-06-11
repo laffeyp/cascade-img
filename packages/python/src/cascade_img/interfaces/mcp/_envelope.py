@@ -57,6 +57,24 @@ async def _run_tool(name: str, fn, **kwargs) -> dict[str, Any]:
             duration_ms=int((time.time() - t0) * 1000),
         )
         return {"ok": True, "result": result}
+    except asyncio.CancelledError:
+        # CancelledError is a BaseException, so the broad `except Exception`
+        # below does NOT catch it: without this clause a cancelled tool call
+        # leaves MCP_TOOL_CALLED unpaired (breaking the pairing invariant) and
+        # swallows the cancellation. Emit the terminal FAILED tag to close the
+        # pair, then re-raise so the cancel propagates (a swallowed cancel would
+        # wedge the asyncio task that requested it). Note: a sync tool already
+        # dispatched on the worker thread keeps running to completion — Python
+        # can't cancel a live thread — so a cancel mid-`imagine` can still let
+        # the underlying POST land. Closing that double-submit window needs
+        # idempotency at the /imagine write boundary (surfaced separately).
+        emit(
+            "MCP_TOOL_FAILED",
+            tool=name,
+            error_code="CANCELLED",
+            error_message="tool call cancelled",
+        )
+        raise
     except Exception as e:
         code = getattr(e, "code", type(e).__name__)
         emit("MCP_TOOL_FAILED", tool=name, error_code=code, error_message=str(e))

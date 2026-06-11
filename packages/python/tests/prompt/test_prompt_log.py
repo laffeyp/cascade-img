@@ -114,6 +114,37 @@ def test_concurrent_appends_are_all_recorded(tmp_path: Path):
     assert len({r["asset_id"] for r in records}) == 8 * 25  # all distinct, none clobbered
 
 
+def test_read_skips_torn_line_keeps_the_rest(tmp_path: Path):
+    """One torn or hand-edited JSONL line must not abort the whole read — the
+    prompt log IS the agent's working memory across loop iterations, and losing
+    every record to a single corrupt line is the larger failure. The bad line is
+    skipped (and logged), the surviving records returned. (review #5)"""
+    log_path = tmp_path / "log.jsonl"
+    log = PromptLog(log_path)
+    log.append(asset_id="a", prompt="p", backend="b")
+    log.append(asset_id="b", prompt="p", backend="b")
+    good = log_path.read_text().splitlines()
+    # Insert a torn (truncated-JSON) line between the two good records.
+    log_path.write_text(good[0] + "\n" + '{"asset_id": "torn", "prompt"' + "\n" + good[1] + "\n")
+
+    records = log.read()
+    assert [r["asset_id"] for r in records] == ["a", "b"]  # torn line skipped, rest survive
+
+
+def test_read_skips_torn_line_under_last_n(tmp_path: Path):
+    """The skip-and-continue holds under the last-n slice too: n counts surviving
+    records, not raw lines. (review #5)"""
+    log_path = tmp_path / "log.jsonl"
+    log = PromptLog(log_path)
+    for i in range(3):
+        log.append(asset_id=f"a{i}", prompt="p", backend="b")
+    lines = log_path.read_text().splitlines()
+    log_path.write_text("\n".join([lines[0], "not json at all", lines[1], lines[2]]) + "\n")
+
+    last_two = log.read(n=2)
+    assert [r["asset_id"] for r in last_two] == ["a1", "a2"]
+
+
 def test_render_markdown_contains_prompts(tmp_path: Path):
     log = PromptLog(tmp_path / "log.jsonl")
     log.append(
@@ -142,6 +173,26 @@ def test_append_with_error_marks_signal(tmp_path: Path):
     rec = snapshot()[-1]
     assert rec["payload"]["has_error"] is True
     assert rec["payload"]["has_job_id"] is False
+
+
+def test_render_markdown_tolerates_schema_incomplete_record(tmp_path: Path):
+    """render_markdown degrades to placeholders on a valid-JSON but
+    schema-incomplete record (a hand-edited or older-schema line that read()
+    deliberately tolerates) instead of aborting the whole render with KeyError.
+    (review bug-hunt)"""
+    import json as _json
+
+    log_path = tmp_path / "log.jsonl"
+    log = PromptLog(log_path)
+    log.append(asset_id="good", prompt="a real prompt", backend="midjourney_discord", job_id="j1")
+    # A valid-JSON line missing prompt/ts/backend (e.g. hand-edited).
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(_json.dumps({"asset_id": "partial", "job_id": "j2"}) + "\n")
+
+    md = log.render_markdown()  # must not raise
+    assert "a real prompt" in md  # the good record renders
+    assert "partial" in md  # the incomplete record renders, degraded
+    assert "unknown" in md  # missing backend -> placeholder under the job line
 
 
 def test_append_with_agent_decision(tmp_path: Path):

@@ -15,15 +15,25 @@ async def imagine(
     prompt: str,
     asset_id: str,
     upscale: str | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     """Fire one generation against the running bridge. Backend is sync —
-    _run_tool dispatches it via asyncio.to_thread."""
+    _run_tool dispatches it via asyncio.to_thread.
+
+    ``idempotency_key`` makes the call safe to RETRY: pass the same key when
+    re-issuing a generation you are not sure landed (e.g. one whose tool call was
+    cancelled mid-flight — the bridge may have already submitted it on a worker
+    thread), and the bridge replays the existing job instead of submitting and
+    billing Midjourney twice. The result then carries ``idempotent_replay:
+    true``. Leave it unset (or use a fresh key) for a genuinely new roll —
+    re-rolls are intentionally NOT deduplicated by asset_id."""
     return await _envelope._run_tool(
         "imagine",
         _envelope._backend.imagine,
         prompt=prompt,
         asset_id=asset_id,
         upscale=upscale,
+        idempotency_key=idempotency_key,
     )
 
 

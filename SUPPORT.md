@@ -1,20 +1,11 @@
 # Support
 
-Where to go, by question type.
-
 | You want to… | Go to |
 |---|---|
-| Understand what cascade-img is and how it fits together | [README.md](./README.md), then [ARCHITECTURE.md](./ARCHITECTURE.md) |
-| Install, capture credentials, run the bridge, recover from a failure | [RUNBOOK.md](./RUNBOOK.md) |
-| Drive cascade-img from an LLM agent | [AGENTS.md](./AGENTS.md) |
-| Report a reproducible bug | Open a [bug report](https://github.com/greenrosesystems/cascade-img/issues/new?template=bug_report.yml) |
-| Request a new backend | Open a [backend request](https://github.com/greenrosesystems/cascade-img/issues/new?template=backend_request.yml) |
-| Report a security/token-handling issue | **Do not open a public issue** — see [SECURITY.md](./SECURITY.md) |
-| Ask about Discord/Midjourney Terms of Service | [TOS.md](./TOS.md) — this is policy, not a code question |
+| Understand it and set it up | [README.md](./README.md), then [RUNBOOK.md](./RUNBOOK.md) |
+| Drive it from an LLM agent | [AGENTS.md](./AGENTS.md) |
+| Report a bug | [open an issue](https://github.com/greenrosesystems/cascade-img/issues) |
+| Report a security / token issue | [SECURITY.md](./SECURITY.md) — not a public issue |
+| Ask about Terms of Service | [TOS.md](./TOS.md) |
 
-## What is out of scope
-
-cascade-img drives a Discord user account against Midjourney, which both services' Terms of Service prohibit. Questions about whether to do that, account bans, or credential acquisition are the operator's call and are out of scope for support. The mechanics of running the tool are documented in [RUNBOOK.md](./RUNBOOK.md); the policy reality is documented in [TOS.md](./TOS.md).
-
-There is no SLA, and cascade-img is a small project, so response times on issues are best-effort. That said, if you are using it in good faith and run into trouble, we are glad to help — you deserve a hand, and we will do what we can.
-
+Small project, no SLA — best-effort. If you're using it in good faith and hit trouble, we're glad to help.
