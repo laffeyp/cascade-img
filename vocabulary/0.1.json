@@ -36,22 +36,22 @@
 
   "temporal_invariants": {
     "invariants": [
-      {"kind": "window", "from_tag": "IMAGINE_FIRED", "to_tag": "JOB_COMPLETED", "duration_seconds": 180, "note": "Grid-only upscale=None completes within 180s typical."},
-      {"kind": "window", "from_tag": "IMAGINE_FIRED", "to_tag": "JOB_COMPLETED", "duration_seconds": 360, "note": "Single upscale (1-4) completes within 360s typical."},
-      {"kind": "window", "from_tag": "IMAGINE_FIRED", "to_tag": "JOB_COMPLETED", "duration_seconds": 600, "note": "upscale=all completes within 600s typical."},
-      {"kind": "pairing", "from_tag": "MCP_TOOL_CALLED", "to_tag": "MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "note": "Every tool call resolves to one of the two terminal tags."},
-      {"kind": "forbidden_after", "from_tag": "JOB_COMPLETED", "to_tag": "GRID_MATCHED|GRID_RECEIVED|UPSCALE_REQUESTED|UPSCALE_RECEIVED", "note": "Terminal — no further job-state tags carry the same job_id."},
-      {"kind": "forbidden_after", "from_tag": "JOB_FAILED", "to_tag": "GRID_MATCHED|GRID_RECEIVED|UPSCALE_REQUESTED|UPSCALE_RECEIVED", "note": "Terminal — no further job-state tags carry the same job_id."}
+      {"kind": "window", "from_tag": "IMAGINE_FIRED", "to_tag": "JOB_COMPLETED", "duration_seconds": 180, "applies_when": {"upscale": "none"}, "severity": "warning", "note": "Grid-only completes within 180s typical. applies_when matches IMAGINE_FIRED.payload.upscale: null/absent -> none. Over-budget is severity 'warning' (a slow MJ day is not a gate failure), never an error."},
+      {"kind": "window", "from_tag": "IMAGINE_FIRED", "to_tag": "JOB_COMPLETED", "duration_seconds": 360, "applies_when": {"upscale": "single"}, "severity": "warning", "note": "Single upscale completes within 360s typical. applies_when matches IMAGINE_FIRED.payload.upscale: '1'-'4' -> single. Over-budget is severity 'warning', never an error."},
+      {"kind": "window", "from_tag": "IMAGINE_FIRED", "to_tag": "JOB_COMPLETED", "duration_seconds": 600, "applies_when": {"upscale": "all"}, "severity": "warning", "note": "upscale=all completes within 600s typical. applies_when matches IMAGINE_FIRED.payload.upscale: 'all' -> all. Over-budget is severity 'warning', never an error."},
+      {"kind": "pairing", "from_tag": "MCP_TOOL_CALLED", "to_tag": "MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "to_tags": ["MCP_TOOL_COMPLETED", "MCP_TOOL_FAILED"], "payload_match": "tool", "note": "Every tool call resolves to one of the two terminal tags, correlated by the tool field."},
+      {"kind": "forbidden_after", "from_tag": "JOB_COMPLETED", "to_tag": "GRID_MATCHED|GRID_RECEIVED|UPSCALE_REQUESTED|UPSCALE_RECEIVED", "to_tags": ["GRID_MATCHED", "GRID_RECEIVED", "UPSCALE_REQUESTED", "UPSCALE_RECEIVED"], "payload_match": "job_id", "note": "Terminal — no further job-state tags carry the same job_id."},
+      {"kind": "forbidden_after", "from_tag": "JOB_FAILED", "to_tag": "GRID_MATCHED|GRID_RECEIVED|UPSCALE_REQUESTED|UPSCALE_RECEIVED", "to_tags": ["GRID_MATCHED", "GRID_RECEIVED", "UPSCALE_REQUESTED", "UPSCALE_RECEIVED"], "payload_match": "job_id", "note": "Terminal — no further job-state tags carry the same job_id."}
     ]
   },
 
   "state_transitions": {
     "rules": [
-      {"kind": "forced_next", "from_tag": "CASCADE_INIT", "to_tags_allowed": ["CONFIG_VALIDATED"], "note": "Either CONFIG_VALIDATED follows CASCADE_INIT or the process exited via CONFIG_VALIDATION_FAILED before."},
+      {"kind": "forced_next", "from_tag": "CASCADE_INIT", "to_tags_allowed": ["CONFIG_VALIDATED"], "or_exit_via": ["CONFIG_VALIDATION_FAILED"], "note": "Either CONFIG_VALIDATED follows CASCADE_INIT or the process exited via CONFIG_VALIDATION_FAILED before (the or_exit_via escape hatch)."},
       {"kind": "pairing_ordering", "from_tag": "DISCORD_CONNECTED", "to_tags_allowed": ["IMAGINE_FIRED"], "note": "IMAGINE_FIRED requires DISCORD_CONNECTED first (gated by _ready.is_set())."},
       {"kind": "pairing_ordering", "from_tag": "GRID_MATCHED", "to_tags_allowed": ["GRID_RECEIVED"], "payload_match": "job_id", "note": "Grid received must follow grid matched for the same job_id."},
       {"kind": "pairing_ordering", "from_tag": "UPSCALE_REQUESTED", "to_tags_allowed": ["UPSCALE_RECEIVED"], "payload_match": "job_id+slot", "note": "Slot N's UPSCALE_RECEIVED follows its UPSCALE_REQUESTED."},
-      {"kind": "terminal", "tags": ["JOB_COMPLETED", "JOB_FAILED"], "note": "No further job-category tags carry the same job_id after a terminal."}
+      {"kind": "terminal", "tags": ["JOB_COMPLETED", "JOB_FAILED"], "payload_match": "job_id", "forbidden_tags_after": ["IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "UPSCALE_DOWNLOAD_DROPPED", "JOB_COMPLETED", "JOB_FAILED"], "exempt_tags": ["MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED", "MJ_DERIVED_RECEIVED", "MJ_DERIVED_FAILED", "JOB_EVICTED", "OUTPUT_PATH_COLLISION"], "note": "No further job-LIFECYCLE tag carries the same job_id after a terminal; post-terminal action/derived/eviction/collision tags are additive by design (verified against bridge.py: MJ_ACTION_* and MJ_DERIVED_* act on an already-DONE job, JOB_EVICTED only drops DONE/FAILED jobs, OUTPUT_PATH_COLLISION can fire on a post-terminal derived download)."}
     ]
   },
 
