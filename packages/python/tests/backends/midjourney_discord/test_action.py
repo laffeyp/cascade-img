@@ -285,6 +285,12 @@ def test_classify_derived_covers_every_family():
     assert _classify_derived("...--raw** - Zoom Out by <@x>") == "zoom"
     assert _classify_derived("...--ar 3:2** - Pan Right by <@x>") == "pan"
     assert _classify_derived("...--raw** - Upscaled by <@x>") == "upscale"
+    # MJ's actual Subtle/Creative-upscale suffix (2026-06-10 live capture): the
+    # operation name carries a parenthetical, so it is "Upscaled (Subtle) by",
+    # not the bare "Upscaled by" above. The marker keys on "Upscaled " (trailing
+    # space) to catch both; before that fix these fell through to "variation".
+    assert _classify_derived("...--raw** - Upscaled (Subtle) by <@x> (fast)") == "upscale"
+    assert _classify_derived("...--raw** - Upscaled (Creative) by <@x> (fast)") == "upscale"
     assert (
         _classify_derived("**a bird --raw --motion high --video 1 --aspect 1:1** - <@x>")
         == "animation"

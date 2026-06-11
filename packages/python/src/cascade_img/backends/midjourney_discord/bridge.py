@@ -994,13 +994,16 @@ def _capture_raw_message(message, event: str) -> None:
 _MJ_UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 # action_kind classified from MJ's content suffix. Substrings chosen to cover
-# every sibling of each family ("Pan " matches Pan Left/Right/Up/Down;
-# "Variations" matches Subtle/Strong) — routing never depends on this label, so a
-# wording drift downgrades the label, it does not misroute. animation is checked
+# every sibling of each family ("Pan " matches Pan Left/Right/Up/Down; "Variations"
+# matches Vary Subtle/Strong; "Upscaled " matches Upscale Subtle/Creative — MJ's
+# suffix is "Upscaled (Subtle) by" / "Upscaled (Creative) by", NOT a bare "Upscaled
+# by", so the marker must stop at the trailing space, not assume "by" follows
+# immediately — 2026-06-10 live capture) — routing never depends on this label, so
+# a wording drift downgrades the label, it does not misroute. animation is checked
 # first (its content carries no "by" suffix, only the rewritten --video prompt).
 _DERIVED_KIND_MARKERS: tuple[tuple[str, str], ...] = (
     ("--video", "animation"),
-    ("Upscaled by", "upscale"),
+    ("Upscaled ", "upscale"),
     ("Variations", "variation"),
     ("Zoom Out", "zoom"),
     ("Pan ", "pan"),
