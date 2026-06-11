@@ -47,7 +47,7 @@
 
   "state_transitions": {
     "rules": [
-      {"kind": "forced_next", "from_tag": "CASCADE_INIT", "to_tags_allowed": ["CONFIG_VALIDATED"], "or_exit_via": ["CONFIG_VALIDATION_FAILED"], "note": "Either CONFIG_VALIDATED follows CASCADE_INIT or the process exited via CONFIG_VALIDATION_FAILED before (the or_exit_via escape hatch)."},
+      {"kind": "pairing_ordering", "from_tag": "CONFIG_VALIDATED", "to_tags_allowed": ["CASCADE_INIT"], "note": "CASCADE_INIT (daemon announced) requires a prior CONFIG_VALIDATED (config loaded OK): Config.from_env() emits CONFIG_VALIDATED, then main() emits CASCADE_INIT — the CASCADE_INIT note 'config loaded' reflects this. On bad config, CONFIG_VALIDATION_FAILED fires instead and neither appears. CONFIG_VALIDATED can also fire without CASCADE_INIT (cascade-mj-bridge --check-env / --doctor validate config without starting the daemon), so this is an ordering precondition, not a forced_next. Corrected 2026-06-10 from a backwards forced_next surfaced by the live trace-gate."},
       {"kind": "pairing_ordering", "from_tag": "DISCORD_CONNECTED", "to_tags_allowed": ["IMAGINE_FIRED"], "note": "IMAGINE_FIRED requires DISCORD_CONNECTED first (gated by _ready.is_set())."},
       {"kind": "pairing_ordering", "from_tag": "GRID_MATCHED", "to_tags_allowed": ["GRID_RECEIVED"], "payload_match": "job_id", "note": "Grid received must follow grid matched for the same job_id."},
       {"kind": "pairing_ordering", "from_tag": "UPSCALE_REQUESTED", "to_tags_allowed": ["UPSCALE_RECEIVED"], "payload_match": "job_id+slot", "note": "Slot N's UPSCALE_RECEIVED follows its UPSCALE_REQUESTED."},

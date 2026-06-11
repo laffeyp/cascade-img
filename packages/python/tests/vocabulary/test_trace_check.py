@@ -22,8 +22,8 @@ def ev(tag: str, ts: float = 0.0, **payload) -> dict:
 def _legal_job_trace() -> list[dict]:
     """A fully legal end-to-end upscale='all' job."""
     return [
-        ev("CASCADE_INIT", ts=0, package_version="0.1.0", backend="midjourney_discord"),
-        ev("CONFIG_VALIDATED", ts=1),
+        ev("CONFIG_VALIDATED", ts=0),
+        ev("CASCADE_INIT", ts=1, package_version="0.1.0", backend="midjourney_discord"),
         ev("DISCORD_CONNECTED", ts=2, user_id=1),
         ev("IMAGINE_FIRED", ts=10, job_id="j1", upscale="all"),
         ev("GRID_MATCHED", ts=20, job_id="j1"),
@@ -133,20 +133,57 @@ def test_wrong_slice_terminal_does_not_poison_other_job():
     assert check_trace(trace, VOCAB) == []
 
 
-def test_forced_next_satisfied_via_or_exit_via():
+def test_cascade_init_without_prior_config_validated_is_error():
+    """The corrected startup precondition (the live-gate finding of 2026-06-10):
+    the daemon never announces CASCADE_INIT without a prior CONFIG_VALIDATED. The
+    catalog originally declared this backwards as a forced_next; the live trace
+    showed CONFIG_VALIDATED fires first (Config.from_env emits it, then main emits
+    CASCADE_INIT)."""
     trace = [
         ev("CASCADE_INIT", ts=0, package_version="0.1.0", backend="midjourney_discord"),
-        ev("CONFIG_VALIDATION_FAILED", ts=1),  # the escape hatch
+        ev("CONFIG_VALIDATED", ts=1),  # too late — comes AFTER init
     ]
-    assert [v for v in check_trace(trace, VOCAB) if v.rule == "forced_next"] == []
+    vs = check_trace(trace, VOCAB)
+    assert any(
+        v.rule == "pairing_ordering" and v.severity == "error" and v.event["tag"] == "CASCADE_INIT"
+        for v in vs
+    )
+
+
+def test_config_validated_without_cascade_init_is_clean():
+    """--check-env / --doctor emit CONFIG_VALIDATED with no CASCADE_INIT; the
+    pairing_ordering precondition does not require the from-tag to be followed, so
+    a validate-only run is not a violation."""
+    trace = [ev("CONFIG_VALIDATED", ts=0), ev("BRIDGE_CHECKENV_RAN", ts=1)]
+    assert [v for v in check_trace(trace, VOCAB) if v.rule == "pairing_ordering"] == []
+
+
+# The catalog no longer uses the forced_next kind after the 2026-06-10 startup-order
+# correction, but the checker still supports it for future rules — exercise it with a
+# synthetic vocab so the forced_next + or_exit_via logic stays covered.
+_FORCED_NEXT_VOCAB = {
+    "state_transitions": {
+        "rules": [
+            {
+                "kind": "forced_next",
+                "from_tag": "A_OPENED",
+                "to_tags_allowed": ["A_DONE"],
+                "or_exit_via": ["A_ABORTED"],
+            }
+        ]
+    },
+    "temporal_invariants": {"invariants": []},
+}
+
+
+def test_forced_next_satisfied_via_or_exit_via():
+    trace = [ev("A_OPENED", ts=0), ev("A_ABORTED", ts=1)]
+    assert [v for v in check_trace(trace, _FORCED_NEXT_VOCAB) if v.rule == "forced_next"] == []
 
 
 def test_forced_next_unsatisfied_is_error():
-    trace = [
-        ev("CASCADE_INIT", ts=0, package_version="0.1.0", backend="midjourney_discord"),
-        ev("DISCORD_CONNECTED", ts=1, user_id=1),  # never CONFIG_VALIDATED / _FAILED
-    ]
-    vs = check_trace(trace, VOCAB)
+    trace = [ev("A_OPENED", ts=0), ev("UNRELATED", ts=1)]
+    vs = check_trace(trace, _FORCED_NEXT_VOCAB)
     assert any(v.rule == "forced_next" and v.severity == "error" for v in vs)
 
 
