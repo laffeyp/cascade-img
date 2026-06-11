@@ -18,6 +18,7 @@ deterministic. stdlib only — it imports without discord / flask / mcp installe
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass
 from importlib.resources import files
 from typing import Any
@@ -292,3 +293,44 @@ def check_trace(events: list[dict[str, Any]], vocab: dict[str, Any]) -> list[Vio
         elif kind == "forbidden_after":
             out += _check_forbidden_after(events, inv)
     return out
+
+
+_USAGE = (
+    "usage: cascade-trace-check <events.jsonl>\n\n"
+    "Validate a JSONL signal trace (one Signal.to_dict() per line — e.g. a\n"
+    "CASCADE_EVENT_LOG file) against the vocabulary's sequence and timing rules.\n"
+    "Prints one line per violation ('severity rule slice_key message'); exits 1 if\n"
+    "any error-severity violation, else 0. Timing-window warnings print but never\n"
+    "fail the run."
+)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Console-script entrypoint (``cascade-trace-check``). Returns the process
+    exit code: 1 on any error-severity violation, 0 otherwise (warnings never
+    fail). Pure-ish — the only I/O is reading the trace file and the packaged
+    catalog; the grammar logic stays in :func:`check_trace`."""
+    args = sys.argv[1:] if argv is None else argv
+    if args[:1] in (["-h"], ["--help"]):
+        print(_USAGE)
+        return 0
+    if not args:
+        print(_USAGE, file=sys.stderr)
+        return 2
+    try:
+        with open(args[0], encoding="utf-8") as f:
+            events = [json.loads(line) for line in f if line.strip()]
+    except OSError as e:
+        print(f"cascade-trace-check: cannot read {args[0]}: {e}", file=sys.stderr)
+        return 2
+    violations = check_trace(events, load_catalog())
+    for v in violations:
+        print(f"{v.severity} {v.rule} {v.slice_key} {v.message}")
+    errors = sum(1 for v in violations if v.severity == "error")
+    warnings = len(violations) - errors
+    print(f"{errors} error(s), {warnings} warning(s) over {len(events)} events", file=sys.stderr)
+    return 1 if errors else 0
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

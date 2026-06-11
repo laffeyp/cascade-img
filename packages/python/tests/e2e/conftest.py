@@ -32,7 +32,15 @@ _spec.loader.exec_module(image_checks)
 
 
 @pytest.fixture(scope="session")
-def live_backend(tmp_path_factory):
+def event_log_path(tmp_path_factory) -> Path:
+    """Per-run JSONL path the spawned bridge's ``CASCADE_EVENT_LOG`` sink (sprint
+    012) appends every vocabulary signal to. The trace-gate test reads it back and
+    runs ``check_trace`` over the live run's grammar (sprint 015)."""
+    return tmp_path_factory.mktemp("e2e-events") / "events.jsonl"
+
+
+@pytest.fixture(scope="session")
+def live_backend(tmp_path_factory, event_log_path):
     """Spawn a real bridge (its own port, isolated output dir), wait for Discord
     to connect, yield a backend pointed at it, then tear the bridge down."""
     if not (_LIVE and _ENV_FILE):
@@ -47,6 +55,10 @@ def live_backend(tmp_path_factory):
         "CASCADE_DOTENV": _ENV_FILE,
         "PORT": str(_PORT),
         "MJ_OUTPUT_DIR": str(out_dir),
+        # Durable signal trace for the trace-gate test (sprint 015). The sink
+        # reads this env per-emit inside the bridge process and appends one JSONL
+        # line per signal; best-effort, so it can never break the live path.
+        "CASCADE_EVENT_LOG": str(event_log_path),
     }
     fh = log_path.open("w", encoding="utf-8")
     proc = subprocess.Popen(

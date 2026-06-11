@@ -99,6 +99,7 @@ Tuning and diagnostics (all optional):
 | `CASCADE_TERMINAL_AGE_SECONDS` | `3600` | TTL for terminal (done/failed) jobs before eviction. |
 | `CASCADE_INFLIGHT_TIMEOUT_SECONDS` | `900` | Max silence (no `updated_at` advance) before a non-terminal job is reaped as `RESUBMIT_REQUIRED`. |
 | `CASCADE_CAPTURE_RAW` | off | Path; when set, the bridge appends every watched MJ message verbatim (structure only) for observation/debugging. |
+| `CASCADE_EVENT_LOG` | off | Path; when set, every vocabulary signal is appended as one JSON line (`Signal.to_dict()` shape) — a durable trace. Validate it against the sequence/timing grammar with `cascade-trace-check <path>`. |
 | `CASCADE_STRICT_SIGNALS` | `true` | When true, an `emit()` that violates the vocabulary raises; set `false` to log-and-continue instead. |
 
 ### Pre-flight check

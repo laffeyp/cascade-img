@@ -6,7 +6,7 @@ The JSON file in this directory is a versioned catalog of the named events casca
 
 Each entry is a tag name (for example `IMAGINE_FIRED`) plus the payload fields it carries (`asset_id`, `job_id`, ...). The catalog also records which event sequences are valid and which entities each tag refers to.
 
-At runtime, the package validates every event against this catalog. An unknown tag raises; a missing required field raises.
+At runtime, the package validates every event against this catalog. An unknown tag raises; a missing required field raises. The catalog also declares sequence and timing rules (which event must precede which, per `job_id`; how long a run should take); these are enforced by `cascade-trace-check`, which runs the recorded event trace against the rules. The live e2e suite gates every real run through it, and a credential-free unit walk runs it on every CI change.
 
 ## How to read and use it
 

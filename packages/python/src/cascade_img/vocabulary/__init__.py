@@ -26,15 +26,18 @@ from cascade_img.vocabulary._runtime import (
     snapshot,
     vocabulary,
 )
+from cascade_img.vocabulary.trace_check import Violation, check_trace
 
 __all__ = [
     "VOCAB_VERSION",
     "Emitter",
     "Signal",
+    "Violation",
     "Vocabulary",
     "assert_no_signal",
     "assert_signal",
     "capture",
+    "check_trace",
     "clear",
     "emit",
     "flush_to_file",

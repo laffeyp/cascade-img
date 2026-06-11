@@ -70,6 +70,7 @@ ml = [
 cascade-mj-bridge = "cascade_img.backends.midjourney_discord.bridge:main"
 cascade-mcp = "cascade_img.interfaces.mcp.tool_server:main"
 cascade-mj = "cascade_img.interfaces.cli.generate_image:main"
+cascade-trace-check = "cascade_img.vocabulary.trace_check:main"
 
 [project.urls]
 Homepage = "https://greenrosesystems.com"

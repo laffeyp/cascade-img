@@ -93,6 +93,28 @@ async def test_compose_prompt_envelope_and_signals():
 
 
 @pytest.mark.asyncio
+async def test_mcp_walk_passes_trace_grammar_check(monkeypatch):
+    """Grammar checking on every CI PR, no credentials: drive a compose -> imagine
+    -> wait walk on the fake backend, then run the trace checker over snapshot()
+    and assert zero error-severity violations. Each MCP_TOOL_CALLED must resolve to
+    a COMPLETED in its tool-slice; timing-window warnings (if any) never fail."""
+    from cascade_img.interfaces.mcp import _envelope
+    from cascade_img.vocabulary.trace_check import check_trace, load_catalog
+
+    clear()
+    monkeypatch.setattr(_envelope, "_backend", _FakeBackend())
+    await compose_prompt(subject="a mountain", aspect_ratio="1:1")
+    r = await imagine(prompt="a mountain --v 7", asset_id="mountain-icon", upscale=None)
+    assert r["ok"] is True
+    await wait(job_id=r["result"]["job_id"], timeout=5)
+
+    errors = [v for v in check_trace(snapshot(), load_catalog()) if v.severity == "error"]
+    assert not errors, "MCP walk grammar errors: " + "; ".join(
+        f"{v.rule}/{v.slice_key}: {v.message}" for v in errors
+    )
+
+
+@pytest.mark.asyncio
 async def test_crop_grid_writes_dest_and_returns_size(tmp_path: Path):
     clear()
     from PIL import Image
