@@ -43,6 +43,9 @@ jobs:
       - name: Vocabulary reference up to date
         run: python3 tools/render_vocabulary_reference.py --check
 
+      - name: Agent entry files up to date
+        run: python3 tools/render_agent_entrypoints.py --check
+
       - name: mypy
         run: mypy src/cascade_img
 

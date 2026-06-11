@@ -99,6 +99,13 @@ include = [
     "README.md",
     "LICENSE",
     "CHANGELOG.md",
+    # Agent entry docs, mirrored from the repo root by
+    # tools/render_agent_entrypoints.py so the source dist is agent-navigable.
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    ".windsurfrules",
+    ".clinerules",
 ]
 
 # ---------------------------------------------------------------------------
