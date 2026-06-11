@@ -16,6 +16,7 @@ under ``versions/``. Consumers should not import from here directly.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from collections import deque
@@ -28,6 +29,8 @@ from threading import Lock
 from typing import Any
 
 VOCAB_VERSION = "0.1"
+
+log = logging.getLogger("cascade_img.vocabulary")
 
 
 class Vocabulary:
@@ -202,7 +205,29 @@ class Emitter:
         )
         with self._lock:
             self._buffer.append(signal)
+            self._sink_write(signal)
         return signal
+
+    def _sink_write(self, signal: Signal) -> None:
+        """Append ``signal`` as one JSONL line to ``CASCADE_EVENT_LOG`` when set.
+
+        The env var is read per-emit, not at construction: the module-level
+        ``_EMITTER`` singleton is built at import time, before a test or the
+        live e2e harness can set the path, so an init-time read would miss it.
+        Cost is one dict lookup per emit. Best-effort, mirroring
+        ``bridge._persist``: the in-process buffer is authoritative, so a sink
+        write failure logs one warning and never raises — the durable sink must
+        not be able to break the live emit path. Called under ``self._lock`` so
+        concurrent emits cannot interleave partial lines in the file.
+        """
+        path = os.environ.get("CASCADE_EVENT_LOG")
+        if not path:
+            return
+        try:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(signal.to_dict()) + "\n")
+        except Exception as e:  # durability is best-effort; never break emit
+            log.warning(f"event-sink write failed: {type(e).__name__}: {e}")
 
     def snapshot(self) -> list[Signal]:
         with self._lock:
