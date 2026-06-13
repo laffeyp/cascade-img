@@ -10,10 +10,10 @@ readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.14"
 authors = [
-    { name = "Green Rose Systems", email = "info@greenrosesystems.com" },
+    { name = "Peter Laffey" },
 ]
 maintainers = [
-    { name = "Green Rose Systems", email = "info@greenrosesystems.com" },
+    { name = "Peter Laffey" },
 ]
 keywords = [
     "midjourney",
@@ -73,11 +73,11 @@ cascade-mj = "cascade_img.interfaces.cli.generate_image:main"
 cascade-trace-check = "cascade_img.vocabulary.trace_check:main"
 
 [project.urls]
-Homepage = "https://greenrosesystems.com"
-Repository = "https://github.com/greenrosesystems/cascade-img"
-Documentation = "https://github.com/greenrosesystems/cascade-img#readme"
-Changelog = "https://github.com/greenrosesystems/cascade-img/blob/main/CHANGELOG.md"
-Issues = "https://github.com/greenrosesystems/cascade-img/issues"
+Homepage = "https://github.com/laffeyp/cascade-img"
+Repository = "https://github.com/laffeyp/cascade-img"
+Documentation = "https://github.com/laffeyp/cascade-img#readme"
+Changelog = "https://github.com/laffeyp/cascade-img/blob/main/CHANGELOG.md"
+Issues = "https://github.com/laffeyp/cascade-img/issues"
 
 # ---------------------------------------------------------------------------
 # Build (Hatchling)

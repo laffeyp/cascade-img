@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/cascade-img.svg)](https://pypi.org/project/cascade-img/)
 [![Python](https://img.shields.io/pypi/pyversions/cascade-img.svg)](https://pypi.org/project/cascade-img/)
-[![CI](https://github.com/greenrosesystems/cascade-img/actions/workflows/ci.yml/badge.svg)](https://github.com/greenrosesystems/cascade-img/actions/workflows/ci.yml)
+[![CI](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml/badge.svg)](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
 An image-generation pipeline an LLM can drive. It runs Midjourney through Discord today; it will run other image generation service API's using the same interface later.
@@ -34,8 +34,6 @@ It has the full context — the guide lists every step and everything that can g
 Midjourney comes first by design. Midjourney has no public API, so driving it through a Discord account is actually already an established way of using it. It is tackled first precisely because it is more work. With that done, adding the other integrations is the easier work.
 
 > **Context.** Midjourney has no public API. Driving it through a Discord user account is the established OSS pattern for programmatic access. Of course, both Discord and Midjourney's Terms of Service prohibit user-account automation. See [TOS.md](./TOS.md).
-
-Published by [Green Rose Systems](https://greenrosesystems.com).
 
 ---
 

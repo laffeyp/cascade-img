@@ -4,7 +4,7 @@
 |---|---|
 | Understand it and set it up | [README.md](./README.md), then [RUNBOOK.md](./RUNBOOK.md) |
 | Drive it from an LLM agent | [AGENTS.md](./AGENTS.md) |
-| Report a bug | [open an issue](https://github.com/greenrosesystems/cascade-img/issues) |
+| Report a bug | [open an issue](https://github.com/laffeyp/cascade-img/issues) |
 | Report a security / token issue | [SECURITY.md](./SECURITY.md) — not a public issue |
 | Ask about Terms of Service | [TOS.md](./TOS.md) |
 

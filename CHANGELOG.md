@@ -121,4 +121,4 @@ First tagged release.
 - `MidjourneyDiscordBackend` is synchronous (`requests`); the MCP server dispatches sync backend calls via `asyncio.to_thread` so concurrent MCP tool calls don't serialize.
 - macOS and Linux only; Windows bridge is a v0.3 item.
 - No webhook support; clients long-poll `/wait`.
-- **TypeScript wrapper is a v0.3 deliverable.** The `@greenrosesystems/cascade-img` 0.0.1 placeholder on npm reserves the name. v0.1 is a Python-only ship; Node consumers either wait for the wrapper or call the bridge daemon's HTTP API directly.
+- **TypeScript wrapper is a v0.3 deliverable (package naming TBD).** v0.1 is a Python-only ship; Node consumers either wait for the wrapper or call the bridge daemon's HTTP API directly.
