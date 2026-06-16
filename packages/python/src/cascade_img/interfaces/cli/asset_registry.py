@@ -13,9 +13,14 @@ A registry is a JSON file mapping ``asset_id`` to its composable prompt parts:
         "aspect_ratio": "1:1",
         "oref": null,
         "ow": 100,
-        "stylize": null
+        "stylize": null,
+        "version": "8.1"
       }
     }
+
+Omit ``version`` to use the composer's default model (V8.1); set
+``"version": "7"`` for entries that use ``oref`` (the V7-only identity lock);
+``"hd": true`` / ``"sd": true`` request V8.1 native 2048px / 1024px rendering.
 
 The loader validates the shape, fills defaults, and returns a dict keyed by
 asset_id. Unknown keys are tolerated (forward-compatible) but logged.
@@ -43,12 +48,28 @@ def _int_or_none(value: Any) -> int | None:
     return None if value is None else int(value)
 
 
+def _float_or_none(value: Any) -> float | None:
+    """Coerce an optional numeric registry field to ``float | None`` (for --iw,
+    which is fractional). Same fail-at-load-time contract as :func:`_int_or_none`."""
+    return None if value is None else float(value)
+
+
 @dataclass
 class AssetEntry:
-    """One entry from the registry. ``subject`` is the only required field."""
+    """One entry from the registry. ``subject`` is the only required field.
+
+    Mirrors the full composer surface so a registry roll can express everything
+    the MCP ``compose_prompt`` tool can — content (constraints, negatives, image
+    prompts + weight), style (moodboard/sref/sw/stylize/style_raw), identity
+    (oref/ow, V7-only), render controls (tile/exp/chaos/weird/quality/seed and
+    the V8.1 hd/sd), the aspect ratio, and the model version.
+    """
 
     subject: str
     constraints: list[str] = field(default_factory=list)
+    negatives: list[str] = field(default_factory=list)
+    image_prompts: list[str] = field(default_factory=list)
+    image_weight: float | None = None
     moodboard: str | None = None
     sref: str | None = None
     sw: int | None = None
@@ -57,6 +78,23 @@ class AssetEntry:
     oref: str | None = None
     ow: int = 100
     aspect_ratio: str = "1:1"
+    # Render-control params. exp/chaos/weird/tile/seed work on both V7 and V8.1;
+    # quality (--q) is V7-only (the composer raises if set on V8.1).
+    tile: bool = False
+    exp: int | None = None
+    chaos: int | None = None
+    weird: int | None = None
+    quality: int | None = None
+    seed: int | None = None
+    # Midjourney model version. ``None`` => the composer's default model (V8.1);
+    # we don't re-hardcode the default here so it can't drift from
+    # composer._DEFAULT_VERSION. An entry using oref (the V7-only identity lock)
+    # must set "version": "7", or the composer raises CLI_ROLL_FAILED with a
+    # clear remediation.
+    version: str | None = None
+    # V8.1 native-resolution toggles (mutually exclusive; V8.1 only).
+    hd: bool = False
+    sd: bool = False
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> AssetEntry:
@@ -65,6 +103,9 @@ class AssetEntry:
         return cls(
             subject=str(raw["subject"]),
             constraints=list(raw.get("constraints") or []),
+            negatives=list(raw.get("negatives") or []),
+            image_prompts=list(raw.get("image_prompts") or []),
+            image_weight=_float_or_none(raw.get("image_weight")),
             moodboard=raw.get("moodboard"),
             sref=raw.get("sref"),
             sw=_int_or_none(raw.get("sw")),
@@ -73,6 +114,15 @@ class AssetEntry:
             oref=raw.get("oref"),
             ow=int(raw.get("ow", 100)),
             aspect_ratio=str(raw.get("aspect_ratio", "1:1")),
+            tile=bool(raw.get("tile", False)),
+            exp=_int_or_none(raw.get("exp")),
+            chaos=_int_or_none(raw.get("chaos")),
+            weird=_int_or_none(raw.get("weird")),
+            quality=_int_or_none(raw.get("quality")),
+            seed=_int_or_none(raw.get("seed")),
+            version=(str(raw["version"]) if raw.get("version") is not None else None),
+            hd=bool(raw.get("hd", False)),
+            sd=bool(raw.get("sd", False)),
         )
 
 

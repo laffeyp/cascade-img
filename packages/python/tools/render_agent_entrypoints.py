@@ -44,7 +44,7 @@ BANNER = (
 )
 
 POINTER = (
-    "**Full operator guide:** [AGENTS.md]({agents}) — the complete tool reference, the v7 "
+    "**Full operator guide:** [AGENTS.md]({agents}) — the complete tool reference, the "
     "prompt-part details, identity-lock guidance, and the failure-mode→action table."
 )
 

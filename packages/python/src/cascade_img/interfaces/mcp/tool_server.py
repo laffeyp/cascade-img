@@ -26,10 +26,13 @@ from cascade_img.interfaces.mcp.tools import (
     auto_trim,
     bridge_health,
     compose_prompt,
+    compose_video,
     contact_sheet,
     crop_grid,
+    generate_video,
     imagine,
     log_append,
+    loop_seam_delta,
     mj_action,
     palette_quantize,
     promote,
@@ -37,6 +40,7 @@ from cascade_img.interfaces.mcp.tools import (
     score_grid,
     sprite_sheet,
     status,
+    video_filmstrip,
     wait,
 )
 from cascade_img.vocabulary import emit
@@ -46,10 +50,13 @@ __all__ = [
     "auto_trim",
     "bridge_health",
     "compose_prompt",
+    "compose_video",
     "contact_sheet",
     "crop_grid",
+    "generate_video",
     "imagine",
     "log_append",
+    "loop_seam_delta",
     "main",
     "mcp",
     "mj_action",
@@ -59,6 +66,7 @@ __all__ = [
     "score_grid",
     "sprite_sheet",
     "status",
+    "video_filmstrip",
     "wait",
 ]
 

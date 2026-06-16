@@ -28,9 +28,18 @@ def test_vocabulary_loads_from_package_data():
     # (or a regression that loses tags) fails loudly here. Bump with the lock.
     # 48 since 2026-06-06 (Wave N): UPSCALE_DOWNLOAD_DROPPED added in-place
     # (pre-release living vocabulary; no version bump per Architect direction).
-    assert len(v.tags()) == 48
+    # 51 since 2026-06-15 (V-2a): VIDEO_REQUESTED/RECEIVED/FAILED added in-place
+    # for native video generation (same pre-1.0 additive policy).
+    # 53 since 2026-06-15 (V-2c): VIDEO_FILMSTRIP_RENDERED + LOOP_SEAM_MEASURED
+    # (the F32/F33 video-inspection curation primitives).
+    # 54 since 2026-06-15 (V-3): MJ_ACTION_SURFACE_REGISTERED instruments the
+    # action chain's middle link (a result becoming a pressable per-slot surface).
+    assert len(v.tags()) == 54
     assert "CASCADE_INIT" in v.tags()
     assert "UPSCALE_DOWNLOAD_DROPPED" in v.tags()
+    assert {"VIDEO_REQUESTED", "VIDEO_RECEIVED", "VIDEO_FAILED"} <= set(v.tags())
+    assert {"VIDEO_FILMSTRIP_RENDERED", "LOOP_SEAM_MEASURED"} <= set(v.tags())
+    assert "MJ_ACTION_SURFACE_REGISTERED" in v.tags()
 
 
 def test_unknown_tag_raises_at_emit():

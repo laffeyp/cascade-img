@@ -44,6 +44,7 @@ from cascade_img.backends.midjourney_discord import MidjourneyDiscordBackend
 from cascade_img.interfaces.cli.asset_registry import AssetEntry, load_registry
 from cascade_img.prompt.composer import (
     IdentityStack,
+    ParamStack,
     PromptComposer,
     StyleStack,
     Subject,
@@ -54,7 +55,13 @@ from cascade_img.vocabulary import emit
 
 def _compose(entry: AssetEntry) -> str:
     return PromptComposer().compose(
-        Subject(text=entry.subject, constraints=entry.constraints),
+        Subject(
+            text=entry.subject,
+            constraints=entry.constraints,
+            negatives=entry.negatives,
+            image_prompts=entry.image_prompts,
+            image_weight=entry.image_weight,
+        ),
         style=StyleStack(
             moodboard=entry.moodboard,
             sref=entry.sref,
@@ -63,7 +70,18 @@ def _compose(entry: AssetEntry) -> str:
             style_raw=entry.style_raw,
         ),
         identity=IdentityStack(oref=entry.oref, ow=entry.ow) if entry.oref else None,
+        params=ParamStack(
+            tile=entry.tile,
+            exp=entry.exp,
+            chaos=entry.chaos,
+            weird=entry.weird,
+            quality=entry.quality,
+            hd=entry.hd,
+            sd=entry.sd,
+            seed=entry.seed,
+        ),
         aspect_ratio=entry.aspect_ratio,
+        version=entry.version,
     )
 
 

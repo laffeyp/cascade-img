@@ -3,7 +3,7 @@
   "locked": true,
   "locked_at": "2026-06-02",
   "locked_by": "Peter Laffey",
-  "tag_set_hash": "414cd7b37ae61d86120eeaff0562094296aba178cc063645c3932723d05ca14b",
+  "tag_set_hash": "f087a26fc60feac8430f4e3703fb7348243195dbd223890f1718bf5d45254eb7",
   "prior_version": null,
   "categories": ["session", "config", "bridge", "job", "discord", "backend", "curation", "composer", "log", "mcp", "cli"],
 
@@ -22,7 +22,7 @@
         "name": "bridge_session",
         "open_tag": "CASCADE_INIT",
         "close_tag": "BRIDGE_SHUTDOWN",
-        "framed_tags": ["CONFIG_VALIDATED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_DOWNLOAD_DROPPED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED", "MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED", "MJ_DERIVED_RECEIVED", "MJ_DERIVED_FAILED"],
+        "framed_tags": ["CONFIG_VALIDATED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_DOWNLOAD_DROPPED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED", "MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED", "MJ_DERIVED_RECEIVED", "MJ_DERIVED_FAILED", "MJ_ACTION_SURFACE_REGISTERED"],
         "persistent_attributes": ["package_version", "backend"]
       },
       {
@@ -52,14 +52,14 @@
       {"kind": "pairing_ordering", "from_tag": "DISCORD_CONNECTED", "to_tags_allowed": ["IMAGINE_FIRED"], "note": "IMAGINE_FIRED requires DISCORD_CONNECTED first (gated by _ready.is_set())."},
       {"kind": "pairing_ordering", "from_tag": "GRID_MATCHED", "to_tags_allowed": ["GRID_RECEIVED"], "payload_match": "job_id", "note": "Grid received must follow grid matched for the same job_id."},
       {"kind": "pairing_ordering", "from_tag": "UPSCALE_REQUESTED", "to_tags_allowed": ["UPSCALE_RECEIVED"], "payload_match": "job_id+slot", "note": "Slot N's UPSCALE_RECEIVED follows its UPSCALE_REQUESTED."},
-      {"kind": "terminal", "tags": ["JOB_COMPLETED", "JOB_FAILED"], "payload_match": "job_id", "forbidden_tags_after": ["IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "UPSCALE_DOWNLOAD_DROPPED", "JOB_COMPLETED", "JOB_FAILED"], "exempt_tags": ["MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED", "MJ_DERIVED_RECEIVED", "MJ_DERIVED_FAILED", "JOB_EVICTED", "OUTPUT_PATH_COLLISION"], "note": "No further job-LIFECYCLE tag carries the same job_id after a terminal; post-terminal action/derived/eviction/collision tags are additive by design (verified against bridge.py: MJ_ACTION_* and MJ_DERIVED_* act on an already-DONE job, JOB_EVICTED only drops DONE/FAILED jobs, OUTPUT_PATH_COLLISION can fire on a post-terminal derived download)."}
+      {"kind": "terminal", "tags": ["JOB_COMPLETED", "JOB_FAILED", "VIDEO_FAILED"], "payload_match": "job_id", "forbidden_tags_after": ["VIDEO_REQUESTED", "VIDEO_RECEIVED", "VIDEO_FAILED", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "UPSCALE_DOWNLOAD_DROPPED", "JOB_COMPLETED", "JOB_FAILED"], "exempt_tags": ["MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED", "MJ_DERIVED_RECEIVED", "MJ_DERIVED_FAILED", "MJ_ACTION_SURFACE_REGISTERED", "JOB_EVICTED", "OUTPUT_PATH_COLLISION"], "note": "No further job-LIFECYCLE tag carries the same job_id after a terminal; VIDEO_FAILED is the native-video terminal and VIDEO_REQUESTED/RECEIVED are video-lifecycle tags forbidden after any terminal for the same job_id; post-terminal action/derived/surface/eviction/collision tags are additive by design (verified against bridge.py: MJ_ACTION_* and MJ_DERIVED_* act on an already-DONE job, MJ_ACTION_SURFACE_REGISTERED fires when a video SOLO lands post-DONE, JOB_EVICTED only drops DONE/FAILED jobs, OUTPUT_PATH_COLLISION can fire on a post-terminal derived download)."}
     ]
   },
 
   "operators": {
     "operators": [
       {"name": "MidjourneyDiscordBackend", "emits": ["BACKEND_HTTP_CALLED"], "consumes": "HTTP calls from the MCP server, CLI, or library consumers", "location": "cascade_img/backends/midjourney_discord/bridge_client.py"},
-      {"name": "BridgeDaemon", "emits": ["CASCADE_INIT", "CONFIG_VALIDATED", "CONFIG_VALIDATION_FAILED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "BRIDGE_SHUTDOWN", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_DOWNLOAD_DROPPED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED", "MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED", "MJ_DERIVED_RECEIVED", "MJ_DERIVED_FAILED", "BRIDGE_CHECKENV_RAN", "BRIDGE_DOCTOR_RAN"], "location": "cascade_img/backends/midjourney_discord/bridge.py"},
+      {"name": "BridgeDaemon", "emits": ["CASCADE_INIT", "CONFIG_VALIDATED", "CONFIG_VALIDATION_FAILED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "BRIDGE_SHUTDOWN", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_DOWNLOAD_DROPPED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED", "MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED", "MJ_DERIVED_RECEIVED", "MJ_DERIVED_FAILED", "MJ_ACTION_SURFACE_REGISTERED", "BRIDGE_CHECKENV_RAN", "BRIDGE_DOCTOR_RAN"], "location": "cascade_img/backends/midjourney_discord/bridge.py"},
       {"name": "PromptComposer", "emits": ["PROMPT_COMPOSED"], "location": "cascade_img/prompt/composer.py"},
       {"name": "PromptLog", "emits": ["PROMPT_LOGGED"], "location": "cascade_img/prompt/prompt_log.py"},
       {"name": "CurationKit", "emits": ["CROP_QUADRANT", "ALPHA_KEY_APPLIED", "ASSET_PROMOTED", "CONTACT_SHEET_RENDERED", "AUTO_TRIM_APPLIED", "PALETTE_QUANTIZED", "SPRITE_SHEET_PACKED", "GRID_SCORED"], "location": "cascade_img/curation/"},
@@ -72,11 +72,12 @@
     "constraints": [
       {"target_tag": "JOB_FAILED", "target_field": "error_code", "enum": ["DISCORD_400_OUTDATED", "DISCORD_400_UNKNOWN_CHANNEL", "DISCORD_401", "DISCORD_HTTP_ERROR", "DISCORD_NOT_READY", "GRID_DOWNLOAD_FAILED", "MJ_UUID_MISSING", "SUBMIT_FAILED", "UPSCALE_DOWNLOAD_FAILED", "UPSCALE_BUTTON_FAILED", "UPSCALE_ALL_BUTTONS_FAILED", "RESUBMIT_REQUIRED"], "enforceability": "mechanical"},
       {"target_tag": "CONFIG_VALIDATION_FAILED", "target_field": "code", "enum": ["MISSING_DISCORD_TOKEN", "MISSING_CHANNEL_ID", "INVALID_CHANNEL_ID", "MISSING_IMAGINE_VERSION", "INVALID_PORT"], "enforceability": "mechanical"},
-      {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["compose_prompt", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log", "contact_sheet", "auto_trim", "palette_quantize", "sprite_sheet", "score_grid", "mj_action"], "enforceability": "mechanical"},
+      {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["compose_prompt", "compose_video", "generate_video", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log", "contact_sheet", "auto_trim", "palette_quantize", "sprite_sheet", "score_grid", "video_filmstrip", "loop_seam_delta", "mj_action"], "enforceability": "mechanical"},
       {"target_tag": "GRID_MATCHED", "target_field": "match_path", "enum": ["pending", "progress_fallback", "unknown"], "enforceability": "mechanical"},
       {"target_tag": "MCP_SERVER_STARTED", "target_field": "transport", "enum": ["stdio", "http"], "enforceability": "mechanical"},
-      {"target_tag": "MJ_ACTION_REQUESTED|MJ_ACTION_FAILED", "target_field": "action", "enum": ["upscale_subtle", "upscale_creative", "vary_subtle", "vary_strong", "zoom_out_2x", "zoom_out_1_5x", "pan_left", "pan_right", "pan_up", "pan_down", "animate_high", "animate_low", "favorite"], "enforceability": "mechanical"},
-      {"target_tag": "MJ_DERIVED_RECEIVED|MJ_DERIVED_FAILED", "target_field": "action_kind", "enum": ["variation", "zoom", "pan", "upscale", "animation"], "enforceability": "mechanical"}
+      {"target_tag": "MJ_ACTION_REQUESTED|MJ_ACTION_FAILED", "target_field": "action", "enum": ["upscale_subtle", "upscale_creative", "vary_subtle", "vary_strong", "zoom_out_2x", "zoom_out_1_5x", "pan_left", "pan_right", "pan_up", "pan_down", "animate_high", "animate_low", "favorite", "video_upscale", "extend_high", "extend_low"], "enforceability": "mechanical"},
+      {"target_tag": "MJ_DERIVED_RECEIVED|MJ_DERIVED_FAILED", "target_field": "action_kind", "enum": ["variation", "zoom", "pan", "upscale", "animation"], "enforceability": "mechanical"},
+      {"target_tag": "MJ_ACTION_SURFACE_REGISTERED", "target_field": "surface_kind", "enum": ["image_upscale", "video_solo"], "enforceability": "mechanical"}
     ]
   },
 
@@ -238,6 +239,30 @@
       "note": "Job hit DONE — all expected artifacts on disk."
     },
     {
+      "name": "VIDEO_REQUESTED",
+      "category": "job",
+      "stratum": "event",
+      "payload": ["asset_id", "job_id", "prompt_chars"],
+      "optional_payload": [],
+      "note": "POST /video accepted: a native video /imagine was fired (<image_url> --video [--motion/--raw/--loop/--end/--bs]). The result is an animated webp grid; MJ strips image params under --video."
+    },
+    {
+      "name": "VIDEO_RECEIVED",
+      "category": "job",
+      "stratum": "event",
+      "payload": ["asset_id", "job_id", "path", "bytes"],
+      "optional_payload": [],
+      "note": "Native video result downloaded to disk. Midjourney delivers video in Discord as an animated webp (image/webp), not mp4; the same file the web Download-as-mp4/gif options re-encode."
+    },
+    {
+      "name": "VIDEO_FAILED",
+      "category": "job",
+      "stratum": "incident",
+      "payload": ["asset_id", "job_id", "error_code", "error_message"],
+      "optional_payload": [],
+      "note": "Native video job failed. error_code values: VIDEO_DOWNLOAD_FAILED (the result webp could not be downloaded), VIDEO_SUBMIT_FAILED (the Discord interaction firing the video prompt failed), VIDEO_RESULT_TIMEOUT (no video result matched within the wait window)."
+    },
+    {
       "name": "JOB_FAILED",
       "category": "job",
       "stratum": "incident",
@@ -294,6 +319,22 @@
       "note": "auto_trim() cropped an image to its content bounding box. bbox is [left, top, right, bottom] in source pixels; w/h are the trimmed output dimensions. A bbox spanning the whole image means nothing was trimmed."
     },
     {
+      "name": "VIDEO_FILMSTRIP_RENDERED",
+      "category": "curation",
+      "stratum": "event",
+      "payload": ["src", "dest", "frame_count", "duration_s"],
+      "optional_payload": ["fps", "w", "h"],
+      "note": "video_filmstrip() sampled N keyframes of an animated video (webp) into one vision-readable contact sheet so an agent can inspect a temporal artifact the way it reads a still (F32). frame_count/w/h are the source video signature (duration_s/fps are best-effort — 0 when the source carries no per-frame duration, as PIL reports for many webp); dest is the filmstrip PNG."
+    },
+    {
+      "name": "LOOP_SEAM_MEASURED",
+      "category": "curation",
+      "stratum": "summary",
+      "payload": ["src", "frame_count", "delta"],
+      "optional_payload": [],
+      "note": "loop_seam_delta() measured how cleanly a looping video closes: delta is the normalized (0-1) pixel distance between the last and first frames (low = seamless loop), reported as a number instead of a human eyeballing the seam (F33). The video analog of the audio click-at-the-loop-point check."
+    },
+    {
       "name": "PALETTE_QUANTIZED",
       "category": "curation",
       "stratum": "event",
@@ -347,7 +388,7 @@
       "stratum": "event",
       "payload": ["tool"],
       "optional_payload": [],
-      "note": "An MCP tool invocation began. tool is one of the names in the MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED evidence-constraint enum (the authoritative list): compose_prompt, imagine, wait, status, bridge_health, crop_grid, alpha_key, promote, log_append, read_prompt_log, contact_sheet, auto_trim, palette_quantize, sprite_sheet, score_grid, mj_action."
+      "note": "An MCP tool invocation began. tool is one of the names in the MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED evidence-constraint enum (the authoritative list): compose_prompt, compose_video, generate_video, imagine, wait, status, bridge_health, crop_grid, alpha_key, promote, log_append, read_prompt_log, contact_sheet, auto_trim, palette_quantize, sprite_sheet, score_grid, video_filmstrip, loop_seam_delta, mj_action."
     },
     {
       "name": "MCP_TOOL_COMPLETED",
@@ -476,6 +517,14 @@
       "payload": ["asset_id", "job_id", "parent_message_id", "action_kind", "error_code", "error_message"],
       "optional_payload": [],
       "note": "A derived result was matched to its parent job but could not be downloaded. The parent job stays DONE — a derived result is additive, so a download failure is an incident on the derived artifact, not a job failure. error_code is the exception class or HTTP status."
+    },
+    {
+      "name": "MJ_ACTION_SURFACE_REGISTERED",
+      "category": "job",
+      "stratum": "event",
+      "payload": ["asset_id", "job_id", "slot", "message_id", "surface_kind"],
+      "optional_payload": [],
+      "note": "A downloaded result became a pressable action surface: the per-slot SOLO message a follow-on mj_action targets (recorded in upscale_message_ids[slot]). surface_kind is image_upscale (a U1-U4 SOLO — source of vary/zoom/pan/animate/favorite/re-upscale) or video_solo (a video_virtual_upscale SOLO — source of extend_high/extend_low; its extend buttons are grid-aligned, so slot N round-trips). Emitted just before the same artifact's UPSCALE_RECEIVED or MJ_DERIVED_RECEIVED so the surface is observable the instant the result is — closing the action chain's silent middle link: MJ_ACTION_REQUESTED → (download) → MJ_ACTION_SURFACE_REGISTERED → the next MJ_ACTION_REQUESTED targets this slot."
     }
   ]
 }

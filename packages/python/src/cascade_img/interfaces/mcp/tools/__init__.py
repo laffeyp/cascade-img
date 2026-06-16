@@ -15,26 +15,31 @@ from cascade_img.interfaces.mcp.tools.curation_tools import (
     auto_trim,
     contact_sheet,
     crop_grid,
+    loop_seam_delta,
     palette_quantize,
     promote,
     score_grid,
     sprite_sheet,
+    video_filmstrip,
 )
 from cascade_img.interfaces.mcp.tools.generation_tools import (
     bridge_health,
+    generate_video,
     imagine,
     mj_action,
     status,
     wait,
 )
 from cascade_img.interfaces.mcp.tools.log_tools import log_append, read_prompt_log
-from cascade_img.interfaces.mcp.tools.prompt_tools import compose_prompt
+from cascade_img.interfaces.mcp.tools.prompt_tools import compose_prompt, compose_video
 
 # Registration order = the order tools are advertised over MCP. Grouped by
 # concern: prompt -> generation -> curation -> log.
 ALL_TOOLS = (
     compose_prompt,
+    compose_video,
     imagine,
+    generate_video,
     wait,
     status,
     bridge_health,
@@ -47,6 +52,8 @@ ALL_TOOLS = (
     palette_quantize,
     sprite_sheet,
     score_grid,
+    video_filmstrip,
+    loop_seam_delta,
     log_append,
     read_prompt_log,
 )
@@ -57,10 +64,13 @@ __all__ = [
     "auto_trim",
     "bridge_health",
     "compose_prompt",
+    "compose_video",
     "contact_sheet",
     "crop_grid",
+    "generate_video",
     "imagine",
     "log_append",
+    "loop_seam_delta",
     "mj_action",
     "palette_quantize",
     "promote",
@@ -68,5 +78,6 @@ __all__ = [
     "score_grid",
     "sprite_sheet",
     "status",
+    "video_filmstrip",
     "wait",
 ]

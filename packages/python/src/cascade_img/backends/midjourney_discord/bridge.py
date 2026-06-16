@@ -298,6 +298,13 @@ class Job:
     # prefix mis-routing.
     request_token: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
     upscale: str | None = None  # None | "1".."4" | "all"
+    # "image" (the default grid/upscale flow) or "video" (native `--video`
+    # generation). A video job is routed by ``video_match_key`` (MJ's echoed
+    # `s.mj.run/XXX` short URL — see F34 bind-on-vendor-echo) rather than the
+    # `--no` request_token, because video prompts reject `--no`. Its final
+    # artifact is one animated webp; it emits VIDEO_* instead of GRID_*.
+    kind: str = "image"
+    video_match_key: str | None = None
     status: Status = Status.QUEUED
     progress: str = ""
     message_id: int | None = None  # grid message id
@@ -370,9 +377,17 @@ class Job:
             self.status = Status.FAILED
             self.error_code = code
             self.error = message
+            # A terminal video job must leave PENDING_VIDEO, or it poisons the
+            # next video's bind-on-ack (the dead job would be popped and the new
+            # video's result routed to it, then silently lost). Covers the reaper
+            # path, which fails a timed-out video still in the queue. (review R2)
+            if self.job_id in PENDING_VIDEO:
+                PENDING_VIDEO.remove(self.job_id)
             self.touch()
+            # A video job fails through its own incident tag (VIDEO_FAILED);
+            # image/grid/upscale jobs fail through the generic JOB_FAILED.
             emit(
-                "JOB_FAILED",
+                "VIDEO_FAILED" if self.kind == "video" else "JOB_FAILED",
                 asset_id=self.asset_id,
                 job_id=self.job_id,
                 error_code=code,
@@ -384,6 +399,10 @@ class Job:
         with TERMINAL_CV:
             self.status = Status.DONE
             self.progress = "100%"
+            # Defensive: a bound video job already left PENDING_VIDEO at bind, but
+            # keep the queue free of terminal ids regardless. (review R2)
+            if self.job_id in PENDING_VIDEO:
+                PENDING_VIDEO.remove(self.job_id)
             self.touch()
             emit(
                 "JOB_COMPLETED",
@@ -397,6 +416,11 @@ class Job:
 
 JOBS: OrderedDict[str, Job] = OrderedDict()
 PENDING_GRID: list[str] = []  # FIFO of job_ids awaiting grid message match
+# FIFO of video job_ids fired but not yet bound to MJ's echoed short URL. A
+# native-video prompt can't carry the `--no` routing token, so the job is bound
+# to the `s.mj.run/XXX` URL MJ mints in its first "Creating video…" ack (F34
+# bind-on-vendor-echo), then matched on that key for progress + the final webp.
+PENDING_VIDEO: list[str] = []
 LOCK = threading.RLock()
 TERMINAL_CV = threading.Condition(LOCK)
 
@@ -785,6 +809,47 @@ def _match_grid(content: str) -> Job | None:
     return None
 
 
+_VIDEO_SHORT_URL_RE = re.compile(r"<(https?://s\.mj\.run/[^>\s]+)>")
+
+
+def _match_video(content: str) -> Job | None:
+    """Route a native-video message to its job (F34 bind-on-vendor-echo).
+
+    Video prompts can't carry the ``--no`` request token, so a video job has no
+    token to echo. Instead MJ mints a ``s.mj.run/XXX`` short URL for the prompt
+    and echoes it in every video message (the "Creating video…" ack, each
+    progress edit, and the final). First match an already-bound job whose key is
+    in ``content`` (progress + final); otherwise, on MJ's first video echo (it
+    carries ``--video``), bind the oldest unbound video job to the short URL.
+
+    Load-bearing assumption: a dedicated MJ channel + serial video submission
+    (the /video route enforces one unbound video at a time via VIDEO_IN_FLIGHT).
+    In a shared channel a foreign ``--video`` echo during the bind window could
+    mis-bind — the same dedicated-channel premise the whole bridge runs under.
+    """
+    with LOCK:
+        for job in JOBS.values():
+            if job.kind == "video" and job.video_match_key and job.video_match_key in content:
+                return job
+        if not PENDING_VIDEO or "--video" not in content:
+            return None
+        m = _VIDEO_SHORT_URL_RE.search(content)
+        if not m:
+            return None
+        # Bind the oldest LIVE pending video, popping past any dead entries
+        # (terminal or evicted) first — defense in depth alongside the
+        # terminal-transition cleanup, so a failed video can't poison the bind
+        # of the next one. (review R2)
+        while PENDING_VIDEO:
+            cand = JOBS.get(PENDING_VIDEO.pop(0))
+            if cand is None or cand.status in (Status.DONE, Status.FAILED):
+                continue
+            cand.video_match_key = m.group(1)
+            cand.match_path = "video_bind"
+            return cand
+        return None
+
+
 def _match_upscale(content: str) -> tuple[Job, int] | None:
     """Match an upscale-complete message to ``(parent_job, slot_index)``."""
     m = IMAGE_TAG_RE.search(content or "")
@@ -818,6 +883,26 @@ def _job_by_message_id(message_id: int) -> Job | None:
     with LOCK:
         for j in JOBS.values():
             if j.message_id == message_id:
+                return j
+    return None
+
+
+def _video_result_parent(message_id: int) -> Job | None:
+    """A **completed** native-video job whose result message a derived reply
+    references — i.e. a ``video_virtual_upscale`` / ``reroll`` press fired AFTER
+    the video finished, whose SOLO reply references the video result message.
+
+    Must require ``status == DONE``: a native video's OWN final result also
+    replies to its (progress) message, and that reply must flow through the
+    completion path (VIDEO_RECEIVED), NOT be hijacked as a derived result. Only
+    once the job is DONE is a further reply a genuine post-result action.
+    (Caught live 2026-06-16: without the DONE gate the video's own result was
+    routed to `derived` as a 'variation' and the job hung at 91%.) Image derived
+    results reply to a SOLO upscale's ``upscale_message_id`` instead, so they
+    never reach here."""
+    with LOCK:
+        for j in JOBS.values():
+            if j.kind == "video" and j.status == Status.DONE and j.message_id == message_id:
                 return j
     return None
 
@@ -882,10 +967,20 @@ _ACTION_MARKERS: dict[str, str] = {
     "animate_high": "animate_high",
     "animate_low": "animate_low",
     "favorite": "BOOKMARK",
+    # Native-video result buttons (captured live 2026-06-16, mj_capture_video_actions):
+    # on the video grid — video_virtual_upscale::1-4 (extract a slot to a SOLO mp4);
+    # on the SOLO video — animate_{high,low}_extend (+4s extend, grid-aligned ::N).
+    # The grid's `reroll` button is deliberately NOT exposed: it generates a fresh,
+    # untracked video whose own `--video` short-URL ack would be claimed by
+    # _match_video and could mis-bind a pending /video job (review #9 F2) — re-roll
+    # via generate_video instead, which is tracked and serialized.
+    "video_upscale": "video_virtual_upscale",
+    "extend_high": "animate_high_extend",
+    "extend_low": "animate_low_extend",
 }
 
 
-def _find_action_custom_id(message, action: str) -> str | None:
+def _find_action_custom_id(message, action: str, slot: int | None = None) -> str | None:
     """Return the live ``custom_id`` of ``action``'s button on ``message``, or
     None if that button isn't present.
 
@@ -894,8 +989,20 @@ def _find_action_custom_id(message, action: str) -> str | None:
     bridge never hardcodes the uuid-bearing id. Buttons differ by MJ version, so
     a missing button yields None and the caller reports BUTTON_NOT_FOUND rather
     than pressing the wrong thing.
-    """
-    marker = _ACTION_MARKERS[action]
+
+    ``video_upscale`` is the one action whose four buttons share ONE message (the
+    video grid: ``video_virtual_upscale::1..4``), the slot living in the
+    custom_id rather than in a separate per-slot message. For it the slot is
+    folded into the marker so slot N presses ``::N``; other actions ignore slot
+    here (their slot already picked the message)."""
+    marker = _ACTION_MARKERS.get(action)
+    if marker is None:
+        # An action the bridge doesn't expose (e.g. the deferred video_reroll):
+        # no marker, so it can't be located — degrade to BUTTON_NOT_FOUND rather
+        # than raise. The action enum is the upstream gate; this is defense.
+        return None
+    if action == "video_upscale":
+        marker = f"video_virtual_upscale::{slot or 1}"
     for row in getattr(message, "components", None) or []:
         for c in getattr(row, "children", []) or []:
             cid = getattr(c, "custom_id", "") or ""
@@ -1091,6 +1198,17 @@ def _ingest_derived(parent: Job, message) -> None:
         if any(d.get("message_id") == message.id for d in parent.derived):
             return  # already claimed/downloaded this derived result
         kind = _classify_derived(content)
+        # Artifact-aware override: a video derived (e.g. a video_virtual_upscale
+        # SOLO mp4, or any video reply) IS an animation even when its echoed
+        # prompt lacks --motion (a --loop video carries --video but no --motion,
+        # so the content-only classifier would mislabel it "variation"). The
+        # content_type is the ground truth. (caught live 2026-06-16)
+        att_ct = getattr(att, "content_type", "") or ""
+        att_name = getattr(att, "filename", "") or ""
+        if kind != "animation" and (
+            att_ct.startswith("video/") or att_name.lower().endswith((".mp4", ".mov", ".webm"))
+        ):
+            kind = "animation"
         mj_uuid = _extract_derived_uuid(message) or ""
         # Reserve under LOCK (path="" sentinel) so a concurrent edit-dispatch of
         # the same final short-circuits at the membership check above.
@@ -1141,6 +1259,36 @@ def _ingest_derived(parent: Job, message) -> None:
         entry["bytes"] = nbytes
         parent.touch()
     log.info(f"[{parent.asset_id}] saved derived {kind} -> {out_path}")
+
+    # A native-video SOLO (from video_virtual_upscale) carries its own
+    # animate_*_extend buttons. Record it as an actionable surface so
+    # mj_action(extend_high|extend_low, slot=N) can press it; the extended clip
+    # then replies to this message and routes back via _job_by_upscale_message_id
+    # (which scans upscale_message_ids). Recorded BEFORE the emit so an agent that
+    # observes MJ_DERIVED_RECEIVED and immediately fires extend can't race a
+    # not-yet-registered surface. (V-3, F3)
+    if parent.kind == "video":
+        sl = None
+        for row in getattr(message, "components", None) or []:
+            for ch in getattr(row, "children", None) or []:
+                m = re.search(r"_extend::(\d+)", getattr(ch, "custom_id", "") or "")
+                if m:
+                    sl = int(m.group(1))
+                    break
+            if sl is not None:
+                break
+        if sl is not None:
+            with LOCK:
+                parent.upscale_message_ids[sl] = message.id
+            emit(
+                "MJ_ACTION_SURFACE_REGISTERED",
+                asset_id=parent.asset_id,
+                job_id=parent.job_id,
+                slot=sl,
+                message_id=message.id,
+                surface_kind="video_solo",
+            )
+
     emit(
         "MJ_DERIVED_RECEIVED",
         asset_id=parent.asset_id,
@@ -1194,7 +1342,7 @@ def _ingest_message_impl(message, event: str = "message"):
     # SOLO and grid messages reference other ids, so they fall through untouched).
     ref_id = getattr(getattr(message, "reference", None), "message_id", None)
     if ref_id is not None:
-        derived_parent = _job_by_upscale_message_id(ref_id)
+        derived_parent = _job_by_upscale_message_id(ref_id) or _video_result_parent(ref_id)
         if derived_parent is not None:
             _ingest_derived(derived_parent, message)
             return
@@ -1215,6 +1363,19 @@ def _ingest_message_impl(message, event: str = "message"):
                 message_id=message.id,
                 match_path=job.match_path or "unknown",
             )
+
+    # Native video: bound by MJ's echoed short URL (no --no token), routed into
+    # the same PROGRESS lifecycle below. No GRID_MATCHED — VIDEO_REQUESTED fired
+    # at /video; the trace is VIDEO_REQUESTED -> VIDEO_RECEIVED -> JOB_COMPLETED.
+    if job is None:
+        job = _match_video(content)
+        if job is not None:
+            with LOCK:
+                job.message_id = message.id
+                if job.status in (Status.QUEUED, Status.SUBMITTED):
+                    job.status = Status.PROGRESS
+                job.touch()
+            log.info(f"[{job.asset_id}] matched video message {message.id} via {job.match_path}")
 
     if job is not None and job.status in (Status.PROGRESS, Status.SUBMITTED):
         pct = PCT_RE.search(content)
@@ -1270,7 +1431,10 @@ def _ingest_message_impl(message, event: str = "message"):
                 with LOCK:
                     if job.grid_path == "":
                         job.grid_path = None
-                job._fail("GRID_DOWNLOAD_FAILED", f"grid download failed: {e}")
+                if job.kind == "video":
+                    job._fail("VIDEO_DOWNLOAD_FAILED", f"video download failed: {e}")
+                else:
+                    job._fail("GRID_DOWNLOAD_FAILED", f"grid download failed: {e}")
                 log.error(f"[{job.asset_id}] {job.error}")
                 return
 
@@ -1278,8 +1442,10 @@ def _ingest_message_impl(message, event: str = "message"):
                 job.grid_url = att.url
                 job.grid_path = str(grid_path)
                 job.touch()
+            # A video result is one animated webp, not a 2x2 grid — emit the
+            # honest VIDEO_RECEIVED (same payload shape) instead of GRID_RECEIVED.
             emit(
-                "GRID_RECEIVED",
+                "VIDEO_RECEIVED" if job.kind == "video" else "GRID_RECEIVED",
                 asset_id=job.asset_id,
                 job_id=job.job_id,
                 path=str(grid_path),
@@ -1520,6 +1686,14 @@ def _ingest_message_impl(message, event: str = "message"):
             remaining = list(parent.upscale_pending)
 
         log.info(f"[{parent.asset_id}] saved upscale U{idx} -> {out_path}")
+        emit(
+            "MJ_ACTION_SURFACE_REGISTERED",
+            asset_id=parent.asset_id,
+            job_id=parent.job_id,
+            slot=idx,
+            message_id=message.id,
+            surface_kind="image_upscale",
+        )
         emit(
             "UPSCALE_RECEIVED",
             asset_id=parent.asset_id,
@@ -1838,6 +2012,115 @@ def http_imagine():
     return jsonify(job_id=job.job_id, asset_id=job.asset_id, status=job.status, upscale=upscale)
 
 
+@app.post("/video")
+def http_video():
+    """Fire a NATIVE video generation: ``<image_url> [text] --video [params]``.
+
+    Distinct from /imagine in three ways: the prompt is fired RAW (video prompts
+    reject the ``--no`` routing token, so there's nothing to merge); the job is
+    kind="video" and waits in PENDING_VIDEO to be bound to MJ's echoed
+    ``s.mj.run/XXX`` short URL (F34); and it emits VIDEO_REQUESTED. The final
+    artifact is one animated webp, downloaded through the same lifecycle as a
+    grid (it has no upscale). Caller supplies the already-composed video
+    ``prompt`` (the MCP/backend layer builds it via PromptComposer.compose_video).
+    """
+    if not _ready.is_set():
+        return jsonify(
+            error="discord client not ready yet, retry in a few seconds",
+            code="DISCORD_NOT_READY",
+        ), 503
+
+    body = request.get_json(silent=True) or {}
+    prompt = (body.get("prompt") or "").strip()
+    if not prompt:
+        return jsonify(error="missing 'prompt'"), 400
+    if "--video" not in prompt:
+        return jsonify(
+            error="a /video prompt must contain --video (compose with compose_video)",
+            code="NOT_A_VIDEO_PROMPT",
+        ), 400
+
+    asset_id_raw = body.get("asset_id") or f"asset_{uuid.uuid4().hex[:8]}"
+    asset_id = "".join(c if c.isalnum() or c in "._-" else "_" for c in str(asset_id_raw))[:80]
+
+    with LOCK:
+        # Serialize video submission: a video can't carry the --no routing token,
+        # so it's bound to MJ's echoed short URL on a FIFO basis. Allowing two
+        # videos to await their first ack at once would make that bind ambiguous
+        # (out-of-order acks could swap them), so refuse while one is unbound.
+        # The window is brief — a job leaves PENDING_VIDEO as soon as it binds —
+        # so a still-rendering video does NOT block the next submit. (review R1)
+        if PENDING_VIDEO:
+            return jsonify(
+                error=(
+                    "a video is already awaiting its first Midjourney ack; submit "
+                    "videos serially (one unbound at a time) so result routing "
+                    "stays unambiguous — poll /wait then submit the next"
+                ),
+                code="VIDEO_IN_FLIGHT",
+            ), 409
+        job = Job(job_id=uuid.uuid4().hex, asset_id=asset_id, prompt=prompt, kind="video")
+        JOBS[job.job_id] = job
+        _persist(job)
+        PENDING_VIDEO.append(job.job_id)
+        _evict_if_needed()
+
+    SUBMIT_TIMEOUT_SECONDS = 35
+    # Fire the RAW prompt — no tagged_prompt() (video rejects --no).
+    fut = asyncio.run_coroutine_threadsafe(_send_imagine(job.prompt), _running_loop())
+    try:
+        resp = fut.result(timeout=SUBMIT_TIMEOUT_SECONDS)
+    except TimeoutError:
+        with LOCK:
+            job.status = Status.SUBMITTED_UNCONFIRMED
+            job.touch()
+        emit(
+            "JOB_SUBMIT_TIMEOUT",
+            asset_id=job.asset_id,
+            job_id=job.job_id,
+            timeout_seconds=SUBMIT_TIMEOUT_SECONDS,
+        )
+        return jsonify(
+            job_id=job.job_id,
+            asset_id=job.asset_id,
+            status=job.status,
+            note=(
+                "Discord interaction timed out before returning. The video job is "
+                "in PENDING_VIDEO — MJ may have accepted it. Use /wait or /status; "
+                "do not retry (would bill twice)."
+            ),
+        ), 202
+    except DiscordNotReadyError as e:
+        job._fail(e.code, str(e))
+        with LOCK:
+            if job.job_id in PENDING_VIDEO:
+                PENDING_VIDEO.remove(job.job_id)
+        return jsonify(error=str(e), code=e.code, remediation=e.remediation, job_id=job.job_id), 503
+    except Exception as e:
+        job._fail("VIDEO_SUBMIT_FAILED", f"submit failed: {type(e).__name__}: {e}")
+        with LOCK:
+            if job.job_id in PENDING_VIDEO:
+                PENDING_VIDEO.remove(job.job_id)
+        return jsonify(error=str(e), job_id=job.job_id), 502
+
+    if resp.status_code not in (200, 204):
+        text = resp.text[:200]
+        code = "DISCORD_401" if resp.status_code == 401 else "VIDEO_SUBMIT_FAILED"
+        job._fail(code, f"discord {resp.status_code}: {text}")
+        with LOCK:
+            if job.job_id in PENDING_VIDEO:
+                PENDING_VIDEO.remove(job.job_id)
+        log.error(f"[{job.asset_id}] {job.error}")
+        return jsonify(error=job.error, job_id=job.job_id), 502
+
+    with LOCK:
+        job.status = Status.SUBMITTED
+        job.touch()
+    log.info(f"[{job.asset_id}] video submitted: prompt={prompt[:80]}")
+    emit("VIDEO_REQUESTED", asset_id=job.asset_id, job_id=job.job_id, prompt_chars=len(prompt))
+    return jsonify(job_id=job.job_id, asset_id=job.asset_id, status=job.status)
+
+
 @app.get("/status/<job_id>")
 def http_status(job_id):
     with LOCK:
@@ -1948,17 +2231,43 @@ def http_action(job_id):
                 ok=False,
                 error={"code": "UNKNOWN_JOB", "message": "unknown job_id"},
             ), 404
-        message_id = (
-            job.upscale_message_ids.get(slot) if slot is not None else job.upscale_message_id
-        )
+        if job.kind == "video":
+            # video_upscale lives on the video grid message; extend_high/low live
+            # on a per-slot SOLO clip, recorded as a surface in upscale_message_ids
+            # when that SOLO lands (MJ_ACTION_SURFACE_REGISTERED).
+            if action in ("extend_high", "extend_low"):
+                message_id = job.upscale_message_ids.get(slot or 1)
+            else:
+                message_id = job.message_id
+        else:
+            message_id = (
+                job.upscale_message_ids.get(slot) if slot is not None else job.upscale_message_id
+            )
         asset_id = job.asset_id
 
     if message_id is None:
-        detail = (
-            f"no upscaled image for slot {slot}; available slots: {sorted(job.upscale_message_ids)}"
-            if slot is not None
-            else "job has no upscaled image; these buttons live on a SOLO upscale"
-        )
+        if job.kind == "video" and action in ("extend_high", "extend_low"):
+            detail = (
+                f"no SOLO video for slot {slot or 1}; recorded extend surfaces: "
+                f"{sorted(job.upscale_message_ids)}"
+            )
+            remediation = (
+                "Press video_upscale on that slot first (mj_action 'video_upscale', "
+                "slot=N) to extract the SOLO clip the extend buttons live on, then retry."
+            )
+        elif job.kind == "video":
+            detail = "the video grid result is not available yet (job not done)"
+            remediation = (
+                "Wait for the video job to finish (status == 'done') before pressing "
+                "its result buttons."
+            )
+        else:
+            detail = (
+                f"no upscaled image for slot {slot}; available slots: {sorted(job.upscale_message_ids)}"
+                if slot is not None
+                else "job has no upscaled image; these buttons live on a SOLO upscale"
+            )
+            remediation = "Run the job with upscale=1-4 (or 'all'), then retry the action."
         emit(
             "MJ_ACTION_FAILED",
             job_id=job_id,
@@ -1971,13 +2280,13 @@ def http_action(job_id):
             error={
                 "code": "NO_UPSCALED_IMAGE",
                 "message": detail,
-                "remediation": "Run the job with upscale=1-4 (or 'all'), then retry the action.",
+                "remediation": remediation,
             },
         ), 409
 
     async def _do():
         message = await _fetch_message(message_id)
-        custom_id = _find_action_custom_id(message, action)
+        custom_id = _find_action_custom_id(message, action, slot=slot)
         if custom_id is None:
             return None, None
         guild_id = str(message.guild.id) if message.guild else _cfg().guild_id

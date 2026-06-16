@@ -72,6 +72,11 @@ def _solo_message(uuid="abc123"):
         f"MJ::JOB::animate_high::1::{uuid}::SOLO",
         f"MJ::JOB::animate_low::1::{uuid}::SOLO",
         f"MJ::BOOKMARK::{uuid}",
+        # native-video result buttons (V-3)
+        f"MJ::JOB::video_virtual_upscale::1::{uuid}",
+        f"MJ::JOB::reroll::0::{uuid}::SOLO",
+        f"MJ::JOB::animate_high_extend::1::{uuid}",
+        f"MJ::JOB::animate_low_extend::1::{uuid}",
     ]
     return _Msg([_Row([_Btn(c) for c in cids])])
 
@@ -117,23 +122,24 @@ def test_find_action_custom_id_absent_button_returns_none():
 
 def test_action_markers_match_the_locked_action_enum():
     """The marker map's keys are the canonical action set; they must equal the
-    enum the vocabulary constrains MJ_ACTION_REQUESTED.action to."""
-    expected = {
-        "upscale_subtle",
-        "upscale_creative",
-        "vary_subtle",
-        "vary_strong",
-        "zoom_out_2x",
-        "zoom_out_1_5x",
-        "pan_left",
-        "pan_right",
-        "pan_up",
-        "pan_down",
-        "animate_high",
-        "animate_low",
-        "favorite",
-    }
-    assert set(_ACTION_MARKERS) == expected
+    enum the vocabulary constrains MJ_ACTION_REQUESTED.action to. Read straight
+    from the catalog (not a hardcoded copy) so the marker map and the locked enum
+    cannot drift apart — capability-parity, the same discipline as vocab-parity.
+    video_reroll is in NEITHER (deferred, review #9 F2)."""
+    import json
+    from importlib.resources import files
+
+    schema = json.loads(
+        (files("cascade_img.vocabulary.versions") / "0.1.json").read_text(encoding="utf-8")
+    )
+    action_enum = next(
+        set(c["enum"])
+        for c in schema["evidence_constraints"]["constraints"]
+        if "MJ_ACTION_REQUESTED" in c["target_tag"] and c["target_field"] == "action"
+    )
+    assert set(_ACTION_MARKERS) == action_enum
+    assert "video_reroll" not in action_enum
+    assert {"video_upscale", "extend_high", "extend_low"} <= action_enum
 
 
 # ---------------- POST /action/<job_id> guard paths ----------------

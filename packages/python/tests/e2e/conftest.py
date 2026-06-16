@@ -120,6 +120,31 @@ def base_job(live_backend) -> dict:
 
 
 @pytest.fixture(scope="session")
+def base_job_v7(live_backend) -> dict:
+    """A V7 ``upscale="all"`` render for the V7-only re-upscale action.
+
+    V8.1 dropped the Subtle/Creative re-upscalers (it renders native HD via
+    ``--hd``, so the 2x re-upscale step is gone — verified live 2026-06-14: a
+    ``upscale_subtle`` press on a V8.1 image returns "no button found"). The
+    re-upscale action therefore only has buttons to press on a V7 image."""
+    from cascade_img.prompt.composer import PromptComposer, Subject
+
+    prompt = PromptComposer().compose(
+        Subject(
+            text="a simple flat vector icon of a single solid red circle",
+            constraints=["centered", "solid plain white background", "no shadow", "no gradient"],
+        ),
+        aspect_ratio="1:1",
+        version="7",
+    )
+    res = live_backend.imagine(prompt, asset_id="captest_base_v7", upscale="all")
+    rec = live_backend.wait(res["job_id"], timeout=600)
+    assert rec.get("status") == "done", f"V7 base render did not finish: {rec}"
+    rec["job_id"] = res["job_id"]
+    return rec
+
+
+@pytest.fixture(scope="session")
 def checks():
     """The image-property check module (is_animated / has_transparency / …)."""
     return image_checks

@@ -267,9 +267,9 @@ The bridge fired the Discord interaction but never received a matching MJ messag
 
 The bridge routes Midjourney's messages back to jobs using a per-job token appended to the outbound prompt as `--no cscidnocollide<token>` — not by prefix or substring match. Two jobs with identical leading prompts fired back-to-back are kept distinct because each carries its own token. If you do see two jobs receive each other's grids, file a bug with the bridge log; the routing is supposed to be collision-resistant.
 
-### Midjourney V7 grid posted as a new message
+### Midjourney grid posted as a new message
 
-Midjourney v7 sometimes posts the final grid as a separate new message rather than editing the original "(Waiting to start)" placeholder. The bridge's `_match_grid` has a second-pass fallback that matches in-progress jobs without a `grid_path` yet against any new message carrying the job's routing token, so the v7 new-message case still resolves.
+Midjourney (V7 and V8.1) sometimes posts the final grid as a separate new message rather than editing the original "(Waiting to start)" placeholder. The bridge's `_match_grid` has a second-pass fallback that matches in-progress jobs without a `grid_path` yet against any new message carrying the job's routing token, so the new-message case still resolves regardless of model version.
 
 ### Bridge restarted mid-job
 
@@ -323,10 +323,17 @@ If subject + sref + moodboard still drifts photoreal, raise the sref weight (`--
 
 ## Identity-locked variants (V7 `--oref`)
 
-When the goal is "same subject, different pose/angle/expression" — a recurring character, a product from new angles, a mascot in new scenes — `--oref` is Midjourney v7's identity lock. It replaces v6's `--cref`, which is **not compatible with `--v 7`** (silently dropped if you pass it).
+When the goal is "same subject, different pose/angle/expression" — a recurring character, a product from new angles, a mascot in new scenes — `--oref` is Midjourney's identity lock. It replaces v6's `--cref`, which is **not compatible with `--v 7`** (silently dropped if you pass it).
+
+**Omni Reference is V7-only.** V8.1 (cascade-img's default model) does not support `--oref` — MJ silently downgrades an oref prompt to V7, and the composer makes that explicit by **requiring `version="7"`** whenever `oref` is set (it raises otherwise rather than switching models behind your back). So identity-locked work runs on V7; everything else defaults to V8.1.
 
 ```python
-IdentityStack(oref="https://cdn.discord.com/.../reference.png", ow=400)
+# oref requires version="7" — the composer rejects oref on V8.1.
+PromptComposer().compose(
+    Subject(text="the same mascot, three-quarter view"),
+    identity=IdentityStack(oref="https://cdn.discord.com/.../reference.png", ow=400),
+    version="7",
+)
 ```
 
 - `ow` is omni-weight (0-1000). 100 = default (drifts), 400 = first useful tightness, 1000 = max. Bump higher when default drifts visibly.

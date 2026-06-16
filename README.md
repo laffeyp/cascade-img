@@ -169,6 +169,7 @@ prompt = PromptComposer().compose(
     style=StyleStack(moodboard="<your-moodboard-code>", sref="https://cdn.../style.png"),
     identity=IdentityStack(oref="https://cdn.../reference.png", ow=1000),
     aspect_ratio="1:1",
+    version="7",  # oref (omni-reference identity lock) is V7-only; omit it to use the V8.1 default
 )
 ```
 
@@ -200,7 +201,7 @@ The daemon emits structured JSON log lines across the whole job lifecycle, and e
 
 - **[RUNBOOK.md](./RUNBOOK.md)** — install, env capture, the setup procedure, the reconnect lifecycle, and every known failure mode with its structured error code and remediation.
 - **[AGENTS.md](./AGENTS.md)** — the LLM operator's guide. Read this when handing cascade-img to an agent.
-- **[CAPABILITIES.md](./CAPABILITIES.md)** — exactly which Midjourney v7 features cascade-img drives (every prompt parameter and `mj_action`, what each does) and what's intentionally not wired.
+- **[CAPABILITIES.md](./CAPABILITIES.md)** — exactly which Midjourney features cascade-img drives (every prompt parameter and `mj_action`, the V8.1/V7 version split, what each does) and what's intentionally not wired.
 - **[TOS.md](./TOS.md)** — the technical context: Midjourney has no public API; Discord user-account automation is the established OSS pattern; both Discord's and Midjourney's Terms of Service prohibit it.
 - **[examples/](./examples/)** — two short, generic walkthroughs of the operating loop (generate one image; generate a batch). Illustrative, not templates to copy verbatim. Read AGENTS.md before any of these.
 
@@ -225,7 +226,7 @@ top-level Markdown plus that package.
 
 | version | headline |
 |---|---|
-| v0.1 (current) | MJ V7 backend, prompt composer, curation kit (crop + flood-fill alpha key + promote), MCP server, AGENTS.md, prompt templates, Python package. |
+| v0.1 (current) | MJ backend (version-aware: V8.1 default, V7 for the `--oref` identity lock), prompt composer, curation kit (crop + flood-fill alpha key + promote), MCP server, AGENTS.md, prompt templates, Python package. |
 | v0.2 | More Midjourney commands (`/describe`, `/show`, Vary Region inpaint, `/blend`, `/shorten`, `/tune`, `/info`); internal code cleanup — break apart the large bridge module and split the long ingest function. |
 | v0.3 | A TypeScript wrapper; the first API backends — [Flux](https://bfl.ai/) via [Fal](https://fal.ai/) (with instruction-edit through [Flux Kontext](https://bfl.ai/models/flux-kontext)) and [Ideogram](https://ideogram.ai/) for reliable in-image text; Windows bridge. |
 | v0.4 | More backends — [Google Imagen](https://deepmind.google/models/imagen/) and [Recraft](https://www.recraft.ai/) (native vector/SVG output); bundled-binary install path. |

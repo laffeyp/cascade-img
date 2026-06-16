@@ -1,14 +1,29 @@
-"""Assemble Midjourney v7 prompt strings from composable prompt parts.
+"""Assemble Midjourney prompt strings from composable prompt parts.
 
 The consumer supplies a subject, an optional style stack, an optional
-identity stack, an optional render-parameter stack, and an aspect ratio.
-The composer emits the backend-specific prompt string. v0.1 emits Midjourney
-v7 syntax: ``--ar``, ``--v 7``, ``--style raw``, ``--p``, ``--sref``, ``--sw``,
-``--s``, ``--oref``, ``--ow``, ``--no``, ``--tile``, ``--exp``, ``--chaos``,
-``--weird``, ``--q``, ``--seed``, ``--iw``, and leading image-prompt URLs.
+identity stack, an optional render-parameter stack, an aspect ratio, and a
+model ``version``. The composer emits the backend-specific prompt string.
 
-Every range is validated at construction (``__post_init__``) so a bad value
-fails before it reaches the wire, in the same place the consumer built it.
+cascade-img is **version-aware** and defaults to Midjourney **V8.1** (MJ's
+default model since 2026-06-11). It also targets **V7** because V8.1 does not
+support every V7 feature — most importantly Omni Reference (``--oref``/``--ow``),
+cascade-img's identity lock, which is V7-only. The parameter surface is gated by
+version, grounded in MJ's own Version compatibility chart
+(docs.midjourney.com, updated 2026-06-11):
+
+- **Both V7 and V8.1:** ``--ar``, ``--style raw``, ``--p``, ``--sref``,
+  ``--sw``, ``--s``, ``--no``, ``--tile``, ``--exp``, ``--chaos``, ``--weird``,
+  ``--seed``, ``--iw``, leading image-prompt URLs.
+- **V7 only:** ``--oref``/``--ow`` (Omni Reference), ``--q`` (Quality).
+- **V8.1 only:** ``--hd`` (native 2048px) / ``--sd`` (1024px) — V8.1 renders at
+  native resolution without a separate upscale step.
+
+Cross-version conflicts (e.g. ``--oref`` requested on V8.1) fail loudly at
+``compose()`` rather than silently altering the render — MJ itself silently
+downgrades an oref prompt to V7, which this composer refuses to do quietly.
+Per-field ranges are validated at construction (``__post_init__``); the
+version/feature compatibility is validated in ``compose()`` where the version
+and the stacks are both in scope.
 """
 
 from __future__ import annotations
@@ -19,6 +34,26 @@ from dataclasses import dataclass, field
 from cascade_img.vocabulary import emit
 
 _ASPECT_RATIO_RE = re.compile(r"^\d+:\d+$")
+
+# Accepted Midjourney model versions cascade-img composes for. "8" is accepted
+# as the bare token MJ resolves to the current V8 sub-version (V8.1 as of
+# 2026-06); "8.1" is explicit. Feature gating treats "8" and "8.1" identically
+# (the V8 family); only "7" unlocks the V7-only features.
+_SUPPORTED_VERSIONS = ("7", "8", "8.1")
+_DEFAULT_VERSION = "8.1"
+
+# Midjourney native video generation (own image -> 5s clip). Per
+# docs.midjourney.com "Video" (updated 2026-06-11): a video prompt is
+# ``<image_url> [text] --video`` plus ONLY the video-specific params below — any
+# image params (--ar/--sref/--oref/--q/--hd/--chaos/...) are stripped by MJ when
+# --video is set, so video composition is a disjoint surface from compose().
+#   --motion low|high  (default low)   --raw            --loop (start==end frame)
+#   --end <url>        (different end frame; mutually exclusive with --loop)
+#   --bs 1|2|4         (batch size; how many videos per prompt)
+# Video resolution (SD/HD) is a settings-panel toggle, NOT a prompt flag, so it
+# is intentionally not composed here.
+_VIDEO_MOTIONS = ("low", "high")
+_VIDEO_BATCH_SIZES = (1, 2, 4)
 
 
 def _reject_flag_injection(value: str, where: str) -> str:
@@ -150,6 +185,12 @@ class IdentityStack:
 
     ``ow`` is omni-weight (0-1000; validated at construction). 100 is loose,
     higher values tighten the identity match.
+
+    **V7 only.** Omni Reference is not supported on V8.1 (MJ silently falls back
+    to V7 if an oref image is supplied). ``compose()`` therefore requires
+    ``version='7'`` whenever ``oref`` is set, and raises otherwise rather than
+    downgrading the model silently. A V8 Omni Reference is "in training" per MJ's
+    2026-06-11 announcement but not yet shipped.
     """
 
     oref: str | None = None
@@ -177,8 +218,13 @@ class ParamStack:
       more detail/dynamism. Values above ~25 can overwhelm ``stylize``/``p``.
     - ``chaos`` is ``--chaos`` (0-100): grid variety.
     - ``weird`` is ``--weird`` (0-3000): offbeat aesthetics.
-    - ``quality`` is ``--q``, one of {1, 2, 4} on v7 (GPU-cost lever; affects
-      only the initial grid — the U-button upscales inherit the grid).
+    - ``quality`` is ``--q``, one of {1, 2, 4} (GPU-cost lever; affects only the
+      initial grid — the U-button upscales inherit the grid). **V7 only** — V8.1
+      does not support ``--q`` (use ``hd``/``sd`` for V8.1 resolution control).
+    - ``hd`` toggles ``--hd``: V8.1 native 2048x2048 rendering, no separate
+      upscale step (~1.3 GPU-min). **V8.1 only.**
+    - ``sd`` toggles ``--sd``: V8.1 native 1024x1024 rendering (~0.8 GPU-min).
+      **V8.1 only.** Mutually exclusive with ``hd``.
     - ``seed`` is ``--seed`` (0-4294967295). Reproducibility holds only within
       a fixed model + params in non-Turbo mode, and even then outputs are
       near-identical, not bit-identical. Store it as "the seed we requested".
@@ -189,9 +235,16 @@ class ParamStack:
     chaos: int | None = None
     weird: int | None = None
     quality: int | None = None
+    hd: bool = False
+    sd: bool = False
     seed: int | None = None
 
     def __post_init__(self) -> None:
+        if self.hd and self.sd:
+            raise ValueError(
+                "ParamStack.hd (2048px) and ParamStack.sd (1024px) are mutually "
+                "exclusive; set at most one (both are V8.1-only)."
+            )
         if self.exp is not None and not 0 <= self.exp <= 100:
             raise ValueError(
                 f"ParamStack.exp must be 0-100 (whole number) per Midjourney's "
@@ -220,10 +273,11 @@ class ParamStack:
 
 
 class PromptComposer:
-    """Compose Midjourney v7 prompts from composable prompt parts.
+    """Compose Midjourney prompts from composable prompt parts.
 
-    Stateless. Hold one in a module-level singleton if you want, or instantiate
-    per call — there's nothing to share.
+    Version-aware: ``compose(..., version=...)`` defaults to V8.1 and accepts
+    ``'7'``/``'8'``/``'8.1'``. Stateless. Hold one in a module-level singleton if
+    you want, or instantiate per call — there's nothing to share.
     """
 
     def compose(
@@ -233,8 +287,17 @@ class PromptComposer:
         identity: IdentityStack | None = None,
         params: ParamStack | None = None,
         aspect_ratio: str = "1:1",
+        version: str | None = None,
     ) -> str:
-        """Return a Midjourney v7 prompt string."""
+        """Return a Midjourney prompt string for the given model ``version``.
+
+        ``version`` is one of ``'7'``, ``'8'``, ``'8.1'``; ``None`` (the default)
+        resolves to ``_DEFAULT_VERSION`` (``'8.1'``) — the single source of truth
+        for the default, so callers (the MCP tool, the registry) pass ``None``
+        rather than re-hardcoding a default that could drift from this constant.
+        Version-gated features fail loudly when mismatched: ``--oref``/``--ow``
+        and ``--q`` require ``version='7'``; ``--hd``/``--sd`` require the V8
+        family. See the module docstring for the full compatibility split."""
         # Validate here, not in a dataclass: aspect_ratio is a bare argument. A
         # typo like "16x9" or "16:9 --tile" would otherwise ride into "--ar ..."
         # and be parsed by MJ as a malformed flag (or an injected extra one).
@@ -242,6 +305,20 @@ class PromptComposer:
             raise ValueError(
                 f"aspect_ratio must look like '16:9' (digits:digits); got {aspect_ratio!r}."
             )
+        # Resolve the default from the single source (_DEFAULT_VERSION), then
+        # normalize + validate. A typo ('v7', '7.0') must fail loudly here rather
+        # than ride into "--v <typo>" and be rejected by MJ only at render time
+        # (the edge case external-grammar trap).
+        version = _DEFAULT_VERSION if version is None else str(version).strip()
+        if version not in _SUPPORTED_VERSIONS:
+            raise ValueError(
+                f"version must be one of {', '.join(_SUPPORTED_VERSIONS)} "
+                f"(Midjourney model version); got {version!r}. cascade-img "
+                f"defaults to '{_DEFAULT_VERSION}' (MJ's current default); use "
+                f"'7' for the Omni Reference (--oref) identity lock, which V8.1 "
+                f"does not support."
+            )
+        is_v7 = version == "7"
         parts: list[str] = [subject.text.strip()]
         for c in subject.constraints:
             c = c.strip()
@@ -251,7 +328,7 @@ class PromptComposer:
 
         flags: list[str] = []
         flags.append(f"--ar {aspect_ratio}")
-        flags.append("--v 7")
+        flags.append(f"--v {version}")
 
         prompt_parts_used: list[str] = []
 
@@ -274,6 +351,13 @@ class PromptComposer:
             flags.append("--style raw")
 
         if identity is not None and identity.oref:
+            if not is_v7:
+                raise ValueError(
+                    "Omni Reference (--oref/--ow) is a Midjourney V7 feature; "
+                    f"V{version} does not support it (MJ silently downgrades an "
+                    "oref prompt to V7). Pass version='7' to use the identity "
+                    "lock, or drop oref to render on V8.1."
+                )
             flags.append(f"--oref {identity.oref}")
             flags.append(f"--ow {identity.ow}")
             prompt_parts_used.extend(["oref", "ow"])
@@ -292,8 +376,27 @@ class PromptComposer:
                 flags.append(f"--weird {params.weird}")
                 prompt_parts_used.append("weird")
             if params.quality is not None:
+                if not is_v7:
+                    raise ValueError(
+                        "--q (quality) is a Midjourney V7 parameter; "
+                        f"V{version} does not support it. Pass version='7' to "
+                        "use --q, or use hd/sd for V8.1 resolution control."
+                    )
                 flags.append(f"--q {params.quality}")
                 prompt_parts_used.append("quality")
+            if params.hd or params.sd:
+                if is_v7:
+                    raise ValueError(
+                        "--hd/--sd (native-resolution rendering) are Midjourney "
+                        "V8.1 parameters; V7 does not support them (V7 uses --q "
+                        "plus a separate upscale). Drop hd/sd, or render on V8.1."
+                    )
+                if params.hd:
+                    flags.append("--hd")
+                    prompt_parts_used.append("hd")
+                if params.sd:
+                    flags.append("--sd")
+                    prompt_parts_used.append("sd")
             if params.seed is not None:
                 flags.append(f"--seed {params.seed}")
                 prompt_parts_used.append("seed")
@@ -327,3 +430,72 @@ class PromptComposer:
             prompt_chars=len(prompt),
         )
         return prompt
+
+    def compose_video(
+        self,
+        image_url: str,
+        text: str | None = None,
+        motion: str | None = None,
+        raw: bool = False,
+        loop: bool = False,
+        end_frame: str | None = None,
+        batch_size: int | None = None,
+    ) -> str:
+        """Compose a Midjourney **native video** prompt (own image -> 5s clip).
+
+        Emits ``<image_url> [text] --video`` plus only the video-specific params
+        (``--motion``, ``--raw``, ``--loop``, ``--end``, ``--bs``). This is a
+        disjoint surface from :meth:`compose`: MJ strips image params when
+        ``--video`` is set, so none are accepted here.
+
+        - ``image_url`` — the starting frame; required, leads the prompt.
+        - ``text`` — optional motion/scene description.
+        - ``motion`` — ``"low"`` (default at MJ) or ``"high"``; ``None`` omits the flag.
+        - ``raw`` — ``--raw`` for tighter prompt adherence / less added motion flair.
+        - ``loop`` — ``--loop``: reuse the start frame as the end frame (seamless loop).
+        - ``end_frame`` — a *different* end-frame URL (``--end``). Mutually
+          exclusive with ``loop`` (you cannot both reuse the start and set a new end).
+        - ``batch_size`` — ``--bs`` (1, 2, or 4); how many videos to generate.
+
+        Per the validate-at-composition contract, conflicts fail loudly here
+        rather than at the wire. (V-1 scope: composition only — firing native
+        video through the bridge + its signal vocabulary lands in V-2.)
+        """
+        if not image_url or not image_url.strip():
+            raise ValueError(
+                "compose_video requires a starting-frame image_url (a video is "
+                "generated FROM an image); got empty."
+            )
+        image_url = _reject_flag_injection(image_url.strip(), "compose_video image_url")
+        if motion is not None and motion not in _VIDEO_MOTIONS:
+            raise ValueError(
+                f"motion must be one of {_VIDEO_MOTIONS} (Midjourney --motion); got {motion!r}."
+            )
+        if loop and end_frame is not None and end_frame.strip():
+            raise ValueError(
+                "loop and end_frame are mutually exclusive: --loop reuses the "
+                "start frame as the end frame, while --end sets a different end "
+                "frame. Pick one."
+            )
+        if batch_size is not None and batch_size not in _VIDEO_BATCH_SIZES:
+            raise ValueError(
+                f"batch_size must be one of {_VIDEO_BATCH_SIZES} (Midjourney --bs); "
+                f"got {batch_size!r}."
+            )
+
+        parts: list[str] = [image_url]
+        if text and text.strip():
+            parts.append(_reject_flag_injection(text.strip(), "compose_video text"))
+        parts.append("--video")
+        if motion is not None:
+            parts.append(f"--motion {motion}")
+        if raw:
+            parts.append("--raw")
+        if loop:
+            parts.append("--loop")
+        if end_frame and end_frame.strip():
+            end_url = _reject_flag_injection(end_frame.strip(), "compose_video end_frame")
+            parts.append(f"--end {end_url}")
+        if batch_size is not None:
+            parts.append(f"--bs {batch_size}")
+        return " ".join(parts)

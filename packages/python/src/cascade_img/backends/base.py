@@ -17,11 +17,16 @@ from typing import NotRequired, TypedDict
 class BackendCapabilities:
     """What a backend declares about itself.
 
-    v0.1 records the supported composable prompt parts (moodboard, sref, oref,
-    ow, style_raw, stylize) and aspect ratios."""
+    Records the supported composable prompt parts (moodboard, sref, oref, ow,
+    style_raw, stylize, hd, sd, …), the aspect ratios, the selectable model
+    ``versions``, and the ``default_version``. Some prompt parts are
+    version-gated (the composer raises on a mismatch); ``versions`` /
+    ``default_version`` tell a caller which model the parts apply to."""
 
     prompt_parts: list[str] = field(default_factory=list)
     aspect_ratios: list[str] = field(default_factory=list)
+    versions: list[str] = field(default_factory=list)
+    default_version: str = ""
 
 
 class ImagineResult(TypedDict):

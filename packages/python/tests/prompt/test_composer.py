@@ -1,7 +1,8 @@
 """Behavior contract for PromptComposer.
 
-Validates the v7 prompt-string assembly across the four prompt-part combinations
-the consumer can build, plus the signal payload on each.
+Validates prompt-string assembly across the prompt-part combinations the
+consumer can build, plus the signal payload on each, and the version-aware
+feature gating (default V8.1; --oref/--q are V7-only; --hd/--sd are V8.1-only).
 """
 
 from __future__ import annotations
@@ -21,8 +22,8 @@ from cascade_img.vocabulary import clear, snapshot
 def test_subject_only_emits_minimal_prompt():
     clear()
     p = PromptComposer().compose(Subject(text="a mountain"))
-    # No moodboard, no sref, no oref. style_raw default-on.
-    assert p == "a mountain --ar 1:1 --v 7 --style raw"
+    # No moodboard, no sref, no oref. style_raw default-on. Default model V8.1.
+    assert p == "a mountain --ar 1:1 --v 8.1 --style raw"
     rec = snapshot()[-1]
     assert rec["tag"] == "PROMPT_COMPOSED"
     assert rec["payload"]["prompt_parts_used"] == []
@@ -44,7 +45,7 @@ def test_whitespace_only_reference_fields_are_omitted():
     assert "--sref" not in p
     assert "--oref" not in p
     # The degenerate input collapses to the same minimal prompt as no refs at all.
-    assert p == "a cat --ar 1:1 --v 7 --style raw"
+    assert p == "a cat --ar 1:1 --v 8.1 --style raw"
 
 
 def test_surrounding_whitespace_trimmed_on_reference_fields():
@@ -53,6 +54,7 @@ def test_surrounding_whitespace_trimmed_on_reference_fields():
         Subject(text="a cat"),
         style=StyleStack(moodboard="  m1  ", sref=" https://cdn/x.png "),
         identity=IdentityStack(oref=" https://cdn/o.png ", ow=200),
+        version="7",  # oref is V7-only
     )
     assert "--p m1 " in p
     assert "--sref https://cdn/x.png " in p
@@ -83,7 +85,7 @@ def test_full_style_stack_includes_all_flags():
         aspect_ratio="16:9",
     )
     assert "--ar 16:9" in p
-    assert "--v 7" in p
+    assert "--v 8.1" in p
     assert "--style raw" in p
     assert "--p m1234567890123456789" in p
     assert "--sref https://cdn.midjourney.com/x/0_0.png" in p
@@ -139,6 +141,7 @@ def test_identity_stack_appends_oref_and_ow():
         Subject(text="the same icon at a new angle"),
         style=StyleStack(moodboard="m1", sref="https://cdn/x.png"),
         identity=IdentityStack(oref="https://cdn/oref.png", ow=1000),
+        version="7",  # Omni Reference is V7-only
     )
     assert "--oref https://cdn/oref.png" in p
     assert "--ow 1000" in p
@@ -205,6 +208,7 @@ def test_param_stack_flags_and_signal():
     p = PromptComposer().compose(
         Subject(text="x"),
         params=ParamStack(tile=True, chaos=50, weird=250, quality=2, seed=12345),
+        version="7",  # --q (quality) is V7-only
     )
     for frag in ["--tile", "--chaos 50", "--weird 250", "--q 2", "--seed 12345"]:
         assert frag in p
@@ -296,3 +300,77 @@ def test_free_text_fields_reject_flag_injection():
         Subject(text="a mountain", constraints=["centered --tile"])
     with pytest.raises(ValueError, match="--"):
         Subject(text="a mountain", negatives=["--seed 5"])
+
+
+# ── version-aware feature gating ────────────────────────────────────────────
+
+
+def test_version_defaults_to_v8_1():
+    """No version argument => MJ's current default model, V8.1."""
+    p = PromptComposer().compose(Subject(text="a mountain"))
+    assert "--v 8.1" in p
+    assert "--v 7" not in p
+
+
+def test_version_selection_emits_requested_token():
+    composer = PromptComposer()
+    subj = Subject(text="a mountain")
+    assert "--v 7" in composer.compose(subj, version="7")
+    assert "--v 8" in composer.compose(subj, version="8")
+    assert "--v 8.1" in composer.compose(subj, version="8.1")
+    # int is coerced to the string token
+    assert "--v 7" in composer.compose(subj, version=7)  # type: ignore[arg-type]
+
+
+def test_invalid_version_rejected():
+    composer = PromptComposer()
+    subj = Subject(text="a mountain")
+    for bad in ("v7", "7.0", "9", "8.2", "latest", ""):
+        with pytest.raises(ValueError, match="version must be one of"):
+            composer.compose(subj, version=bad)
+
+
+def test_oref_requires_v7():
+    """Omni Reference is V7-only; requesting it on V8.1 fails loudly rather than
+    silently downgrading the model the way MJ does."""
+    composer = PromptComposer()
+    subj = Subject(text="x")
+    ident = IdentityStack(oref="https://cdn/o.png", ow=200)
+    for v in ("8", "8.1"):
+        with pytest.raises(ValueError, match=r"Omni Reference .* V7 feature"):
+            composer.compose(subj, identity=ident, version=v)
+    # version='7' (and the default-when-absent is 8.1, so 7 must be explicit) works
+    assert "--oref https://cdn/o.png" in composer.compose(subj, identity=ident, version="7")
+
+
+def test_quality_requires_v7():
+    composer = PromptComposer()
+    subj = Subject(text="x")
+    for v in ("8", "8.1"):
+        with pytest.raises(ValueError, match=r"--q \(quality\) is a Midjourney V7"):
+            composer.compose(subj, params=ParamStack(quality=2), version=v)
+    assert "--q 2" in composer.compose(subj, params=ParamStack(quality=2), version="7")
+
+
+def test_hd_sd_require_v8():
+    """--hd/--sd are V8.1-only; requesting them on V7 fails loudly."""
+    composer = PromptComposer()
+    subj = Subject(text="x")
+    with pytest.raises(ValueError, match=r"--hd/--sd .* V8\.1 parameters"):
+        composer.compose(subj, params=ParamStack(hd=True), version="7")
+    with pytest.raises(ValueError, match=r"--hd/--sd .* V8\.1 parameters"):
+        composer.compose(subj, params=ParamStack(sd=True), version="7")
+
+
+def test_hd_sd_emit_on_v8():
+    clear()
+    p = PromptComposer().compose(Subject(text="x"), params=ParamStack(hd=True))  # default 8.1
+    assert "--hd" in p
+    assert "hd" in snapshot()[-1]["payload"]["prompt_parts_used"]
+    p2 = PromptComposer().compose(Subject(text="x"), params=ParamStack(sd=True), version="8")
+    assert "--sd" in p2
+
+
+def test_hd_and_sd_mutually_exclusive():
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        ParamStack(hd=True, sd=True)

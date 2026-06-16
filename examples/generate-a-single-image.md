@@ -12,8 +12,12 @@ placeholder subject for your own.
    - `subject`: a plain description of what you want, e.g.
      `"a flat-design icon of a mountain, centered, simple shapes"`.
    - `aspect_ratio`: e.g. `"1:1"`.
+   - `version`: defaults to `"8.1"` (Midjourney's current model). Pass `"7"`
+     only when you need an Omni Reference identity lock or `--q` — both are
+     V7-only and the call raises if you set them on the V8.1 default.
    - Optional style controls, only if the human gave you any: `moodboard`,
-     `sref` (a reference-image URL), `oref` + `ow` (identity lock).
+     `sref` (a reference-image URL), `oref` + `ow` (identity lock — **requires
+     `version="7"`**).
 
 3. **Generate.** `imagine(prompt, asset_id="mountain-icon", upscale="1")`.
    Use `upscale="all"` instead if you want four upscaled candidates to choose

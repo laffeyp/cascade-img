@@ -158,3 +158,102 @@ def test_imagine_sends_idempotency_key_in_body_when_given(monkeypatch):
 
     be.imagine("p", "a")  # no key -> omitted
     assert "idempotency_key" not in captured["json"]
+
+
+# --------------------- success + error branches across every method ---------
+
+
+def test_imagine_success_includes_upscale_in_body(monkeypatch):
+    """imagine threads upscale into the POST body and returns the bridge's
+    ImagineResult unchanged on success."""
+    captured: dict = {}
+
+    def _post(url, json=None, timeout=None):
+        captured["json"] = json
+        return _FakeResp({"job_id": "j", "asset_id": "a", "status": "submitted", "upscale": "all"})
+
+    monkeypatch.setattr(bk.requests, "post", _post)
+    out = bk.MidjourneyDiscordBackend().imagine("p", "a", upscale="all")
+    assert captured["json"]["upscale"] == "all"
+    assert out["job_id"] == "j"
+
+
+def test_wait_success_returns_job_state(monkeypatch):
+    """A 200 wait returns the terminal job state verbatim (no timed_out injected)."""
+    monkeypatch.setattr(
+        bk.requests,
+        "get",
+        lambda *a, **k: _FakeResp({"job_id": "j", "status": "done", "image_path": "/tmp/x.png"}),
+    )
+    out = bk.MidjourneyDiscordBackend().wait("j", timeout=1)
+    assert out["status"] == "done"
+    assert "timed_out" not in out
+
+
+def test_wait_4xx_raises_stable_code(monkeypatch):
+    """A non-504 4xx during wait (e.g. job evicted mid-wait) raises BridgeError
+    with the stable code, not a flattened HTTPError."""
+    monkeypatch.setattr(
+        bk.requests,
+        "get",
+        lambda *a, **k: _FakeResp({"error": "gone", "code": "JOB_EVICTED"}, status=410),
+    )
+    with pytest.raises(bk.BridgeError) as ei:
+        bk.MidjourneyDiscordBackend().wait("j", timeout=1)
+    assert ei.value.code == "JOB_EVICTED"
+
+
+def test_wait_504_non_dict_json_body_returns_timed_out(monkeypatch):
+    """A 504 whose JSON body parses to a non-dict (e.g. a list from a proxy)
+    still yields timed_out=True rather than corrupting the JobState."""
+    monkeypatch.setattr(
+        bk.requests, "get", lambda *a, **k: _FakeResp(["unexpected", "list"], status=504)
+    )
+    out = bk.MidjourneyDiscordBackend().wait("j", timeout=1)
+    assert out == {"timed_out": True}
+
+
+def test_status_success_returns_state(monkeypatch):
+    monkeypatch.setattr(
+        bk.requests, "get", lambda *a, **k: _FakeResp({"job_id": "j", "status": "progress"})
+    )
+    out = bk.MidjourneyDiscordBackend().status("j")
+    assert out["status"] == "progress"
+
+
+def test_health_success_and_error(monkeypatch):
+    monkeypatch.setattr(
+        bk.requests, "get", lambda *a, **k: _FakeResp({"discord_ready": True, "total_jobs": 0})
+    )
+    assert bk.MidjourneyDiscordBackend().health()["discord_ready"] is True
+
+    monkeypatch.setattr(
+        bk.requests,
+        "get",
+        lambda *a, **k: _FakeResp({"error": "down", "code": "BRIDGE_DOWN"}, status=503),
+    )
+    with pytest.raises(bk.BridgeError) as ei:
+        bk.MidjourneyDiscordBackend().health()
+    assert ei.value.code == "BRIDGE_DOWN"
+
+
+def test_action_threads_slot_into_body(monkeypatch):
+    """action with slot=N puts it in the POST body (targets one SOLO under
+    upscale='all'); omitting slot leaves it out."""
+    captured: dict = {}
+
+    def _post(url, json=None, timeout=None):
+        captured["json"] = json
+        return _FakeResp({"ok": True, "result": {"job_id": "j", "action": "vary_strong"}})
+
+    monkeypatch.setattr(bk.requests, "post", _post)
+    bk.MidjourneyDiscordBackend().action("j", "vary_strong", slot=3)
+    assert captured["json"] == {"action": "vary_strong", "slot": 3}
+
+
+def test_raise_for_envelope_non_dict_body_falls_back_to_http_status(monkeypatch):
+    """A non-dict JSON error body (a list/scalar from an intermediary) cannot
+    carry a code, so the stable code falls back to HTTP_<status>."""
+    with pytest.raises(bk.BridgeError) as ei:
+        bk._raise_for_envelope(_FakeResp(["not", "a", "dict"], status=500))
+    assert ei.value.code == "HTTP_500"

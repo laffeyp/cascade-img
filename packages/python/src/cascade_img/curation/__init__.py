@@ -15,6 +15,10 @@ hosts it.
   a frame map).
 * ``select/`` — :func:`score_grid` (rank a grid's quadrants, pure-PIL),
   :func:`promote` (copy a curated image into the consumer's asset tree).
+* ``video/`` — make a temporal artifact inspectable: :func:`video_filmstrip`
+  (sample keyframes into a vision-readable contact sheet + signature, F32),
+  :func:`loop_seam_delta` (report a looping video's seam cleanliness as a
+  number, F33).
 
 Primitives shared by more than one theme (``QUADRANT_OFFSETS`` and the
 corner-background sampler) live in the private :mod:`._shared` module so the
@@ -26,6 +30,7 @@ from cascade_img.curation.color import DEFAULT_TOLERANCE, alpha_key_corners, pal
 from cascade_img.curation.geometry import auto_trim, crop_quadrant
 from cascade_img.curation.select import promote, score_grid
 from cascade_img.curation.sheets import contact_sheet, sprite_sheet
+from cascade_img.curation.video import loop_seam_delta, video_filmstrip
 
 __all__ = [
     "DEFAULT_TOLERANCE",
@@ -34,8 +39,10 @@ __all__ = [
     "auto_trim",
     "contact_sheet",
     "crop_quadrant",
+    "loop_seam_delta",
     "palette_quantize",
     "promote",
     "score_grid",
     "sprite_sheet",
+    "video_filmstrip",
 ]

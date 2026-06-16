@@ -18,10 +18,12 @@ from cascade_img.curation import (
 )
 from cascade_img.curation import auto_trim as curation_auto_trim
 from cascade_img.curation import contact_sheet as curation_contact_sheet
+from cascade_img.curation import loop_seam_delta as curation_loop_seam_delta
 from cascade_img.curation import palette_quantize as curation_palette_quantize
 from cascade_img.curation import promote as curation_promote
 from cascade_img.curation import score_grid as curation_score_grid
 from cascade_img.curation import sprite_sheet as curation_sprite_sheet
+from cascade_img.curation import video_filmstrip as curation_video_filmstrip
 from cascade_img.interfaces.mcp import _envelope
 
 
@@ -175,3 +177,28 @@ async def score_grid(src: str) -> dict[str, Any]:
         return {"scores": curation_score_grid(src)}
 
     return await _envelope._run_tool("score_grid", go)
+
+
+async def video_filmstrip(src: str, dest: str, frames: int = 5) -> dict[str, Any]:
+    """Make a VIDEO inspectable: sample ``frames`` keyframes of an animated video
+    (webp — native ``--video`` output or an ``animate_*`` result) into one labeled
+    filmstrip PNG at ``dest`` you can read with vision, and return the video
+    signature ``{dest, frame_count, duration_s, fps, w, h}``. An agent can't
+    vision-read a moving webp directly; this is how a video "speaks for itself"."""
+
+    def go():
+        return curation_video_filmstrip(src, dest, frames=frames)
+
+    return await _envelope._run_tool("video_filmstrip", go)
+
+
+async def loop_seam_delta(src: str) -> dict[str, Any]:
+    """Measure how cleanly a LOOPING video closes: returns ``{frame_count,
+    loop_seam_delta}`` where ``loop_seam_delta`` is the 0-1 pixel distance between
+    the last and first frames (~0 = seamless loop). Quantifies loop quality as a
+    number instead of eyeballing the seam — use it as a gate on ``--loop`` output."""
+
+    def go():
+        return curation_loop_seam_delta(src)
+
+    return await _envelope._run_tool("loop_seam_delta", go)

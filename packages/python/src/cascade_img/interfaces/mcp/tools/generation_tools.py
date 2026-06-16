@@ -37,6 +37,40 @@ async def imagine(
     )
 
 
+async def generate_video(
+    image_url: str,
+    asset_id: str,
+    text: str | None = None,
+    motion: str | None = None,
+    raw: bool = False,
+    loop: bool = False,
+    end_frame: str | None = None,
+    batch_size: int | None = None,
+) -> dict[str, Any]:
+    """Generate a native Midjourney video from a starting image (image -> ~5s
+    animated clip). Composes the video prompt and fires it at the bridge in one
+    call; returns the job record (poll with ``wait``; the result is an animated
+    webp). ``image_url`` is the starting frame (required). Video-only params:
+    ``motion`` ('low'/'high'), ``raw``, ``loop`` (seamless — reuse start as end
+    frame), ``end_frame`` (a different end-frame URL, mutually exclusive with
+    ``loop``), ``batch_size`` (1/2/4). A bad combination returns a structured
+    error. (To only build the prompt without firing, use ``compose_video``.)"""
+
+    def go():
+        prompt = _envelope._composer.compose_video(
+            image_url=image_url,
+            text=text,
+            motion=motion,
+            raw=raw,
+            loop=loop,
+            end_frame=end_frame,
+            batch_size=batch_size,
+        )
+        return _envelope._backend.generate_video(prompt, asset_id)
+
+    return await _envelope._run_tool("generate_video", go)
+
+
 async def wait(job_id: str, timeout: int = 180) -> dict[str, Any]:
     """Block until the job hits ``done`` or ``failed`` or the timeout fires.
     Returns the full job record under ``result``.

@@ -35,6 +35,7 @@ REGISTRY_SAMPLE = {
         "aspect_ratio": "1:1",
         "oref": "https://cdn/oref.png",
         "ow": 400,
+        "version": "7",  # Omni Reference (oref) is V7-only
     },
 }
 
@@ -368,3 +369,202 @@ def test_compose_failure_is_enveloped(tmp_path, monkeypatch):
     assert result["error"]["code"] == "ValueError"
     assert "composer rejected" in result["error"]["message"]
     assert "CLI_ROLL_FAILED" in _tags()
+
+
+# --------------------- main() argparse + exit-code contract ---------------------
+
+
+def test_cli_main_dry_run_exits_0_and_prints_envelope(tmp_path, monkeypatch, capsys):
+    """main() parses argv, runs the dry-run path, prints the JSON envelope, and
+    exits 0 on success — the shipped `cascade-mj` entry point, not just run()."""
+    import sys
+
+    from cascade_img.interfaces.cli.generate_image import main
+
+    reg = _write_registry(tmp_path, {"icon": {"subject": "a flat mountain icon"}})
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "cascade-mj",
+            "icon",
+            "--registry",
+            str(reg),
+            "--dry-run",
+            "--log",
+            str(tmp_path / "log.jsonl"),
+            "--pretty",
+        ],
+    )
+    with pytest.raises(SystemExit) as exc:
+        main()
+    assert exc.value.code == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["ok"] is True
+    assert out["asset_id"] == "icon"
+
+
+def test_cli_main_unknown_asset_exits_1(tmp_path, monkeypatch, capsys):
+    """main() exits non-zero and prints a structured error when the asset_id is
+    not in the registry — the CLI exit-code contract (0 ok / 1 failure)."""
+    import sys
+
+    from cascade_img.interfaces.cli.generate_image import main
+
+    reg = _write_registry(tmp_path, {"icon": {"subject": "a flat mountain icon"}})
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "cascade-mj",
+            "nope",
+            "--registry",
+            str(reg),
+            "--dry-run",
+            "--log",
+            str(tmp_path / "l.jsonl"),
+        ],
+    )
+    with pytest.raises(SystemExit) as exc:
+        main()
+    assert exc.value.code == 1
+    out = json.loads(capsys.readouterr().out)
+    assert out["ok"] is False
+    assert out["error"]["code"] == "UNKNOWN_ASSET_ID"
+
+
+def test_imagine_raises_returns_structured_error(tmp_path, monkeypatch):
+    """When backend.imagine() itself RAISES (bridge unreachable / requests error),
+    the CLI envelopes it as CLI_ROLL_FAILED with the bridge-unreachable
+    remediation — the exception branch the returned-'failed' test doesn't reach."""
+    clear()
+    reg_path = _write_registry(tmp_path, REGISTRY_SAMPLE)
+
+    class _UnreachableBackend:
+        def __init__(self, base_url: str) -> None: ...
+
+        def imagine(self, prompt, asset_id, upscale=None):
+            raise ConnectionError("bridge down")
+
+    import cascade_img.interfaces.cli.generate_image as cli_mod
+
+    monkeypatch.setattr(cli_mod, "MidjourneyDiscordBackend", _UnreachableBackend)
+    result = asyncio.run(
+        cli_mod.run(
+            asset_id="mountain-icon",
+            registry_path=reg_path,
+            upscale=None,
+            bridge_url="http://127.0.0.1:9999",
+            log_path=tmp_path / "log.jsonl",
+            dry_run=False,
+        )
+    )
+    assert result["ok"] is False
+    assert result["error"]["code"] == "ConnectionError"
+    assert "cascade-mj-bridge --doctor" in result["error"]["remediation"]
+    assert "CLI_ROLL_FAILED" in _tags()
+
+
+def test_wait_raises_returns_structured_error_with_job_id(tmp_path, monkeypatch):
+    """When backend.wait() RAISES after a successful submit, the CLI envelopes it
+    and still reports the job_id (so the caller can recover the in-flight job
+    rather than resubmit) — the second exception branch."""
+    clear()
+    reg_path = _write_registry(tmp_path, REGISTRY_SAMPLE)
+
+    class _WaitBoomBackend:
+        def __init__(self, base_url: str) -> None: ...
+
+        def imagine(self, prompt, asset_id, upscale=None):
+            return {"job_id": "job-boom", "asset_id": asset_id, "status": "submitted"}
+
+        def wait(self, job_id, timeout=180):
+            raise TimeoutError("read timed out")
+
+    import cascade_img.interfaces.cli.generate_image as cli_mod
+
+    monkeypatch.setattr(cli_mod, "MidjourneyDiscordBackend", _WaitBoomBackend)
+    result = asyncio.run(
+        cli_mod.run(
+            asset_id="mountain-icon",
+            registry_path=reg_path,
+            upscale=None,
+            bridge_url="http://127.0.0.1:9999",
+            log_path=tmp_path / "log.jsonl",
+            dry_run=False,
+        )
+    )
+    assert result["ok"] is False
+    assert result["error"]["code"] == "TimeoutError"
+    assert result["job_id"] == "job-boom"
+    assert "CLI_ROLL_FAILED" in _tags()
+
+
+# --------------------- registry expresses the full V8.1 surface (review G1/G2) --
+
+
+def test_registry_full_v8_surface_threads_to_prompt(tmp_path):
+    """A registry entry exercising the full V8.1 render-control + content surface
+    threads every part through _compose into the prompt. Closes the gap where the
+    registry could previously express only hd/sd of the render controls (the
+    --no/--chaos/--weird/--tile/--exp/--seed/--iw/image-prompt fields were
+    unreachable from a registry roll), and pins the registry hd thread that had
+    no test. (review #4 G1/G2)"""
+    clear()
+    reg = _write_registry(
+        tmp_path,
+        {
+            "rich": {
+                "subject": "a flat icon",
+                "constraints": ["centered"],
+                "negatives": ["text", "watermark"],
+                "image_prompts": ["https://cdn/ref.png"],
+                "image_weight": 2.0,
+                "tile": True,
+                "exp": 15,
+                "chaos": 10,
+                "weird": 50,
+                "seed": 42,
+                "hd": True,
+            }
+        },
+    )
+    result = asyncio.run(
+        run(
+            asset_id="rich",
+            registry_path=reg,
+            upscale=None,
+            bridge_url="http://127.0.0.1:9999",
+            log_path=tmp_path / "l.jsonl",
+            dry_run=True,
+        )
+    )
+    assert result["ok"] is True
+    p = result["prompt"]
+    for frag in ["--hd", "--chaos 10", "--weird 50", "--tile", "--exp 15", "--seed 42", "--iw 2.0"]:
+        assert frag in p, f"{frag} missing from {p!r}"
+    assert p.startswith("https://cdn/ref.png ")  # image prompt leads the prompt
+    assert p.rstrip().endswith("--no text, watermark")  # --no stays the final flag
+    assert "--v 8.1" in p  # default model
+
+
+def test_registry_loads_full_surface_fields(tmp_path):
+    """The loader coerces every new field to its declared type (lists, float iw,
+    int render controls) so a malformed value fails at load, not mid-render."""
+    reg = load_registry(
+        _write_registry(
+            tmp_path,
+            {
+                "a": {
+                    "subject": "x",
+                    "image_weight": "1.5",
+                    "chaos": "10",
+                    "seed": "42",
+                    "tile": True,
+                }
+            },
+        )
+    )
+    e = reg["a"]
+    assert e.image_weight == 1.5 and isinstance(e.image_weight, float)
+    assert e.chaos == 10 and e.seed == 42 and e.tile is True

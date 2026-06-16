@@ -16,16 +16,24 @@ import pytest
 
 from cascade_img.interfaces.mcp.tool_server import (
     alpha_key,
+    auto_trim,
     bridge_health,
     compose_prompt,
+    compose_video,
+    contact_sheet,
     crop_grid,
+    generate_video,
     imagine,
     log_append,
+    loop_seam_delta,
     mj_action,
+    palette_quantize,
     promote,
     read_prompt_log,
     score_grid,
+    sprite_sheet,
     status,
+    video_filmstrip,
     wait,
 )
 from cascade_img.vocabulary import clear, snapshot
@@ -53,6 +61,10 @@ class _FakeBackend:
     def health(self) -> dict:
         return {"discord_ready": True, "pending_grid": 0, "total_jobs": 0}
 
+    def generate_video(self, prompt: str, asset_id: str) -> dict:
+        self.last_video_prompt = prompt
+        return {"job_id": "vid-1", "asset_id": asset_id, "status": "submitted", "upscale": None}
+
     def action(self, job_id: str, action: str, slot: int | None = None) -> dict:
         return {
             "job_id": job_id,
@@ -78,6 +90,7 @@ async def test_compose_prompt_envelope_and_signals():
         oref="https://cdn/oref.png",
         ow=400,
         aspect_ratio="1:1",
+        version="7",  # Omni Reference is V7-only
     )
     assert r["ok"] is True
     assert "prompt" in r["result"]
@@ -313,6 +326,113 @@ async def test_score_grid_tool(tmp_path: Path):
 
 
 @pytest.mark.asyncio
+async def test_contact_sheet_tool(tmp_path: Path):
+    """The contact_sheet MCP wrapper envelopes the curation call and writes dest."""
+    clear()
+    from PIL import Image
+
+    src = tmp_path / "grid.png"
+    Image.new("RGB", (128, 128), (90, 90, 90)).save(src)
+    dest = tmp_path / "sheet.png"
+    r = await contact_sheet(src=str(src), dest=str(dest), labels=True)
+    assert r["ok"] is True
+    assert Path(r["result"]["dest"]).exists()
+    assert "MCP_TOOL_COMPLETED" in _tags()
+
+
+@pytest.mark.asyncio
+async def test_auto_trim_tool(tmp_path: Path):
+    """The auto_trim MCP wrapper crops to the content bbox via the envelope."""
+    clear()
+    from PIL import Image
+
+    src = tmp_path / "img.png"
+    im = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    for x in range(20, 40):
+        for y in range(20, 40):
+            im.putpixel((x, y), (255, 0, 0, 255))  # opaque block for alpha-trim
+    im.save(src)
+    dest = tmp_path / "trim.png"
+    r = await auto_trim(src=str(src), dest=str(dest), mode="alpha", tolerance=10)
+    assert r["ok"] is True
+    assert Path(r["result"]["dest"]).exists()
+
+
+@pytest.mark.asyncio
+async def test_palette_quantize_tool(tmp_path: Path):
+    """The palette_quantize MCP wrapper reduces to a fixed palette via the envelope."""
+    clear()
+    from PIL import Image
+
+    src = tmp_path / "img.png"
+    Image.new("RGB", (64, 64), (123, 200, 50)).save(src)
+    dest = tmp_path / "q.png"
+    r = await palette_quantize(src=str(src), dest=str(dest), n_colors=8, method="median_cut")
+    assert r["ok"] is True
+    assert Path(r["result"]["dest"]).exists()
+
+
+@pytest.mark.asyncio
+async def test_sprite_sheet_tool(tmp_path: Path):
+    """The sprite_sheet MCP wrapper packs multiple sprites into one atlas."""
+    clear()
+    from PIL import Image
+
+    srcs = []
+    for i in range(3):
+        p = tmp_path / f"s{i}.png"
+        Image.new("RGBA", (32, 32), (i * 40, 0, 0, 255)).save(p)
+        srcs.append(str(p))
+    dest = tmp_path / "atlas.png"
+    r = await sprite_sheet(srcs=srcs, dest=str(dest), layout="grid", padding=2)
+    assert r["ok"] is True
+    assert Path(r["result"]["dest"]).exists()
+
+
+def _make_webp(path: Path, frames: int = 4) -> None:
+    from PIL import Image
+
+    imgs = [Image.new("RGB", (24, 24), ((i * 60) % 256, 0, 0)) for i in range(frames)]
+    imgs[-1] = imgs[0].copy()  # seamless loop
+    imgs[0].save(
+        path,
+        save_all=True,
+        append_images=imgs[1:],
+        duration=100,
+        loop=0,
+        lossless=True,
+        format="WEBP",
+    )
+
+
+@pytest.mark.asyncio
+async def test_video_filmstrip_tool(tmp_path: Path):
+    """The video_filmstrip MCP tool turns a video into a vision-readable still +
+    signature through the envelope."""
+    clear()
+    src = tmp_path / "v.webp"
+    _make_webp(src, frames=4)
+    dest = tmp_path / "strip.png"
+    r = await video_filmstrip(src=str(src), dest=str(dest), frames=3)
+    assert r["ok"] is True
+    assert r["result"]["frame_count"] == 4
+    assert Path(r["result"]["dest"]).exists()
+    assert "MCP_TOOL_COMPLETED" in _tags()
+
+
+@pytest.mark.asyncio
+async def test_loop_seam_delta_tool(tmp_path: Path):
+    """The loop_seam_delta MCP tool reports the seam distance (0 for a clean loop)."""
+    clear()
+    src = tmp_path / "loop.webp"
+    _make_webp(src, frames=4)
+    r = await loop_seam_delta(src=str(src))
+    assert r["ok"] is True
+    assert r["result"]["loop_seam_delta"] == 0.0
+    assert "MCP_TOOL_COMPLETED" in _tags()
+
+
+@pytest.mark.asyncio
 async def test_failure_path_returns_structured_error(tmp_path: Path):
     """A tool that raises returns {ok: false, error: {code, message}} and
     emits MCP_TOOL_FAILED."""
@@ -325,6 +445,124 @@ async def test_failure_path_returns_structured_error(tmp_path: Path):
     assert "code" in r["error"]
     assert r["error"]["code"] == "FileNotFoundError"
     assert "MCP_TOOL_FAILED" in _tags()
+
+
+@pytest.mark.asyncio
+async def test_generate_video_tool_composes_and_fires(monkeypatch):
+    """generate_video composes the video prompt AND fires it at the backend in
+    one call — the agent's one-shot native-video entry point."""
+    from cascade_img.interfaces.mcp import _envelope
+
+    clear()
+    fb = _FakeBackend()
+    monkeypatch.setattr(_envelope, "_backend", fb)
+    r = await generate_video(
+        image_url="https://cdn/start.png", asset_id="clip", loop=True, motion="high"
+    )
+    assert r["ok"] is True
+    assert r["result"]["job_id"] == "vid-1"
+    # the composed prompt that was actually fired
+    assert fb.last_video_prompt.startswith("https://cdn/start.png ")
+    assert "--video" in fb.last_video_prompt
+    assert "--loop" in fb.last_video_prompt
+    assert "--motion high" in fb.last_video_prompt
+    assert "MCP_TOOL_COMPLETED" in _tags()
+
+
+@pytest.mark.asyncio
+async def test_generate_video_tool_envelopes_validation_error(monkeypatch):
+    """A conflicting request (loop + end_frame) fails as a structured error
+    BEFORE firing — composition validates first."""
+    from cascade_img.interfaces.mcp import _envelope
+
+    clear()
+    monkeypatch.setattr(_envelope, "_backend", _FakeBackend())
+    r = await generate_video(
+        image_url="https://cdn/s.png", asset_id="c", loop=True, end_frame="https://cdn/e.png"
+    )
+    assert r["ok"] is False
+    assert r["error"]["code"] == "ValueError"
+    assert "MCP_TOOL_FAILED" in _tags()
+
+
+@pytest.mark.asyncio
+async def test_compose_video_tool_envelope_and_prompt():
+    """The compose_video MCP tool envelopes the composer call and returns a
+    native video prompt (url leads, --video + the requested video params)."""
+    clear()
+    r = await compose_video(image_url="https://cdn/start.png", loop=True, motion="high")
+    assert r["ok"] is True
+    p = r["result"]["prompt"]
+    assert p.startswith("https://cdn/start.png ")
+    assert "--video" in p and "--loop" in p and "--motion high" in p
+    assert "MCP_TOOL_COMPLETED" in _tags()
+
+
+@pytest.mark.asyncio
+async def test_compose_video_tool_envelopes_validation_error():
+    """A conflicting request (loop + end_frame) comes back as a structured
+    error through the envelope, not a raw exception."""
+    clear()
+    r = await compose_video(image_url="https://cdn/s.png", loop=True, end_frame="https://cdn/e.png")
+    assert r["ok"] is False
+    assert r["error"]["code"] == "ValueError"
+    assert "MCP_TOOL_FAILED" in _tags()
+
+
+# --------------------- server entrypoint (main / shutdown) ---------------------
+
+
+def test_emit_mcp_shutdown_is_idempotent(monkeypatch):
+    """MCP_SERVER_STOPPED fires at most once even if both atexit and a signal
+    handler call the shutdown hook."""
+    import cascade_img.interfaces.mcp.tool_server as ts
+
+    clear()
+    monkeypatch.setattr(ts, "_mcp_shutdown_emitted", False)
+    ts._emit_mcp_shutdown("atexit")
+    ts._emit_mcp_shutdown("signal:SIGTERM")
+    assert _tags().count("MCP_SERVER_STOPPED") == 1
+
+
+def test_main_stdio_emits_started_and_runs(monkeypatch):
+    """`cascade-mcp` (no --http) emits MCP_SERVER_STARTED(transport=stdio) and
+    drives mcp.run(). Signal/atexit registration is stubbed so the test does not
+    mutate the interpreter's real handlers."""
+    import sys
+
+    import cascade_img.interfaces.mcp.tool_server as ts
+
+    clear()
+    monkeypatch.setattr(ts, "_mcp_shutdown_emitted", False)
+    ran: list[str] = []
+    monkeypatch.setattr(ts.mcp, "run", lambda: ran.append("stdio"))
+    monkeypatch.setattr("signal.signal", lambda *a, **k: None)
+    monkeypatch.setattr("atexit.register", lambda *a, **k: None)
+    monkeypatch.setattr(sys, "argv", ["cascade-mcp"])
+
+    ts.main()
+    assert ran == ["stdio"]
+    tags = _tags()
+    assert "MCP_SERVER_STARTED" in tags
+
+
+def test_main_http_dispatches_to_serve_http(monkeypatch):
+    """`cascade-mcp --http <port>` routes to _serve_http(port) with
+    transport=http, instead of stdio."""
+    import sys
+
+    import cascade_img.interfaces.mcp.tool_server as ts
+
+    clear()
+    monkeypatch.setattr(ts, "_mcp_shutdown_emitted", False)
+    served: list[int] = []
+    monkeypatch.setattr(ts, "_serve_http", lambda port: served.append(port))
+    monkeypatch.setattr("signal.signal", lambda *a, **k: None)
+    monkeypatch.setattr("atexit.register", lambda *a, **k: None)
+    monkeypatch.setattr(sys, "argv", ["cascade-mcp", "--http", "5005"])
+
+    ts.main()
+    assert served == [5005]
 
 
 @pytest.mark.asyncio

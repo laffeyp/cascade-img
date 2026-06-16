@@ -50,9 +50,18 @@ MIDJOURNEY_DISCORD_CAPABILITIES = BackendCapabilities(
         "chaos",
         "weird",
         "quality",
+        "hd",
+        "sd",
         "seed",
     ],
     aspect_ratios=["1:1", "16:9", "9:16", "4:3", "3:4", "2:3", "3:2"],
+    # Selectable Midjourney model versions. "8.1" is the default (MJ's default
+    # since 2026-06-11); "7" remains for the Omni Reference (--oref) identity
+    # lock, which V8.1 does not support. Some prompt_parts are version-gated:
+    # oref/ow/quality are V7-only; hd/sd are V8.1-only (the composer raises on a
+    # mismatch). See CAPABILITIES.md for the per-version split.
+    versions=["8.1", "8", "7"],
+    default_version="8.1",
 )
 
 
@@ -130,6 +139,22 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
             if r.status_code >= 400:
                 _raise_for_envelope(r)
             return r.json()
+
+    def generate_video(self, prompt: str, asset_id: str) -> ImagineResult:
+        """Fire a native video generation against the bridge's ``/video`` route.
+
+        ``prompt`` is an already-composed video prompt (``<image_url> [text]
+        --video [params]`` — build it with ``PromptComposer.compose_video``).
+        Returns an :class:`ImagineResult` whose ``job_id`` is passed to
+        :meth:`wait`; the result is an animated webp the bridge downloads through
+        the normal lifecycle. Video prompts can't carry the ``--no`` routing
+        token, so the bridge binds the job to MJ's echoed short URL."""
+        body = {"prompt": prompt, "asset_id": asset_id}
+        with requests.post(f"{self.base_url}/video", json=body, timeout=40) as r:
+            emit("BACKEND_HTTP_CALLED", method="POST", path="/video", status=r.status_code)
+            if r.status_code >= 400:
+                _raise_for_envelope(r)
+            return cast(ImagineResult, r.json())
 
     def wait(self, job_id: str, timeout: int = 180) -> JobState:
         """Long-poll until the job is terminal or the wait times out.
