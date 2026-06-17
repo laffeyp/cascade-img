@@ -361,7 +361,7 @@ Response has `attachments[0].url` — use that as `--oref`.
 
 ## Curation flow
 
-After a roll completes, you have a grid (`<asset_id>.{png,webp}`) and optionally upscales. The curation kit handles cropping, optional alpha-keying, and promotion. The pipeline order is: **crop → (optional) alpha-key → promote**. The alpha-key step is opt-in per asset; the operator decides whether transparency is wanted.
+After a roll completes, you have a grid (`<asset_id>.{png,webp}`) and optionally upscales. The curation tools handle cropping, optional alpha-keying, and promotion. The pipeline order is: **crop → (optional) alpha-key → promote**. The alpha-key step is opt-in per asset; the operator decides whether transparency is wanted.
 
 ```python
 from cascade_img.curation import crop_quadrant, alpha_key_corners, promote
@@ -423,10 +423,13 @@ Failures carry a stable `error_code` and a `remediation` string. Codes the agent
 | `MJ_UUID_MISSING` | re-roll once; if reproducible, escalate |
 | `GRID_DOWNLOAD_FAILED` / `UPSCALE_DOWNLOAD_FAILED` | re-roll automatically |
 | `UPSCALE_BUTTON_FAILED` / `UPSCALE_ALL_BUTTONS_FAILED` | retry the imagine; transient Discord interaction error |
+| `NO_UPSCALED_IMAGE` (HTTP 409) | upscale first, then retry the action. On a still image: `imagine` with `upscale=1-4`. On a video `extend_*`: press `video_upscale`, and when its SOLO clip lands, `extend_*` on that same slot |
+| `VIDEO_IN_FLIGHT` (HTTP 409) | a prior video is still awaiting its first Midjourney ack — poll `/wait`, then submit the next video. Do NOT re-roll or retry immediately; the window clears as soon as the prior video binds |
+| `NOT_A_VIDEO_PROMPT` (HTTP 400) | the `/video` prompt is missing `--video` — rebuild it with `compose_video`. Deterministic input error: do NOT re-roll, fix the prompt |
 
 A `/imagine` that returns HTTP 202 with `status: "submitted_unconfirmed"` is NOT a failure: poll `/wait` for the actual outcome. Re-firing `/imagine` for the same asset before `/wait` resolves would double-bill if MJ processed the original.
 
-Everything else: re-roll up to N times, then escalate.
+Everything else: re-roll up to N times, then escalate. The three rows above are exceptions — `NOT_A_VIDEO_PROMPT` is a deterministic input error (re-rolling repeats it) and `VIDEO_IN_FLIGHT` clears on its own (poll, don't re-roll).
 
 ---
 

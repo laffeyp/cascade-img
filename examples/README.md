@@ -1,6 +1,6 @@
 # examples/
 
-Two short, generic walkthroughs showing how an LLM agent drives cascade-img's
+Three short, generic walkthroughs showing how an LLM agent drives cascade-img's
 tool surface — compose a prompt, generate, wait, curate, and log. They use
 placeholder subjects; swap in your own.
 
@@ -12,3 +12,5 @@ project root.
   end-to-end loop for one image.
 - [generate-a-batch.md](./generate-a-batch.md) — the same loop over a list of
   related images that share one style.
+- [generate-a-video.md](./generate-a-video.md) — native image→video: animate a
+  starting image, sample it, upscale and extend the clip.

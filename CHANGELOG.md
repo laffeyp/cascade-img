@@ -4,6 +4,21 @@ All notable changes to cascade-img are recorded here. Format follows [Keep a Cha
 
 ## [Unreleased]
 
+### Native image→video
+
+- **`generate_video` and `compose_video` MCP tools (20 tools total).** `compose_video` builds a native image→video prompt (`--video` plus optional `--motion`, `--loop`/`--end`, `--bs`) without firing; `generate_video` composes and submits it. The result is one animated webp downloaded through the same lifecycle as a grid (no upscale). New `POST /video` bridge route, `MidjourneyDiscordBackend.generate_video`, and signal `VIDEO_REQUESTED`.
+- **Video result actions.** `video_upscale` and `extend_high`/`extend_low` are exposed on `mj_action`; `video_reroll` is deliberately not exposed (the grid re-roll button's untracked result can perturb job routing — call `generate_video` again to re-roll). MJ's SOLO extend buttons are grid-aligned, so `extend_*` keys off the SOLO's own slot. Calling `extend_*` before `video_upscale` returns `NO_UPSCALED_IMAGE`.
+- **Video routing binds on the vendor echo.** A video prompt can't carry the `--no` routing token, so the job waits in `PENDING_VIDEO` and binds to MJ's echoed `s.mj.run/XXX` short URL (FIFO). `POST /video` serializes submission via `VIDEO_IN_FLIGHT` (HTTP 409) — one unbound video at a time so the bind stays unambiguous; the window is brief (a job leaves `PENDING_VIDEO` as soon as it binds, so a still-rendering video does not block the next submit). A prompt missing `--video` is rejected `NOT_A_VIDEO_PROMPT` (HTTP 400).
+- **Video curation tools.** `video_filmstrip` samples a video's keyframes into one vision-readable still; `loop_seam_delta` scores how cleanly a `--loop` video closes its seam.
+
+### V8.1 surface
+
+- **V8.1 prompt parameters.** `--hd` / `--sd` and the V8.1/V7 version split are documented in CAPABILITIES.md with ranges, effects, and which version each flag gates to.
+
+### Instrumentation
+
+- **`MJ_ACTION_SURFACE_REGISTERED` signal (54 tags total).** The previously-silent surface registration — recording which message id and slot a derived result (image upscale, video SOLO) becomes actionable on — is now a typed signal carrying `asset_id`, `job_id`, `slot`, `message_id`, `surface_kind` (`image_upscale` | `video_solo`). Verification reads the trace instead of re-probing the bridge. `video_reroll` removed from the `MJ_ACTION_REQUESTED.action` enum.
+
 ### Vocabulary docs
 
 - **Generated per-tag reference.** `vocabulary/0.1-reference.md` is rendered from `0.1.json` by `tools/render_vocabulary_reference.py` (payload fields, emitter, enum-locked values, when each tag fires); a new CI step fails when it goes stale.

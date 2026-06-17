@@ -175,7 +175,7 @@ prompt = PromptComposer().compose(
 
 Other open-source options exist — [erictik/midjourney-api](https://github.com/erictik/midjourney-api) (a Node library), [novicezk/midjourney-proxy](https://github.com/novicezk/midjourney-proxy) (a Java HTTP proxy), and a few paid REST proxies that wrap the same Discord mechanism behind a hosted API. Any of them will get you a generated image.
 
-What cascade-img adds is the work *around* the generation: composable prompt parts instead of raw strings, a curation kit (grid crop, alpha key, promote), an append-only prompt log, an MCP server so an LLM agent can run the whole loop, and a structured-error envelope with stable codes — with one backend interface so Flux, DALL-E, and Imagen can slot in later (v0.3+). If you just need to fire a prompt and get an image back, the simpler drivers are a fine fit; cascade-img is for driving the full iterate-and-curate loop, especially from an agent.
+What cascade-img adds is the work *around* the generation: composable prompt parts instead of raw strings, curation tools (grid crop, alpha key, promote), an append-only prompt log, an MCP server so an LLM agent can run the whole loop, and a structured-error envelope with stable codes — with one backend interface so Flux, DALL-E, and Imagen can slot in later (v0.3+). If you just need to fire a prompt and get an image back, the simpler drivers are a fine fit; cascade-img is for driving the full iterate-and-curate loop, especially from an agent.
 
 ---
 
@@ -226,7 +226,7 @@ top-level Markdown plus that package.
 
 | version | headline |
 |---|---|
-| v0.1 (current) | MJ backend (version-aware: V8.1 default, V7 for the `--oref` identity lock), prompt composer, curation kit (crop + flood-fill alpha key + promote), MCP server, AGENTS.md, prompt templates, Python package. |
+| v0.1 (current) | MJ backend (version-aware: V8.1 default, V7 for the `--oref` identity lock), prompt composer, curation tools (crop + flood-fill alpha key + promote), MCP server, AGENTS.md, prompt templates, Python package. |
 | v0.2 | More Midjourney commands (`/describe`, `/show`, Vary Region inpaint, `/blend`, `/shorten`, `/tune`, `/info`); internal code cleanup — break apart the large bridge module and split the long ingest function. |
 | v0.3 | A TypeScript wrapper; the first API backends — [Flux](https://bfl.ai/) via [Fal](https://fal.ai/) (with instruction-edit through [Flux Kontext](https://bfl.ai/models/flux-kontext)) and [Ideogram](https://ideogram.ai/) for reliable in-image text; Windows bridge. |
 | v0.4 | More backends — [Google Imagen](https://deepmind.google/models/imagen/) and [Recraft](https://www.recraft.ai/) (native vector/SVG output); bundled-binary install path. |

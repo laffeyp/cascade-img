@@ -170,7 +170,7 @@ in turn.
 2. Declare a `BackendCapabilities` describing which prompt parts and aspect
    ratios it supports.
 3. Return results in the same `{ok, result | error}` shape so the MCP server,
-   CLI, and curation kit drive it unchanged.
+   CLI, and curation tools drive it unchanged.
 
 The methods are synchronous: the MCP server dispatches them on a worker
 thread (`asyncio.to_thread`), so wrapping blocking I/O in `async def` would

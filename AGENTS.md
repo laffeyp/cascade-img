@@ -164,14 +164,16 @@ Every error returned to you carries a stable `code`. The codes that matter for t
 | `MJ_UUID_MISSING` | grid arrived without U1-U4 buttons | re-roll once; if reproducible, escalate |
 | `GRID_DOWNLOAD_FAILED` / `UPSCALE_DOWNLOAD_FAILED` | network blip during PNG fetch | re-roll automatically |
 | `UPSCALE_BUTTON_FAILED` / `UPSCALE_ALL_BUTTONS_FAILED` | transient Discord interaction error on the U-button press | re-roll the imagine |
-| `NO_UPSCALED_IMAGE` (HTTP 409) | `mj_action` on a job with no upscaled image | upscale a quadrant first, then retry the action |
+| `NO_UPSCALED_IMAGE` (HTTP 409) | `mj_action` on a job with no upscaled image | upscale first, then retry. Still image: `imagine` with `upscale=1-4`. Video `extend_*`: press `video_upscale`, then `extend_*` on that SOLO's slot once its clip lands |
 | `BUTTON_NOT_FOUND` (HTTP 404) | the requested action's button isn't on this image | MJ may not offer it for this image/version — pick another action or skip |
+| `VIDEO_IN_FLIGHT` (HTTP 409) | a prior video is still awaiting its first MJ ack (videos bind FIFO, so they submit serially) | poll `/wait`, then submit the next video. Do NOT re-roll — the window clears as soon as the prior video binds |
+| `NOT_A_VIDEO_PROMPT` (HTTP 400) | the `/video` prompt is missing `--video` | rebuild it with `compose_video`. Deterministic input error — do NOT re-roll, fix the prompt |
 
 A `/imagine` that returns HTTP 202 with `status: "submitted_unconfirmed"` is NOT a failure — the Discord interaction took longer than 35s but MJ may have processed it. Poll `/wait` for the actual outcome. DO NOT re-fire `/imagine` for the same asset before `/wait` resolves; that would double-bill if MJ processed the original.
 
 `imagine` accepts an optional `idempotency_key`. Pass one (any unique string, e.g. a UUID you generate per attempt) and reuse it on a retry of the *same* attempt: if the original submission actually landed, the bridge replays the existing job (`idempotent_replay: true` in the response) instead of submitting and billing again. Use a fresh key (or none) for a deliberate re-roll — the key dedupes retries, not assets.
 
-Everything else (generic backend exceptions, timeouts): re-roll up to N times (3 is a reasonable default), then escalate.
+Everything else (generic backend exceptions, timeouts): re-roll up to N times (3 is a reasonable default), then escalate. The two video codes above are exceptions to the re-roll default — `NOT_A_VIDEO_PROMPT` is a deterministic input error (re-rolling just repeats it) and `VIDEO_IN_FLIGHT` resolves itself (poll, don't re-roll).
 
 ## When to ask the human
 
