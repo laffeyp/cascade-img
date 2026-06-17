@@ -11,6 +11,8 @@ Midjourney is a text-to-image generator: you write a sentence describing a pictu
 
 cascade-img wraps that flow. The Midjourney prompt is split into composable parts you set independently, a JSONL log records every attempt so the next iteration knows what's been tried, and an MCP server — the protocol [Claude Desktop, Cursor, and Cline](https://modelcontextprotocol.io) use to call tools — exposes the whole thing so an agent can compose, generate, curate, and log without a human on every attempt.
 
+**Two ways in.** If you just want to make images by describing them, you don't need to read past [No idea what you're doing? Start here](#no-idea-what-youre-doing-start-here) — an AI assistant does the setup and runs the loop for you. If you're a developer wiring image generation into your own tooling, skip to the [Quickstart](#quickstart), then [ARCHITECTURE.md](./ARCHITECTURE.md) and [AGENTS.md](./AGENTS.md).
+
 ## How you actually use it
 
 The intention is that your own words are the interface. Instead of learning Midjourney's prompt syntax or clicking through Discord, you tell an AI assistant what you want and it drives everything:
