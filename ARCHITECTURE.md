@@ -4,7 +4,7 @@
 
 | Module | Role |
 |---|---|
-| `prompt/composer.py` | Turns composable prompt parts (subject, style reference, identity reference, aspect ratio, …) into a Midjourney v7 prompt string. Pure; no I/O. |
+| `prompt/composer.py` | Turns composable prompt parts (subject, style reference, identity reference, aspect ratio, …) into a Midjourney prompt string (version-aware; V8.1 by default, V7 when an Omni Reference identity lock or `--q` is requested). Pure; no I/O. |
 | `prompt/prompt_log.py` | `PromptLog` — an append-only JSONL ledger that is the agent's working memory. |
 | `backends/base.py` | `ImageGenerationBackend` — the pluggable interface (sync `imagine`/`wait`/`status`/`health`) — and `BackendCapabilities`. |
 | `backends/midjourney_discord/bridge_client.py` | The v0.1 backend: a thin HTTP client that talks to the bridge daemon. |
@@ -28,8 +28,8 @@ the bridge over local HTTP; the bridge is the only component that talks to Disco
    └─────────┬──────────┘          └───────────┬─────────────┘   one exposes tools
              └───────────────┬─────────────────┘
                              │   MidjourneyDiscordBackend — a thin HTTP client
-                             │   POST /imagine · GET /wait/<id> · GET /status/<id>
-                             │   POST /action/<id> · GET /health
+                             │   POST /imagine · POST /video · GET /wait/<id>
+                             │   GET /status/<id> · POST /action/<id> · GET /health
                              ▼
             ┌───────────────────────────────────────────┐
             │           cascade-mj-bridge                │   the daemon — the only
@@ -64,9 +64,10 @@ The bridge exposes:
 | Route | Purpose |
 |---|---|
 | `POST /imagine` | Submit a prompt; returns a `job_id`. |
+| `POST /video` | Submit a native image→video prompt (must contain `--video`); returns a `job_id`. One unbound video at a time (`VIDEO_IN_FLIGHT` otherwise). |
 | `GET /status/<job_id>` | Non-blocking job state read. |
 | `GET /wait/<job_id>?timeout=<s>` | Long-poll until the job is terminal or the timeout fires. |
-| `POST /action/<job_id>` | Press a response-message button (vary / zoom / pan / re-upscale / animate / favorite) on the job's upscaled image. |
+| `POST /action/<job_id>` | Press a response-message button on the job's upscaled result: on an image (vary / zoom / pan / re-upscale / animate / favorite), or on a video (`video_upscale`, `extend_high` / `extend_low`). |
 | `GET /jobs` | All tracked jobs (diagnostics). |
 | `GET /health` | Daemon up + Discord WebSocket connected. |
 

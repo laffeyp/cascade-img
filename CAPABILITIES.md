@@ -83,7 +83,7 @@ and recorded on the job's `derived` list, read via `status(job_id)`.
 | `vary_subtle` / `vary_strong` | Generate variations (low / high deviation) | a new 2×2 grid |
 | `zoom_out_2x` / `zoom_out_1_5x` | Outpaint outward (zoom out) | a new 2×2 grid |
 | `pan_left` / `pan_right` / `pan_up` / `pan_down` | Outpaint in a direction | a new 2×2 grid |
-| `animate_high` / `animate_low` | Image → video (high / low motion) | an animated WebP (`image/webp`, ~125 frames), not an mp4 |
+| `animate_high` / `animate_low` | Image → video (high / low motion) | an animated WebP (`image/webp`, ~125 frames / ~5s), not an mp4 |
 | `favorite` | Bookmark the image in Midjourney | no artifact (no-op for the pipeline) |
 
 > Known v0.1 limit: a derived result that is itself a grid (vary/zoom/pan) is

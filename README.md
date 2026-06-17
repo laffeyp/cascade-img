@@ -5,7 +5,7 @@
 [![CI](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml/badge.svg)](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
-An image-generation pipeline an LLM can drive. It runs Midjourney through Discord today; it will run other image generation service API's using the same interface later.
+An image-generation pipeline an LLM can drive. It runs Midjourney through Discord today; it will run other image generation service APIs using the same interface later.
 
 Midjourney is a text-to-image generator: you write a sentence describing a picture — "a flat-design icon of a mountain" — and it paints it, one of the strongest models for stylized, art-directed work. You drive it with an `/imagine <prompt>` command and it answers with a 2×2 grid of four candidates; you pick one and *upscale* it to full resolution. (It needs a paid subscription — [midjourney.com](https://midjourney.com).)
 
@@ -39,9 +39,9 @@ Midjourney comes first by design. Midjourney has no public API, so driving it th
 
 ## Why this exists
 
-This exists so that a person driving an LLM can now easily and programmatically generate visual assets via Midjourney. This is extremely useful in a number of settings, and allows someone with a good idea of what they want visually to get there much quicker.  It allows someone who doesn't to experiment faster. 
+This exists so that a person driving an LLM can now easily and programmatically generate visual assets via Midjourney. This is extremely useful in a number of settings, and allows someone with a good idea of what they want visually to get there much quicker. It allows someone who doesn't to experiment faster.
 
-Most of the loop is mechanical: compose the prompt from reusable parts, fire it, wait, crop and curate the result, write down what was tried.  No existing open-source Midjourney driver let an agent run the loop end to end, so cascade-img provides it.
+Most of the loop is mechanical: compose the prompt from reusable parts, fire it, wait, crop and curate the result, write down what was tried. No existing open-source Midjourney driver lets an agent run the loop end to end, so cascade-img provides it.
 
 ---
 
@@ -108,11 +108,11 @@ Drop this into your host's MCP config:
 }
 ```
 
-Your agent gets sixteen tools with introspectable JSON schemas:
+Your agent gets twenty tools with introspectable JSON schemas:
 
-- **generation** — `imagine`, `wait`, `status`, `bridge_health`, `mj_action`
-- **composition** — `compose_prompt`
-- **curation** — `crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `promote`
+- **generation** — `imagine`, `generate_video`, `wait`, `status`, `bridge_health`, `mj_action`
+- **composition** — `compose_prompt`, `compose_video`
+- **curation** — `crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `video_filmstrip`, `loop_seam_delta`, `promote`
 - **working memory** — `log_append`, `read_prompt_log`
 
 [AGENTS.md](./AGENTS.md) is the operator's guide an agent reads once.
@@ -203,7 +203,7 @@ The daemon emits structured JSON log lines across the whole job lifecycle, and e
 - **[AGENTS.md](./AGENTS.md)** — the LLM operator's guide. Read this when handing cascade-img to an agent.
 - **[CAPABILITIES.md](./CAPABILITIES.md)** — exactly which Midjourney features cascade-img drives (every prompt parameter and `mj_action`, the V8.1/V7 version split, what each does) and what's intentionally not wired.
 - **[TOS.md](./TOS.md)** — the technical context: Midjourney has no public API; Discord user-account automation is the established OSS pattern; both Discord's and Midjourney's Terms of Service prohibit it.
-- **[examples/](./examples/)** — two short, generic walkthroughs of the operating loop (generate one image; generate a batch). Illustrative, not templates to copy verbatim. Read AGENTS.md before any of these.
+- **[examples/](./examples/)** — three short, generic walkthroughs of the operating loop (generate one image; generate a batch; generate a video). Illustrative, not templates to copy verbatim. Read AGENTS.md before any of these.
 
 ## Repository layout
 
@@ -214,7 +214,7 @@ cascade-img/
 │   ├── tests/               #   behavior tests
 │   └── tools/               #   live smoke walk
 ├── packages/typescript/        # npm name reservation for the v0.3 TypeScript wrapper (placeholder)
-├── examples/              # two short, generic walkthroughs of the operating loop
+├── examples/              # three short, generic walkthroughs of the operating loop
 ├── vocabulary/0.1.json     # mirror of the package's event log-line catalog
 └── *.md                    # README, ARCHITECTURE, RUNBOOK, AGENTS, AGENT_RUNDOWN, SECURITY, SUPPORT, …
 ```

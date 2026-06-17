@@ -51,7 +51,7 @@ A video job differs from an image job in three ways worth knowing up front:
    recording that slot as an extendable surface.
 
 6. **Extend (optional).** `mj_action(job_id, action="extend_high", slot=1)` (or
-   `"extend_low"`) on the **same slot** you upscaled adds ~5s more. Calling
+   `"extend_low"`) on the **same slot** you upscaled adds ~4s more. Calling
    `extend_*` before `video_upscale` returns `NO_UPSCALED_IMAGE` telling you to
    upscale first. There is no exposed `video_reroll` — to re-roll, call
    `generate_video` again.

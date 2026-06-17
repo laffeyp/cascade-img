@@ -20,7 +20,7 @@ This file follows the [agents.md](https://agents.md) convention — drop it in f
 - [RUNBOOK.md](./RUNBOOK.md) — install, the Discord `.env` values to capture, bring-up, and every failure mode with its error code and fix. Read this to set up or to recover.
 - [CAPABILITIES.md](./CAPABILITIES.md) — every Midjourney prompt parameter and `mj_action`, the V8.1/V7 version split, with ranges and effects.
 - [README.md](./README.md) — the overview and why cascade-img exists.
-- [examples/](./examples/) — two end-to-end walkthroughs: one image, and a batch sharing one style.
+- [examples/](./examples/) — three end-to-end walkthroughs: one image, a batch sharing one style, and a video.
 - [AGENT_RUNDOWN.md](./AGENT_RUNDOWN.md) — a paste-in prompt that has an LLM read the source and brief you from it.
 
 **The one constraint.** cascade-img drives Midjourney through a Discord *user* account; both services' Terms of Service prohibit that automation, and the human who configured the daemon has acknowledged it. Treat a persistent token rejection (`DISCORD_401` after re-capture, or `DISCORD_RECONNECT_FAILED(reason=auth)`) as a structural failure that needs the human — the daemon cannot self-recover.

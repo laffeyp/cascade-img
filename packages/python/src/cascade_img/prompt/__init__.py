@@ -1,7 +1,8 @@
 """Prompt domain — building the backend prompt string and recording each roll.
 
 * :mod:`.composer` turns composable parts (subject, style reference, identity
-  reference, params, aspect ratio) into a Midjourney v7 prompt string. Pure;
+  reference, params, aspect ratio) into a Midjourney prompt string
+  (version-aware; V8.1 by default, V7 for Omni Reference / ``--q``). Pure;
   no I/O.
 * :mod:`.log` is :class:`PromptLog`, the append-only JSONL ledger that doubles
   as the agent's working memory across loop iterations.

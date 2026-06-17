@@ -178,7 +178,7 @@ In your agent host's MCP config (Claude Desktop, Cursor, Cline):
 }
 ```
 
-The agent then sees all sixteen tools and can drive the full loop autonomously: generation (`imagine`, `wait`, `status`, `bridge_health`, `mj_action`), composition (`compose_prompt`), curation (`crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `promote`), and working memory (`log_append`, `read_prompt_log`). This is the primary way to operate cascade-img — see [LLM-agent operation](#llm-agent-operation) for the loop the agent runs.
+The agent then sees all twenty tools and can drive the full loop autonomously: generation (`imagine`, `generate_video`, `wait`, `status`, `bridge_health`, `mj_action`), composition (`compose_prompt`, `compose_video`), curation (`crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `video_filmstrip`, `loop_seam_delta`, `promote`), and working memory (`log_append`, `read_prompt_log`). This is the primary way to operate cascade-img — see [LLM-agent operation](#llm-agent-operation) for the loop the agent runs.
 
 ### Via the Python library
 
@@ -282,7 +282,7 @@ Re-fire only the jobs whose `/status` shows `error_code: RESUBMIT_REQUIRED`, and
 
 ### `DISCORD_NOT_READY` (HTTP 503)
 
-The bridge's Discord WebSocket dropped and the reconnect loop is in flight. `/imagine` returns 503 with `{code: "DISCORD_NOT_READY", remediation: ...}` until the connection comes back. The reconnect loop has exponential backoff (2 → 60s cap). If the disconnect was transient, the next `/imagine` after the bridge reconnects succeeds. If the reconnect fails with `reason: "auth"`, the token was rejected — re-capture `DISCORD_USER_TOKEN` per setup §4.
+The bridge's Discord WebSocket dropped and the reconnect loop is in flight. `/imagine` returns 503 with `{code: "DISCORD_NOT_READY", remediation: ...}` until the connection comes back. The reconnect loop has exponential backoff (2 → 60s cap). If the disconnect was transient, the next `/imagine` after the bridge reconnects succeeds. If the reconnect fails with `reason: "auth"`, the token was rejected — re-capture `DISCORD_USER_TOKEN` per the token-capture step in One-time setup.
 
 ### `SUBMITTED_UNCONFIRMED` (HTTP 202)
 
