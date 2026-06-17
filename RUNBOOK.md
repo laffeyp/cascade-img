@@ -128,6 +128,8 @@ cascade-mj-bridge
 
 Wait for **`Discord connected as <username>`** in the log. Until that line appears, `/imagine` calls return 503.
 
+Keep the daemon running in its own terminal for the whole session. The bridge is the only process that holds the Discord connection and tracks your in-flight jobs; the MCP server and CLI are stateless clients that reach it over local HTTP. Stopping it drops the connection and loses any render in progress (a pre-grid job can't be recovered across a restart — it fails `RESUBMIT_REQUIRED`).
+
 Verify:
 
 ```bash

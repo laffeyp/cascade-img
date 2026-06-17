@@ -20,6 +20,9 @@
 cascade-img has two entry points — the `cascade-mj` CLI and the `cascade-mcp`
 MCP server — and one long-running daemon, the bridge. Either entry point reaches
 the bridge over local HTTP; the bridge is the only component that talks to Discord.
+The bridge is long-lived because it owns the persistent Discord gateway connection
+and the in-flight job table; the two entry points are stateless clients, started
+and stopped per invocation.
 
 ```
    ┌───────────────────┐          ┌────────────────────────┐

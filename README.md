@@ -62,8 +62,11 @@ cascade-img drives *your own* Midjourney account and runs locally on your machin
 pip install cascade-img
 ```
 
-This puts three console scripts on your `PATH`: `cascade-mj-bridge` (the daemon),
-`cascade-mcp` (the MCP server), and `cascade-mj` (the CLI).
+This puts three console scripts on your `PATH` — a long-running daemon plus two
+short-lived clients that connect to it, like a database and the apps that use it:
+`cascade-mj-bridge` (the bridge daemon), `cascade-mcp` (the MCP server), and
+`cascade-mj` (the CLI). Step 3 explains why the daemon stays running while you
+drive everything through the other two.
 
 ### 2. Configure (one-time)
 
@@ -92,9 +95,15 @@ cascade-mj-bridge --check-env --pretty   # validates the .env and names anything
 cascade-mj-bridge          # long-running; the only process that talks to Discord
 ```
 
-Leave it running. Both entry points below connect to it over local HTTP.
+**Leave it running in its own terminal**, and open a second terminal for the next
+step. The daemon is the *server*; the MCP server and CLI below are *clients* that
+connect to it over local HTTP and never talk to Discord themselves. It has to stay
+up because it alone holds the live Discord login (slow to establish) and tracks
+your in-flight renders (Midjourney takes a while per image) — stop it and the
+connection drops and any job mid-render is lost. The clients hold no state, so they
+can start and stop freely.
 
-### 4a. Drive it from an MCP host (Claude Desktop, Cursor, Cline)
+### 4a. Drive it from an MCP host — the AI assistant app you're already in (Claude Desktop, Cursor, Cline)
 
 Drop this into your host's MCP config:
 
@@ -181,7 +190,10 @@ What cascade-img adds is the work *around* the generation: composable prompt par
 
 ## Three console scripts
 
-- **`cascade-mj-bridge`** — the MJ-via-Discord daemon. Run once per session.
+A long-running daemon and two stateless clients that reach it over local HTTP —
+start the daemon once and leave it up; the clients come and go.
+
+- **`cascade-mj-bridge`** — the MJ-via-Discord daemon. Run once per session and keep it running: it holds the live Discord connection and your in-flight jobs.
   - `--check-env` — JSON config validation with structured remediation.
   - `--doctor` — full pre-flight (env + Discord reachability + MCP server + discord.py-self imports).
 - **`cascade-mcp`** — MCP server. Stdio by default (Claude Desktop / Cursor / Cline); `--http <port>` for hosts that prefer HTTP.

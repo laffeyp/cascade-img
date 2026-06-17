@@ -10,7 +10,7 @@ This file follows the [agents.md](https://agents.md) convention — drop it in f
 **The loop, per asset.** `compose_prompt → imagine → wait → inspect (read the PNG with vision) → curate (crop_grid → [alpha_key?] → promote) → log_append`. Open each iteration with `read_prompt_log(n=5)` — the append-only log is your working memory across rolls.
 
 **The shape — one daemon, two entry points, all over local HTTP:**
-- `cascade-mj-bridge` — the daemon, and the only process that talks to Discord. It must be running.
+- `cascade-mj-bridge` — the daemon, and the only process that talks to Discord. It must stay running the whole session: it holds the live Discord connection and the in-flight job table, while the two entry points below are stateless clients that reach it over local HTTP.
 - `cascade-mcp` — the MCP server exposing 20 tools; this is how you, the agent, drive everything.
 - `cascade-mj` — the CLI, for scripting and one-off rolls.
 
