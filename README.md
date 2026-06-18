@@ -5,13 +5,13 @@
 [![CI](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml/badge.svg)](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
-An image-generation pipeline an LLM can drive. It runs Midjourney through Discord today; it will run other image generation service APIs using the same interface later.
+An image-generation pipeline an LLM can drive. Midjourney today, other image-generation services tomorrow.
 
-Midjourney is a text-to-image generator: you write a sentence describing a picture — "a flat-design icon of a mountain" — and it paints it, one of the strongest models for stylized, art-directed work. You drive it with an `/imagine <prompt>` command and it answers with a 2×2 grid of four candidates; you pick one and *upscale* it to full resolution. (It needs a paid subscription — [midjourney.com](https://midjourney.com).)
+Midjourney is a text-to-image generator — you describe a picture ("a flat-design icon of a mountain") and it paints it, one of the strongest models for stylized, art-directed work. The catch: it has no public API. The only way to reach it is its Discord bot, where you type `/imagine <prompt>` and it replies with a 2×2 grid of four candidates to pick one from and *upscale* to full resolution. (It needs a paid subscription — [midjourney.com](https://midjourney.com).)
 
-cascade-img wraps that flow. The Midjourney prompt is split into composable parts you set independently, a JSONL log records every attempt so the next iteration knows what's been tried, and an MCP server — the protocol [Claude Desktop, Cursor, and Cline](https://modelcontextprotocol.io) use to call tools — exposes the whole thing so an agent can compose, generate, curate, and log without a human on every attempt.
+cascade-img automates that Discord loop for you. It splits the prompt into composable parts you set independently, logs every attempt as working memory for the next round, and exposes the whole loop through an MCP server — the protocol [Claude Desktop, Cursor, and Cline](https://modelcontextprotocol.io) use to call tools — so an agent can compose, generate, curate, and log without a human on every roll.
 
-**Two ways in.** If you just want to make images by describing them, you don't need to read past [No idea what you're doing? Start here](#no-idea-what-youre-doing-start-here) — an AI assistant does the setup and runs the loop for you. If you're a developer wiring image generation into your own tooling, skip to the [Quickstart](#quickstart), then [ARCHITECTURE.md](./ARCHITECTURE.md) and [AGENTS.md](./AGENTS.md).
+**Two ways in.** If you just want to make images by describing them, you don't need to read past [Non-technical? Start here](#non-technical-start-here) — an AI assistant does the setup and runs the loop for you. If you're a developer wiring image generation into your own tooling, skip to the [Quickstart](#quickstart), then [ARCHITECTURE.md](./ARCHITECTURE.md) and [AGENTS.md](./AGENTS.md).
 
 ## How you actually use it
 
@@ -24,7 +24,7 @@ The intention is that your own words are the interface. Instead of learning Midj
 
 In practice you can go from an idea to a folder of finished, consistent, organized assets in a single conversation — generating and discarding options far faster than by hand, with a written trail of exactly what produced each final image. The CLI and Python API are there for scripting and embedding, but the agent loop is the point; [AGENTS.md](./AGENTS.md) is the guide an assistant reads once.
 
-## No idea what you're doing? Start here
+## Non-technical? Start here
 
 You don't have to be a programmer, or know what any of the above means. The tool is built to be run by an AI assistant, and it ships with a step-by-step setup guide ([RUNBOOK.md](./RUNBOOK.md)) written for exactly that. Open an AI assistant that can run commands on your computer — [Claude Code](https://claude.com/claude-code), Cursor, or Cline — point it at this repository, and ask it to do the whole thing for you:
 
