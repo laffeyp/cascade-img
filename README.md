@@ -93,9 +93,9 @@ Fully quit Discord (Cmd+Q, not just closing the window), reopen it, then press
 
 | Variable | Required? | How to capture |
 |---|---|---|
-| `DISCORD_USER_TOKEN` | yes | DevTools → **Console**. Turn on mobile emulation first (**Cmd+Shift+M**), then run this and copy the printed token (~70 chars — treat it like a password):<br><code>const iframe = document.createElement('iframe');<br>console.log('Token: %c%s', 'font-size:16px;',<br>&nbsp;&nbsp;JSON.parse(document.body.appendChild(iframe).contentWindow.localStorage.token));<br>iframe.remove();</code> |
+| `DISCORD_USER_TOKEN` | yes | DevTools → **Console** (mobile emulation on, **Cmd+Shift+M**); run this, copy the printed token — treat it like a password:<br><code>const f = document.createElement('iframe');<br>document.body.append(f);<br>const ls = f.contentWindow.localStorage;<br>console.log(JSON.parse(ls.token)); f.remove();</code> |
 | `MJ_CHANNEL_ID` | yes | Discord Settings → Advanced → **Developer Mode** on. Right-click your Midjourney channel → **Copy Channel ID**. |
-| `MJ_IMAGINE_VERSION` | yes | DevTools → **Network**. Run `/imagine <anything>` in the MJ channel, find `POST /api/v9/interactions` → Payload → `data.version` (19-digit number). Re-capture whenever MJ updates the slash command. |
+| `MJ_IMAGINE_VERSION` | yes | DevTools → **Network**. Run `/imagine` in the MJ channel, read `data.version` (19-digit) from the `POST /api/v9/interactions` payload. |
 | `MJ_GUILD_ID` | when the channel is in a server (almost always) | Right-click the server icon → **Copy Server ID**. |
 
 The template also has optional settings (output directory, port) with working
