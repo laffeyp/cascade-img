@@ -19,11 +19,11 @@ import logging
 import os
 import re
 
-from cascade_img.backends.midjourney_discord import discord_parse
 from cascade_img.backends.midjourney_discord.config import _cfg
-from cascade_img.backends.midjourney_discord.job import Job
-from cascade_img.backends.midjourney_discord.job_table import LOCK
-from cascade_img.backends.midjourney_discord.persistence import _safe_output_path
+from cascade_img.backends.midjourney_discord.jobs.job import Job
+from cascade_img.backends.midjourney_discord.jobs.job_table import LOCK
+from cascade_img.backends.midjourney_discord.jobs.persistence import _safe_output_path
+from cascade_img.backends.midjourney_discord.transport import discord_parse
 from cascade_img.vocabulary import emit
 
 log = logging.getLogger("cascade_img.bridge.ingest_derived")

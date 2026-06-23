@@ -18,13 +18,9 @@ import asyncio
 import logging
 import os
 
-from cascade_img.backends.midjourney_discord import discord_parse, discord_send, runtime
-from cascade_img.backends.midjourney_discord.capture import _capture_raw_message
 from cascade_img.backends.midjourney_discord.config import MJ_BOT_ID, _cfg
-from cascade_img.backends.midjourney_discord.ingest_derived import _ingest_derived
-from cascade_img.backends.midjourney_discord.job import Status
-from cascade_img.backends.midjourney_discord.job_table import LOCK
-from cascade_img.backends.midjourney_discord.matching import (
+from cascade_img.backends.midjourney_discord.ingest.derived import _ingest_derived
+from cascade_img.backends.midjourney_discord.ingest.matching import (
     _job_by_message_id,
     _job_by_upscale_message_id,
     _match_grid,
@@ -32,7 +28,11 @@ from cascade_img.backends.midjourney_discord.matching import (
     _match_video,
     _video_result_parent,
 )
-from cascade_img.backends.midjourney_discord.persistence import _safe_output_path
+from cascade_img.backends.midjourney_discord.jobs.job import Status
+from cascade_img.backends.midjourney_discord.jobs.job_table import LOCK
+from cascade_img.backends.midjourney_discord.jobs.persistence import _safe_output_path
+from cascade_img.backends.midjourney_discord.transport import discord_parse, discord_send, runtime
+from cascade_img.backends.midjourney_discord.transport.capture import _capture_raw_message
 from cascade_img.vocabulary import emit
 
 log = logging.getLogger("cascade_img.bridge.ingest")

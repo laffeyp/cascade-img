@@ -12,11 +12,12 @@ from __future__ import annotations
 import threading
 import time
 
-from cascade_img.backends.midjourney_discord import bridge, config, job_table
+from cascade_img.backends.midjourney_discord import bridge, config
 from cascade_img.backends.midjourney_discord.bridge import _emit_shutdown
-from cascade_img.backends.midjourney_discord.job import Job, Status, _evict_if_needed
-from cascade_img.backends.midjourney_discord.job_table import JOBS, LOCK, TERMINAL_CV
-from cascade_img.backends.midjourney_discord.matching import _match_grid, _token_needle
+from cascade_img.backends.midjourney_discord.ingest.matching import _match_grid, _token_needle
+from cascade_img.backends.midjourney_discord.jobs import job_table
+from cascade_img.backends.midjourney_discord.jobs.job import Job, Status, _evict_if_needed
+from cascade_img.backends.midjourney_discord.jobs.job_table import JOBS, LOCK, TERMINAL_CV
 from cascade_img.vocabulary import clear, snapshot
 
 

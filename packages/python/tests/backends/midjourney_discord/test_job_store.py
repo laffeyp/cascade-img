@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 
-from cascade_img.backends.midjourney_discord.job_store import JobStore
+from cascade_img.backends.midjourney_discord.jobs.job_store import JobStore
 
 
 def _row(job_id: str, status, **extra) -> dict:
@@ -76,7 +76,7 @@ def test_delete_removes_row():
 def test_status_enum_member_persists_as_value():
     """A Status(str, Enum) member must store as 'done', not 'Status.DONE', or
     the terminal filter silently rehydrates finished jobs."""
-    from cascade_img.backends.midjourney_discord.job import Status
+    from cascade_img.backends.midjourney_discord.jobs.job import Status
 
     store = JobStore(":memory:")
     store.put(_row("term", Status.DONE))
@@ -116,8 +116,8 @@ def test_bridge_rehydrates_nonterminal_jobs(monkeypatch, tmp_path):
     JSON-lossy fields. In-flight jobs (PROGRESS/UPSCALING, grid already seen)
     resume intact; pre-grid jobs (QUEUED/SUBMITTED/...) are failed with
     RESUBMIT_REQUIRED so they cannot linger as never-evicted phantoms."""
-    from cascade_img.backends.midjourney_discord import job_table, persistence, rehydrate
-    from cascade_img.backends.midjourney_discord.job import Status
+    from cascade_img.backends.midjourney_discord.jobs import job_table, persistence, rehydrate
+    from cascade_img.backends.midjourney_discord.jobs.job import Status
 
     store = JobStore(tmp_path / "jobs.db")
     store.put(_row("live1", "submitted"))

@@ -19,9 +19,9 @@ import asyncio
 
 import requests
 
-from cascade_img.backends.midjourney_discord import runtime
 from cascade_img.backends.midjourney_discord.config import MJ_BOT_ID, _cfg
-from cascade_img.backends.midjourney_discord.discord_client import (
+from cascade_img.backends.midjourney_discord.transport import runtime
+from cascade_img.backends.midjourney_discord.transport.discord_client import (
     _session_id_or_raise,
     client,
 )

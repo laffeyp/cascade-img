@@ -14,12 +14,12 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from cascade_img.backends.midjourney_discord import config
-from cascade_img.backends.midjourney_discord.job_table import (
+from cascade_img.backends.midjourney_discord.jobs.job_table import (
     JOBS,
     PENDING_VIDEO,
     TERMINAL_CV,
 )
-from cascade_img.backends.midjourney_discord.persistence import _persist, _unpersist
+from cascade_img.backends.midjourney_discord.jobs.persistence import _persist, _unpersist
 from cascade_img.vocabulary import emit
 
 

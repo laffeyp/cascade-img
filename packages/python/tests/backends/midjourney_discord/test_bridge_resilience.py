@@ -24,27 +24,20 @@ from unittest.mock import MagicMock
 import discord
 import pytest
 
-from cascade_img.backends.midjourney_discord import (
-    bridge,
-    config,
-    discord_client,
-    discord_parse,
-    ingest,
-    maintenance,
-    persistence,
-    rehydrate,
-    runtime,
-)
-from cascade_img.backends.midjourney_discord.discord_client import (
+from cascade_img.backends.midjourney_discord import bridge, config
+from cascade_img.backends.midjourney_discord.errors import DiscordNotReadyError
+from cascade_img.backends.midjourney_discord.ingest import messages as ingest
+from cascade_img.backends.midjourney_discord.jobs import maintenance, persistence, rehydrate
+from cascade_img.backends.midjourney_discord.jobs.job import Job, Status
+from cascade_img.backends.midjourney_discord.jobs.job_store import JobStore
+from cascade_img.backends.midjourney_discord.jobs.job_table import JOBS, LOCK, PENDING_GRID
+from cascade_img.backends.midjourney_discord.jobs.persistence import _safe_output_path
+from cascade_img.backends.midjourney_discord.transport import discord_client, discord_parse, runtime
+from cascade_img.backends.midjourney_discord.transport.discord_client import (
     _is_terminal_auth_failure,
     _reconnect_backoff_seconds,
     _session_id_or_raise,
 )
-from cascade_img.backends.midjourney_discord.errors import DiscordNotReadyError
-from cascade_img.backends.midjourney_discord.job import Job, Status
-from cascade_img.backends.midjourney_discord.job_store import JobStore
-from cascade_img.backends.midjourney_discord.job_table import JOBS, LOCK, PENDING_GRID
-from cascade_img.backends.midjourney_discord.persistence import _safe_output_path
 from cascade_img.vocabulary import clear, snapshot
 
 

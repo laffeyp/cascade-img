@@ -10,24 +10,20 @@ Two layers, no live Discord:
 
 from __future__ import annotations
 
-from cascade_img.backends.midjourney_discord import (
-    bridge,
-    config,
-    discord_parse,
-    job_table,
-    runtime,
-)
+from cascade_img.backends.midjourney_discord import bridge, config
 from cascade_img.backends.midjourney_discord.config import MJ_BOT_ID
-from cascade_img.backends.midjourney_discord.discord_parse import (
+from cascade_img.backends.midjourney_discord.ingest.matching import _job_by_upscale_message_id
+from cascade_img.backends.midjourney_discord.ingest.messages import _ingest_message
+from cascade_img.backends.midjourney_discord.jobs import job_table
+from cascade_img.backends.midjourney_discord.jobs.job import Job, Status
+from cascade_img.backends.midjourney_discord.jobs.job_table import JOBS, LOCK
+from cascade_img.backends.midjourney_discord.transport import discord_parse, runtime
+from cascade_img.backends.midjourney_discord.transport.discord_parse import (
     _ACTION_MARKERS,
     _classify_derived,
     _find_action_custom_id,
     _has_result_button,
 )
-from cascade_img.backends.midjourney_discord.ingest import _ingest_message
-from cascade_img.backends.midjourney_discord.job import Job, Status
-from cascade_img.backends.midjourney_discord.job_table import JOBS, LOCK
-from cascade_img.backends.midjourney_discord.matching import _job_by_upscale_message_id
 from cascade_img.vocabulary import clear, snapshot
 
 

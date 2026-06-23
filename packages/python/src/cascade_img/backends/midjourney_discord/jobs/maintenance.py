@@ -15,14 +15,15 @@ from __future__ import annotations
 import logging
 import time
 
-from cascade_img.backends.midjourney_discord import config, runtime
-from cascade_img.backends.midjourney_discord.job import Status
-from cascade_img.backends.midjourney_discord.job_table import (
+from cascade_img.backends.midjourney_discord import config
+from cascade_img.backends.midjourney_discord.jobs.job import Status
+from cascade_img.backends.midjourney_discord.jobs.job_table import (
     JOBS,
     LOCK,
     PENDING_GRID,
     TERMINAL_CV,
 )
+from cascade_img.backends.midjourney_discord.transport import runtime
 
 log = logging.getLogger("cascade_img.bridge.maintenance")
 

@@ -19,15 +19,15 @@ from dataclasses import asdict
 
 from flask import Flask, jsonify, request
 
-from cascade_img.backends.midjourney_discord import runtime
 from cascade_img.backends.midjourney_discord.config import _cfg
-from cascade_img.backends.midjourney_discord.job import Status
-from cascade_img.backends.midjourney_discord.job_table import (
+from cascade_img.backends.midjourney_discord.jobs.job import Status
+from cascade_img.backends.midjourney_discord.jobs.job_table import (
     JOBS,
     LOCK,
     PENDING_GRID,
     TERMINAL_CV,
 )
+from cascade_img.backends.midjourney_discord.transport import runtime
 from cascade_img.vocabulary import emit
 
 log = logging.getLogger("cascade_img.bridge.routes")
@@ -129,10 +129,10 @@ def http_health():
 # Register the generation (/imagine, /video) and action (/action) Blueprints onto
 # ``app``. Imported at the bottom so the route modules can import ``app``-free
 # helpers from here (``_normalize_upscale``) without a circular import.
-from cascade_img.backends.midjourney_discord.routes_action import (  # noqa: E402
+from cascade_img.backends.midjourney_discord.http.action import (  # noqa: E402
     action_bp,
 )
-from cascade_img.backends.midjourney_discord.routes_generate import (  # noqa: E402
+from cascade_img.backends.midjourney_discord.http.generate import (  # noqa: E402
     generate_bp,
 )
 

@@ -20,9 +20,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 import discord
 
-from cascade_img.backends.midjourney_discord import runtime
 from cascade_img.backends.midjourney_discord.config import _cfg
 from cascade_img.backends.midjourney_discord.errors import DiscordNotReadyError
+from cascade_img.backends.midjourney_discord.transport import runtime
 from cascade_img.vocabulary import emit
 
 log = logging.getLogger("cascade_img.bridge.discord_client")
@@ -83,7 +83,7 @@ async def on_message(message):
     # would otherwise form an import cycle (discord_send needs ``client`` /
     # ``_session_id_or_raise`` from this module). Deferring the ingest import to
     # call time keeps the module-level graph acyclic.
-    from cascade_img.backends.midjourney_discord.ingest import _ingest_message
+    from cascade_img.backends.midjourney_discord.ingest.messages import _ingest_message
 
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(runtime._POOLS["ingest"], _ingest_message, message)
@@ -91,7 +91,7 @@ async def on_message(message):
 
 @client.event
 async def on_message_edit(before, after):
-    from cascade_img.backends.midjourney_discord.ingest import _ingest_message
+    from cascade_img.backends.midjourney_discord.ingest.messages import _ingest_message
 
     loop = asyncio.get_running_loop()
     # Pass event="edit" so the raw capture distinguishes MJ's in-place

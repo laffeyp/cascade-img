@@ -23,7 +23,7 @@ from collections import OrderedDict
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cascade_img.backends.midjourney_discord.job import Job
+    from cascade_img.backends.midjourney_discord.jobs.job import Job
 
 JOBS: OrderedDict[str, Job] = OrderedDict()
 PENDING_GRID: list[str] = []  # FIFO of job_ids awaiting grid message match

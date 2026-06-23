@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import logging
 
-from cascade_img.backends.midjourney_discord import job_table, persistence
-from cascade_img.backends.midjourney_discord.job import Job, Status
-from cascade_img.backends.midjourney_discord.job_table import LOCK
+from cascade_img.backends.midjourney_discord.jobs import job_table, persistence
+from cascade_img.backends.midjourney_discord.jobs.job import Job, Status
+from cascade_img.backends.midjourney_discord.jobs.job_table import LOCK
 
 log = logging.getLogger("cascade_img.bridge.rehydrate")
 

@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import re
 
-from cascade_img.backends.midjourney_discord.job import Job, Status
-from cascade_img.backends.midjourney_discord.job_table import (
+from cascade_img.backends.midjourney_discord.jobs.job import Job, Status
+from cascade_img.backends.midjourney_discord.jobs.job_table import (
     JOBS,
     LOCK,
     PENDING_GRID,

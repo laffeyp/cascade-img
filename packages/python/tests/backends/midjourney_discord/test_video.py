@@ -12,21 +12,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from cascade_img.backends.midjourney_discord import (
-    bridge,
-    config,
-    discord_parse,
-    ingest,
-    matching,
-    runtime,
-)
-from cascade_img.backends.midjourney_discord.job import Job, Status
-from cascade_img.backends.midjourney_discord.job_table import (
+from cascade_img.backends.midjourney_discord import bridge, config
+from cascade_img.backends.midjourney_discord.ingest import matching
+from cascade_img.backends.midjourney_discord.ingest import messages as ingest
+from cascade_img.backends.midjourney_discord.jobs.job import Job, Status
+from cascade_img.backends.midjourney_discord.jobs.job_table import (
     JOBS,
     LOCK,
     PENDING_GRID,
     PENDING_VIDEO,
 )
+from cascade_img.backends.midjourney_discord.transport import discord_parse, runtime
 from cascade_img.vocabulary import clear, snapshot
 
 SHORT = "https://s.mj.run/alB1cz6cskw"

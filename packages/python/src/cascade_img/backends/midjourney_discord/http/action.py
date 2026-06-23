@@ -17,15 +17,18 @@ import logging
 import flask
 from flask import jsonify, request
 
-from cascade_img.backends.midjourney_discord import runtime
 from cascade_img.backends.midjourney_discord.config import _cfg
-from cascade_img.backends.midjourney_discord.discord_parse import (
+from cascade_img.backends.midjourney_discord.errors import DiscordNotReadyError
+from cascade_img.backends.midjourney_discord.jobs.job_table import JOBS, LOCK
+from cascade_img.backends.midjourney_discord.transport import runtime
+from cascade_img.backends.midjourney_discord.transport.discord_parse import (
     _ACTION_MARKERS,
     _find_action_custom_id,
 )
-from cascade_img.backends.midjourney_discord.discord_send import _fetch_message, _press_button
-from cascade_img.backends.midjourney_discord.errors import DiscordNotReadyError
-from cascade_img.backends.midjourney_discord.job_table import JOBS, LOCK
+from cascade_img.backends.midjourney_discord.transport.discord_send import (
+    _fetch_message,
+    _press_button,
+)
 from cascade_img.vocabulary import emit
 
 log = logging.getLogger("cascade_img.bridge.routes_action")

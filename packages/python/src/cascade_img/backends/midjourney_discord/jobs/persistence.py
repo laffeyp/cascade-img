@@ -18,11 +18,11 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from cascade_img.backends.midjourney_discord.job_store import JobStore
+from cascade_img.backends.midjourney_discord.jobs.job_store import JobStore
 from cascade_img.vocabulary import emit
 
 if TYPE_CHECKING:
-    from cascade_img.backends.midjourney_discord.job import Job
+    from cascade_img.backends.midjourney_discord.jobs.job import Job
 
 log = logging.getLogger("cascade_img.bridge.persistence")
 

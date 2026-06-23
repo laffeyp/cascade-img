@@ -18,19 +18,19 @@ import uuid
 import flask
 from flask import jsonify, request
 
-from cascade_img.backends.midjourney_discord import runtime
-from cascade_img.backends.midjourney_discord.discord_send import _send_imagine
 from cascade_img.backends.midjourney_discord.errors import DiscordNotReadyError
-from cascade_img.backends.midjourney_discord.job import Job, Status, _evict_if_needed
-from cascade_img.backends.midjourney_discord.job_table import (
+from cascade_img.backends.midjourney_discord.http.app import _normalize_upscale
+from cascade_img.backends.midjourney_discord.ingest.matching import _find_job_by_idempotency_key
+from cascade_img.backends.midjourney_discord.jobs.job import Job, Status, _evict_if_needed
+from cascade_img.backends.midjourney_discord.jobs.job_table import (
     JOBS,
     LOCK,
     PENDING_GRID,
     PENDING_VIDEO,
 )
-from cascade_img.backends.midjourney_discord.matching import _find_job_by_idempotency_key
-from cascade_img.backends.midjourney_discord.persistence import _persist
-from cascade_img.backends.midjourney_discord.routes import _normalize_upscale
+from cascade_img.backends.midjourney_discord.jobs.persistence import _persist
+from cascade_img.backends.midjourney_discord.transport import runtime
+from cascade_img.backends.midjourney_discord.transport.discord_send import _send_imagine
 from cascade_img.vocabulary import emit
 
 log = logging.getLogger("cascade_img.bridge.routes_generate")
