@@ -33,7 +33,8 @@ Read these in full, in order:
                                  for the stable error codes.
   6. packages/python/pyproject.toml  — the real console-script names under
                                  [project.scripts]; quote them exactly.
-  7. CHANGELOG.md and TOS.md   — current state and the Terms-of-Service reality.
+  7. CHANGELOG.md             — current state, known limits, and the
+                                 Discord-user-account Terms-of-Service reality.
 
 Then give me, in plain language and in this order:
 
@@ -47,7 +48,8 @@ Then give me, in plain language and in this order:
   - THE CONTRACT: the { ok, result | error: { code, message, remediation } }
     envelope, and what the stable error codes mean (from the JOB_FAILED tag).
   - THE CAVEATS: the Discord-user-account / Terms-of-Service reality
-    (from TOS.md) and the known limits (from CHANGELOG.md / ARCHITECTURE.md).
+    (from README.md / RUNBOOK.md) and the known limits (from CHANGELOG.md /
+    ARCHITECTURE.md).
   - WHERE TO GO NEXT: ask me what I'm trying to do, then point me at the exact
     file and section.
 

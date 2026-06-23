@@ -5,27 +5,31 @@
 [![CI](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml/badge.svg)](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
-cascade-img is a visual asset generation pipeline that an LLM can run. Right now, we wrap and instrument the Midjourney image/video generation flow so it's far easier than ever to create visual assets just by voice or text — go from an idea to a set of coherent, related assets, easily.
+cascade-img is a visual asset generation pipeline an LLM can run. Right now we wrap and instrument Midjourney's image and video generation so that it's far easier than before to create assets using only your voice or text to drive an LLM — you go from an idea to a set of coherent, related assets.
 
-Instead of making one image at a time on a public, paid generation service, then having to save the assets in the web UI, download them, make folders, and keep track of them — you use cascade-img to conversationally generate assets through that service's API, and manage the whole process yourself. Just open the repo, point your AI assistant at it, tell it to read [AGENTS.md](./AGENTS.md), and your Claude can drive the whole thing over MCP at your direction.
+Instead of making one image at a time on a paid generation service, then saving each result in the web UI, downloading it, making folders, and keeping track of it all, you generate by conversation and manage the whole process yourself. Just open the repo, point your AI assistant at it, tell it to read [AGENTS.md](./AGENTS.md), and your Claude can drive the whole thing over MCP at your direction.
 
-Of course, there's also a CLI, and you can just import it as a package to use in code.
+Of course, there is also a CLI, and you can import it as a package to use in code.
 
-So how does it do this — and what is Midjourney, and why are we talking about it?
+## What is Midjourney, and why Discord?
 
-Midjourney is a text-to-image generator — you describe a picture ("a flat-design icon of a mountain") and it paints it, one of the strongest models for stylized, art-directed work. The catch: it has no public API. The only way to reach it is its Discord bot, where you type `/imagine <prompt>` and it replies with a 2×2 grid of four candidates to pick one from and *upscale* to full resolution. (It needs a paid subscription — [midjourney.com](https://midjourney.com).) If you've used it, you'll know the dance; if you haven't, it's a little fiddly to explain — but the point is that cascade-img handles it for you.
+Midjourney is a text-to-image generator — you describe a picture ("a flat-design icon of a mountain") and it paints it, one of the strongest models for stylized, art-directed work. The catch: it has no public API. The only way to reach it is its Discord bot, where you type `/imagine <prompt>` and it replies with a 2×2 grid of four candidates to pick one from and *upscale* to full resolution. (It needs a paid subscription — [midjourney.com](https://midjourney.com).) If you have used Midjourney, this is familiar; if you have not, it is a little complicated to explain.
 
-cascade-img automates your whole interaction with this Midjourney/Discord flow, and in the future will let you compose asset pipelines *between* different image generation services.
+cascade-img automates your interaction with this Midjourney/Discord flow, and in the future will let you compose asset pipelines *between* different image generation services.
 
-We split the prompt into composable parts you set independently, log every attempt as working memory for the next round, and expose the whole loop through an MCP server — the protocol [Claude, Cursor, Cline, and others](https://modelcontextprotocol.io) use to call tools — so an agent can compose, generate, curate, and log without your direct input on every generation cycle.
+## How it works
 
-For example, you can set a moodboard and a reference image, then iterate very quickly through batches of assets without writing any Midjourney prompts yourself. You basically get to play critiquer or director — yes, I like that; no, wrong direction; let's go back two; make that the reference style now; okay, what about this idea — steering by conversation instead of typing out the commands to generate images yourself.
+We split the prompt into composable parts you set independently, log every attempt as working memory for the next pass, and expose the whole loop through an MCP server — the protocol [Claude, Cursor, Cline, and others](https://modelcontextprotocol.io) use to call tools — so an agent can compose, generate, curate, and log without your input on every generation.
 
-And everything is recorded. Each attempt (the prompt, the result, why it was kept or discarded) goes into a log the assistant reads back next time, so it builds on what's been tried instead of starting over.
+For example, you can set a moodboard and a reference image, then move quickly through batches of assets without writing any Midjourney prompts yourself. You take the role of critic or director — "yes, I like that"; "no, this is the wrong direction"; "let's go back two"; "make that the reference style now"; "what about this idea" — conversing with the LLM instead of typing the commands to generate the images yourself.
 
-In practice you can go from an idea to a folder of finished, consistent, organized assets in a single conversation — generating and discarding options much faster than by hand, and you get a written trail of exactly what produced each final image. The CLI and Python API are there for scripting and embedding, but the agent loop is, at least for the author, the main point; [AGENTS.md](./AGENTS.md) is the guide an assistant reads once.
+And everything is recorded. Each attempt (the prompt, the result, why it was kept or discarded) goes into a log the assistant reads back next time, so it builds on what has already been tried instead of starting over.
 
-**Two paths.** If you just want to make images by describing them, you don't need to read past [Non-technical? Start here](#non-technical-start-here) — an AI assistant does the setup and runs the loop for you. If you're technical or want to learn more, skip to the [Quickstart](#quickstart), then [ARCHITECTURE.md](./ARCHITECTURE.md) and [AGENTS.md](./AGENTS.md).
+In practice you can go from an idea to a folder of finished, consistent, organized assets in a single conversation — generating and discarding options much faster than by hand, with a written trail of exactly what produced each final image. The CLI and Python API are there for scripting and embedding, but the agent loop is, at least for the author, the main point; [AGENTS.md](./AGENTS.md) is the guide an assistant reads once.
+
+## Two paths
+
+If you just want to make images by describing them, you don't need to read past [Non-technical? Start here](#non-technical-start-here) — an AI assistant does the setup and runs the loop for you. If you're technical or want to learn more, skip to the [Quickstart](#quickstart), then [ARCHITECTURE.md](./ARCHITECTURE.md) and [AGENTS.md](./AGENTS.md).
 
 ## Non-technical? Start here
 
@@ -38,7 +42,7 @@ It has the full context — the guide lists every step and everything that can g
 
 Midjourney comes first by design. Midjourney has no public API, so driving it through a Discord account is actually already an established way of using it. It is tackled first precisely because it is more work. With that done, adding the other integrations is the easier work.
 
-> **Context.** Midjourney has no public API. Driving it through a Discord user account is the established OSS pattern for programmatic access. Of course, both Discord and Midjourney's Terms of Service prohibit user-account automation. See [TOS.md](./TOS.md).
+> **Context.** Midjourney has no public API. Driving it through a Discord user account is the established OSS pattern for programmatic access. Of course, both Discord and Midjourney's Terms of Service prohibit user-account automation.
 
 
 ## Quickstart
@@ -210,7 +214,6 @@ The daemon emits structured JSON log lines across the whole job lifecycle, and e
 - **[RUNBOOK.md](./RUNBOOK.md)** — install, env capture, the setup procedure, the reconnect lifecycle, and every known failure mode with its structured error code and remediation.
 - **[AGENTS.md](./AGENTS.md)** — the LLM operator's guide. Read this when handing cascade-img to an agent.
 - **[CAPABILITIES.md](./CAPABILITIES.md)** — exactly which Midjourney features cascade-img drives (every prompt parameter and `mj_action`, the V8.1/V7 version split, what each does) and what's intentionally not wired.
-- **[TOS.md](./TOS.md)** — the technical context: Midjourney has no public API; Discord user-account automation is the established OSS pattern; both Discord's and Midjourney's Terms of Service prohibit it.
 - **[examples/](./examples/)** — three short, generic walkthroughs of the operating loop (generate one image; generate a batch; generate a video). Illustrative, not templates to copy verbatim. Read AGENTS.md before any of these.
 
 ## Repository layout
@@ -224,7 +227,7 @@ cascade-img/
 ├── packages/typescript/        # npm name reservation for the v0.3 TypeScript wrapper (placeholder)
 ├── examples/              # three short, generic walkthroughs of the operating loop
 ├── vocabulary/0.1.json     # mirror of the package's event log-line catalog
-└── *.md                    # README, ARCHITECTURE, RUNBOOK, AGENTS, AGENT_RUNDOWN, SECURITY, SUPPORT, …
+└── *.md                    # README, ARCHITECTURE, RUNBOOK, AGENTS, AGENT_RUNDOWN, …
 ```
 
 The product is `packages/python`. Everything an operator or agent needs is the

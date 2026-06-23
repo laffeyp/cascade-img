@@ -4,12 +4,7 @@ contact_links:
     url: https://github.com/laffeyp/cascade-img/security/advisories/new
     about: >-
       cascade-img persists a full-access Discord token. Report security issues
-      privately — do NOT open a public issue. See SECURITY.md.
-  - name: Terms of Service questions
-    url: https://github.com/laffeyp/cascade-img/blob/main/TOS.md
-    about: >-
-      Driving a Discord user account against Midjourney violates both services'
-      ToS. That is documented policy, not a code bug.
+      privately through a GitHub Security Advisory — do NOT open a public issue.
   - name: Usage and operations
     url: https://github.com/laffeyp/cascade-img/blob/main/RUNBOOK.md
     about: Install, credential capture, bring-up, and failure recovery.

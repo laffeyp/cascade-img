@@ -5,8 +5,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Security or token-handling issues: do NOT file here — see SECURITY.md.
-        Terms-of-Service questions: see TOS.md. This form is for code defects.
+        Security or token-handling issues: do NOT file here — report them
+        privately through a GitHub Security Advisory. This form is for code defects.
   - type: input
     id: version
     attributes:

@@ -17,7 +17,7 @@ The package is structured around three responsibilities:
   pending, rather than losing track of interactions already sent to Discord.
 
 ToS note: this drives a Discord user account against Midjourney, which both
-services' Terms of Service prohibit; see ``TOS.md``.
+services' Terms of Service prohibit.
 """
 
 from cascade_img.backends.midjourney_discord.bridge import Config, MissingEnvError
