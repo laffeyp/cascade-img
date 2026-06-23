@@ -1,8 +1,7 @@
 """The action route — POST /action/<job_id> — as a Flask Blueprint.
 
-Extracted from bridge.py (sprint 023.12). Registered onto ``app`` in routes.py.
-Path, method, and JSON shape are unchanged; the nested ``_do()`` coroutine that
-closes over ``message_id`` / ``slot`` / ``action`` is preserved intact.
+Registered onto ``app`` in app.py. The nested ``_do()`` coroutine closes over
+``message_id`` / ``slot`` / ``action``.
 
 Binding discipline: the loop accessor is read as ``runtime._running_loop`` (the
 suite patches it on ``runtime``); ``asyncio.run_coroutine_threadsafe`` is the

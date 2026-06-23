@@ -1,10 +1,10 @@
 """Message-to-job matchers and job-table lookups.
 
-Extracted from bridge.py (sprint 023.6). These read the shared job table and
-route an incoming MJ message to the job it belongs to (grid / video / upscale),
-or look a job up by one of its message ids. Pure with respect to Discord — they
-take already-extracted ``content`` / ``message_id``, never the live client — so
-they sit at L4, below ingest and the routes.
+These read the shared job table and route an incoming MJ message to the job it
+belongs to (grid / video / upscale), or look a job up by one of its message
+ids. Pure with respect to Discord — they take already-extracted ``content`` /
+``message_id``, never the live client — so they sit low in the import graph,
+below ingest and the routes.
 
 ``_session_id_or_raise`` is deliberately NOT here: it reads the live Discord
 ``client``, which lives higher in the graph, so it stays with the client to keep

@@ -1,8 +1,7 @@
 """Bridge configuration and runtime constants.
 
-Extracted from ``bridge.py`` (sprint 023.1). Owns the ``Config`` dataclass,
-the module-level ``cfg`` holder, the ``_cfg()`` accessor, and the daemon's
-tuning/identity constants.
+Owns the ``Config`` dataclass, the module-level ``cfg`` holder, the ``_cfg()``
+accessor, and the daemon's tuning/identity constants.
 
 Binding discipline: ``cfg`` is reassigned at startup. Read it only via
 ``_cfg()`` (which reads this module's global); set it via attribute assignment

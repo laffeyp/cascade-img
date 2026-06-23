@@ -1,7 +1,7 @@
 """Bridge exception types.
 
-Extracted from ``bridge.py`` (sprint 023.1). These are the daemon's own
-error types; ``BridgeError`` is separate and lives in ``bridge_client.py``.
+These are the daemon's own error types; ``BridgeError`` is separate and lives
+in ``bridge_client.py``.
 """
 
 from __future__ import annotations

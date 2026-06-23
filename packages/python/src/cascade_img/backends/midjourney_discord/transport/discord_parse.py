@@ -1,6 +1,6 @@
 """Parsing of inbound MJ Discord messages + the artifact downloader.
 
-Extracted from bridge.py (sprint 023.7). Everything here reads an already-arrived
+Everything here reads an already-arrived
 ``discord.Message`` (its content, attachments, components) or downloads an
 attachment URL to disk — no live client, no job table — so it sits low in the
 graph and ingest imports it downward.
@@ -151,9 +151,9 @@ def _find_action_custom_id(message, action: str, slot: int | None = None) -> str
 
 def _classify_derived(content: str) -> str:
     # animation's rewritten prompt carries MJ's video signature INSIDE the bolded
-    # prompt ("... --motion high --video 1 --aspect 1:1**", per the 2026-06-02 live
-    # capture); the other families are named only in the
-    # suffix MJ appends after the prompt's closing "**". Scan that suffix for them
+    # prompt ("... --motion high --video 1 --aspect 1:1**"); the other families
+    # are named only in the suffix MJ appends after the prompt's closing "**".
+    # Scan that suffix for them
     # so a family word inside the prompt body (e.g. an asset literally about "zoom")
     # cannot mislabel the result.
     #

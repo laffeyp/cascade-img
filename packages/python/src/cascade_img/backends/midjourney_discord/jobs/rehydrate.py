@@ -1,8 +1,7 @@
 """Startup rehydration: reconstruct non-terminal jobs from the durable store.
 
-Extracted from bridge.py (sprint 023.5). Sits above ``job`` / ``job_table`` /
-``persistence``: it is the place that *constructs* ``Job`` from stored rows and
-inserts them into the table.
+Sits above ``job`` / ``job_table`` / ``persistence``: it is the place that
+*constructs* ``Job`` from stored rows and inserts them into the table.
 
 Binding discipline: the durable store is read as ``persistence._store`` (a module
 attribute reassigned in ``main()``), never imported by value.

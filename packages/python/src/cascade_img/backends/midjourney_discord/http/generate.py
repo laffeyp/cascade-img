@@ -1,7 +1,6 @@
 """The generation routes — POST /imagine and POST /video — as a Flask Blueprint.
 
-Extracted from bridge.py (sprint 023.11). Registered onto ``app`` in routes.py.
-Paths, methods, and JSON shapes are unchanged.
+Registered onto ``app`` in app.py.
 
 Binding discipline: readiness and the loop accessor are read as ``runtime._ready``
 / ``runtime._running_loop`` so the suite's patches (retargeted to ``runtime``)

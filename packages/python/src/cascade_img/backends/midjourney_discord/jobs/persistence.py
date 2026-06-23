@@ -1,7 +1,7 @@
 """Durable job-store write-through and safe output paths.
 
-Extracted from ``bridge.py`` (sprint 023.2). Sits below ``job.py`` in the
-import graph: it references ``Job`` only under ``TYPE_CHECKING`` (``asdict``
+Sits below ``job.py`` in the import graph: it references ``Job`` only under
+``TYPE_CHECKING`` (``asdict``
 works on any dataclass at runtime), so ``Job.touch()`` can import ``_persist``
 downward without a cycle.
 

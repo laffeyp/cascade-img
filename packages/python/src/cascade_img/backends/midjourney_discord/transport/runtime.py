@@ -1,6 +1,6 @@
 """Event-loop and thread-pool substrate shared by ingest and the Discord client.
 
-Extracted from bridge.py (sprint 023.4). This module exists to break the
+This module exists to break the
 ``discord_client -> ingest -> (loop/pools) -> client`` cycle: both the Discord
 client and message ingestion import the loop/pool holders from here, neither
 from each other.

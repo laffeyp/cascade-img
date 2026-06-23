@@ -1,8 +1,8 @@
 """The live Discord client object and gateway-session accessor.
 
-Started in sprint 023.8 (the ``client`` singleton + ``_session_id_or_raise``,
-which the outbound senders need) and completed in sprint 023.10 (the event
-handlers, the reconnect loop, and the auth/backoff helpers).
+Holds the ``client`` singleton, ``_session_id_or_raise`` (which the outbound
+senders need), the gateway event handlers, the reconnect loop, and the
+auth/backoff helpers.
 
 Binding discipline: ``client`` is a singleton mutated/replaced by discord.py-self
 internals but never rebound by us at module level, so importing it by name is

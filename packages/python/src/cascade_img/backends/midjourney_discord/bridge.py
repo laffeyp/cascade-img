@@ -33,65 +33,30 @@ import signal
 import threading
 import time
 
-# Config, the runtime/identity constants, and the daemon's own exception types
-# were extracted to config.py / errors.py (sprint 023.1). Re-imported here so
-# existing references (and `bridge.<name>` callers/tests) resolve unchanged.
-# cfg is reassigned at startup via `config.cfg = ...` in main(); read it only
-# through the `_cfg()` accessor, never by importing the `cfg` value.
-# _persist / _unpersist / _safe_output_path + the durable _store holder were
-# extracted to persistence.py (sprint 023.2). Re-imported for callers; _store is
-# read as persistence._store (reassigned at startup), never imported by value.
+# bridge.py is the assembly module: it re-imports the names that live in the
+# focused submodules so ``bridge.<name>`` references (and the test suite's
+# monkeypatches that target them) resolve here unchanged.
+#
+# cfg is reassigned at startup via ``config.cfg = ...`` in main(); read it only
+# through the ``_cfg()`` accessor, never by importing the ``cfg`` value. Likewise
+# the durable ``_store`` is read as ``persistence._store`` (reassigned at
+# startup), never imported by value.
 from cascade_img.backends.midjourney_discord import config
-
-# Event-loop / thread-pool substrate extracted to runtime.py (sprint 023.4) to
-# break the discord_client<->ingest cycle. Re-imported so bridge.<name> callers
-# and the test monkeypatches that target bridge._running_loop still resolve. The
-# holders are mutated in place / never rebound, so import-by-name is safe.
-# Inbound-message parsing + the artifact downloader extracted to discord_parse.py;
-# the raw-capture diagnostic to capture.py (sprint 023.7). Re-imported so the
-# ingest/action paths still in bridge resolve them by bare name, and so the
-# bridge._download_to monkeypatches the suite uses still land on this binding.
 from cascade_img.backends.midjourney_discord.config import (
     BACKEND_NAME,
     INFLIGHT_TIMEOUT_SECONDS,
     PACKAGE_VERSION,
     Config,
 )
-
-# The --check-env / --doctor pre-flight diagnostics were extracted to
-# diagnostics.py (sprint 023.13). main() dispatches them; re-imported so
-# bridge.check_env / bridge.doctor resolve for callers and the CLI test suite.
 from cascade_img.backends.midjourney_discord.diagnostics import check_env, doctor
 from cascade_img.backends.midjourney_discord.errors import (
     MissingEnvError,
 )
-
-# The Flask app + all HTTP routes were extracted to routes.py / routes_generate.py
-# / routes_action.py (sprint 023.11-023.12). main() serves ``app``; re-imported so
-# that wiring and ``bridge.app`` (the test client's entry) resolve.
 from cascade_img.backends.midjourney_discord.http.app import app
 from cascade_img.backends.midjourney_discord.jobs import persistence
-
-# Inbound-message ingestion (the grid/video/progress/upscale state machine) and
-# the derived-result router were extracted to ingest.py / ingest_derived.py
-# (sprint 023.9). Re-imported so the event handlers still in bridge dispatch
-# _ingest_message and so bridge.<name> callers/tests resolve.
-# Status, Job, _merge_no_clause + _evict_if_needed extracted to job.py; the
-# shared job table (JOBS/PENDING_*/LOCK/TERMINAL_CV) to job_table.py (sprint
-# 023.3). Re-imported so bridge.<name> callers/tests resolve unchanged. The
-# table objects are mutated in place, so re-import-by-name is safe.
 from cascade_img.backends.midjourney_discord.jobs.job_store import JobStore
-
-# The stalled-job reaper (maintenance.py) and startup rehydration (rehydrate.py)
-# were extracted in sprint 023.5. main() drives _reaper_loop / _rehydrate_jobs;
-# re-imported here so those wirings (and bridge.<name> resolution) hold.
 from cascade_img.backends.midjourney_discord.jobs.maintenance import _reaper_loop
 from cascade_img.backends.midjourney_discord.jobs.rehydrate import _rehydrate_jobs
-
-# The live Discord client + gateway-session accessor (discord_client.py) and the
-# outbound Interactions-API senders (discord_send.py) were extracted in sprint
-# 023.8. Re-imported so the event handlers + routes still in bridge resolve them,
-# and so the suite's client.ws / _session_id_or_raise patches reach them.
 from cascade_img.backends.midjourney_discord.transport.discord_client import (
     _run_discord,
 )
@@ -110,15 +75,14 @@ log = logging.getLogger("cascade_img.bridge")
 
 
 # ---------------------------------------------------------------------------
-# After the sprint-023 decomposition, bridge.py is the slim assembly module:
-# the ``cascade-mj-bridge`` console entrypoint (main()), the shutdown plumbing,
-# and the startup wiring that bolts the extracted modules together. Every other
-# concern lives in its own module (re-imported above so ``bridge.<name>`` still
-# resolves for callers and the test suite):
-#   job model / table   -> job.py, job_table.py
-#   Discord client      -> discord_client.py
-#   inbound ingestion   -> ingest.py, ingest_derived.py
-#   HTTP routes + app   -> routes.py, routes_generate.py, routes_action.py
+# bridge.py is the slim assembly module: the ``cascade-mj-bridge`` console
+# entrypoint (main()), the shutdown plumbing, and the startup wiring that bolts
+# the focused modules together. Every other concern lives in its own module
+# (re-imported above so ``bridge.<name>`` still resolves for callers and tests):
+#   job model / table    -> jobs/job.py, jobs/job_table.py
+#   Discord client       -> transport/discord_client.py
+#   inbound ingestion    -> ingest/messages.py, ingest/derived.py
+#   HTTP routes + app    -> http/app.py, http/generate.py, http/action.py
 #   --check-env/--doctor -> diagnostics.py
 # ---------------------------------------------------------------------------
 

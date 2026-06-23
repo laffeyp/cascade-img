@@ -1,8 +1,8 @@
 """Route a derived result (vary / zoom / pan / upscale-variant / animation)
 back to its parent job.
 
-Extracted from bridge.py (sprint 023.9). Grounded in the 2026-06-02 live capture:
-MJ posts each derived result as a Discord reply whose message_reference is the
+Grounded in MJ's observed reply structure: MJ posts each derived result as a
+Discord reply whose message_reference is the
 SOLO upscaled-image message id (== Job.upscale_message_id). That reference is the
 ONLY signal present on every family; the channel is shared, so recency/adjacency
 matching is unsafe — a foreign job's animate interleaved into the capture window

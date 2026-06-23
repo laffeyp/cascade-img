@@ -1,10 +1,8 @@
 """The Flask app, the query/health routes, and blueprint registration.
 
-Extracted from bridge.py (sprint 023.11). ``app`` lives here; the generation
-routes (/imagine, /video) and the action route (/action) live in their own
-Blueprint modules and are registered onto ``app`` at the bottom of this file.
-Route paths, methods, and JSON shapes are unchanged — only the registration
-mechanism (Blueprint) differs.
+``app`` lives here; the generation routes (/imagine, /video) and the action
+route (/action) live in their own Blueprint modules and are registered onto
+``app`` at the bottom of this file.
 
 Binding discipline: readiness is read as ``runtime._ready`` (a shared Event, also
 re-exported as ``bridge._ready``); the durable-store accessor and matchers come

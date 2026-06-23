@@ -1,6 +1,6 @@
 """Pre-flight diagnostics for the bridge CLI: ``--check-env`` and ``--doctor``.
 
-Extracted from bridge.py (sprint 023.13). These run *without* starting the
+These run *without* starting the
 daemon or connecting to Discord — they validate config, network reachability,
 and importability so an operator can debug bring-up before the daemon owns the
 process. The running daemon's ``/health`` route covers live state.

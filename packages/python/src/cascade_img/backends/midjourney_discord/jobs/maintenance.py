@@ -1,7 +1,5 @@
 """Stalled-job reaper: the periodic sweep that fails silent in-flight jobs.
 
-Extracted from bridge.py (sprint 023.5).
-
 Binding discipline: the timeout is read as ``config.INFLIGHT_TIMEOUT_SECONDS``
 (a module attribute) so tests that retune it patch ``config.INFLIGHT_TIMEOUT_SECONDS``
 and the reaper sees the new value; the shutdown gate is read as

@@ -1,7 +1,5 @@
 """Raw-message capture hook (observation-only; env-gated; OFF by default).
 
-Extracted from bridge.py (sprint 023.7).
-
 When ``CASCADE_CAPTURE_RAW`` points at a path, ingest appends one JSON line per
 MJ-bot message in the watched channel — structure only, NO interpretation — so
 derived results (vary / zoom / pan / animate / favorite) that the bridge cannot

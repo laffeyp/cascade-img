@@ -1,6 +1,6 @@
 """Outbound Discord Interactions-API senders.
 
-Extracted from bridge.py (sprint 023.8). These four coroutines fire the
+These four coroutines fire the
 ``/imagine`` slash command, press message-component buttons, post arbitrary
 interaction payloads, and fetch a channel message for its live components. They
 depend only on config / runtime / the Discord client — no job shape — so ingest

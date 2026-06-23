@@ -1,7 +1,7 @@
 """Shared in-flight job state: the table, its lock, and the pending queues.
 
-Extracted from bridge.py (sprint 023.3). This module is the single owner of the
-process-wide job table and its synchronization primitives. Every module that
+This module is the single owner of the process-wide job table and its
+synchronization primitives. Every module that
 touches job state imports these objects from here, so there is exactly one
 ``LOCK`` / ``TERMINAL_CV`` / ``JOBS`` in the process — the locking semantics are
 preserved by construction (the objects are imported, never reconstructed).

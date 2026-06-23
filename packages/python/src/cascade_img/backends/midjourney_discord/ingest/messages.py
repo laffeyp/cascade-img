@@ -1,9 +1,8 @@
 """Inbound MJ-message ingestion: the grid/video/progress/upscale state machine.
 
-Extracted from bridge.py (sprint 023.9) by lift-and-shift — the flow is
-unchanged; only the cross-module references are qualified. ``_ingest_message`` is
-the exception-swallowing wrapper dispatched on the ingest pool from the Discord
-event handlers; ``_ingest_message_impl`` is the actual state machine.
+``_ingest_message`` is the exception-swallowing wrapper dispatched on the ingest
+pool from the Discord event handlers; ``_ingest_message_impl`` is the actual
+state machine.
 
 Binding discipline (the monkeypatch surface):
 * the artifact downloader is called as ``discord_parse._download_to`` so

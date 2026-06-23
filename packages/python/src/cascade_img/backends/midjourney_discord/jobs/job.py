@@ -1,8 +1,7 @@
 """The Job model, its status enum, prompt tagging, and table eviction.
 
-Extracted from bridge.py (sprint 023.3). Sits above job_table.py (the shared
-state) and persistence.py / config.py (read downward); below everything that
-routes or ingests.
+Sits above job_table.py (the shared state) and persistence.py / config.py (read
+downward); below everything that routes or ingests.
 """
 
 from __future__ import annotations
