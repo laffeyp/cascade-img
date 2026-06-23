@@ -70,22 +70,52 @@ drive everything through the other two.
 
 ### 2. Configure (one-time)
 
-cascade-img reaches Midjourney through your Discord account. Three values are
-required:
+cascade-img reaches Midjourney through your Discord account, so you capture a few
+values from the Discord desktop app into a `.env`. The steps are below;
+[RUNBOOK.md](./RUNBOOK.md) repeats them with extra troubleshooting if you get
+stuck.
 
-- a Discord user token
-- your MJ channel ID
-- the current `/imagine` command version
-
-plus your server (guild) ID whenever the channel lives in a Discord server
-(almost always). These are captured from the Discord desktop app's DevTools.
-**[RUNBOOK.md](./RUNBOOK.md) is the step-by-step guide**: enabling DevTools, the
-token-capture snippet, and what each value means.
+First, copy the env template into your working directory:
 
 ```bash
-# Copy the env template into your working directory, then fill it in per RUNBOOK.md:
 cp "$(python -c 'import cascade_img, pathlib; print(pathlib.Path(cascade_img.__path__[0]) / ".env.example")')" .env
+```
 
+**Enable DevTools in the Discord desktop app** (you need it to read the token and
+the command version). Edit `~/Library/Application Support/discord/settings.json`
+(macOS) and add this inside the top-level JSON object:
+
+```json
+"DANGEROUS_ENABLE_DEVTOOLS_ONLY_ENABLE_IF_YOU_KNOW_WHAT_YOURE_DOING": true,
+```
+
+Fully quit Discord (Cmd+Q, not just closing the window), reopen it, then press
+**Cmd+Option+I** to open DevTools. (Discord wipes this on app updates — re-add it
+if DevTools stops opening.)
+
+**Capture each value into your `.env`:**
+
+| Variable | Required? | How to capture |
+|---|---|---|
+| `DISCORD_USER_TOKEN` | yes | DevTools → **Console**. Turn on mobile emulation first (**Cmd+Shift+M**), then paste the snippet below and copy the printed token. ~70 chars — treat it like a password. |
+| `MJ_CHANNEL_ID` | yes | Discord Settings → Advanced → **Developer Mode** on. Right-click your Midjourney channel → **Copy Channel ID**. |
+| `MJ_IMAGINE_VERSION` | yes | DevTools → **Network**. Run `/imagine <anything>` in the MJ channel, find `POST /api/v9/interactions` → Payload → `data.version` (19-digit number). Re-capture whenever MJ updates the slash command. |
+| `MJ_GUILD_ID` | when the channel is in a server (almost always) | Right-click the server icon → **Copy Server ID**. |
+| `MJ_IMAGINE_COMMAND_ID` | no (defaulted) | Ships with a working default; only set it (same capture as the version, `data.id`) if interactions start returning 404. |
+
+Token snippet — paste into the **Console** after enabling mobile emulation:
+
+```javascript
+const iframe = document.createElement('iframe');
+console.log('Token: %c%s', 'font-size:16px;',
+  JSON.parse(document.body.appendChild(iframe).contentWindow.localStorage.token));
+iframe.remove();
+```
+
+The template also has optional settings (output directory, port) with working
+defaults. Once your `.env` is filled in, validate it:
+
+```bash
 cascade-mj-bridge --check-env --pretty   # validates the .env and names anything missing
 ```
 
@@ -105,7 +135,9 @@ can start and stop freely.
 
 ### 4a. Drive it from an MCP host — the AI assistant app you're already in (Claude Desktop, Cursor, Cline)
 
-Drop this into your host's MCP config:
+Either add the server to your host's MCP config yourself, or just point your
+assistant at this repo and ask it to read [AGENTS.md](./AGENTS.md) and wire it up.
+Done by hand, it's a single entry:
 
 ```json
 {
