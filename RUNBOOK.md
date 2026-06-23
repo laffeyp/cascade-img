@@ -21,19 +21,19 @@ python3.14 --version    # >= 3.14.x
 
 If missing: `brew install python@3.14`.
 
-### Install the package
+### Clone and install
 
 ```bash
-pip install cascade-img
-# or, into a venv:
+git clone https://github.com/laffeyp/cascade-img
+cd cascade-img/packages/python
 python3.14 -m venv .venv
 source .venv/bin/activate
-pip install cascade-img
+pip install -e .
 ```
 
 This pulls in `discord.py-self`, `flask`, `requests`, `python-dotenv`, `Pillow`, and `mcp`. Three console scripts land on your `PATH`:
 
-These three commands are console-script entry points declared in `pyproject.toml` under `[project.scripts]`. When the package is installed, pip generates a small executable wrapper for each one on your `PATH`, and each wrapper imports and calls the named function (for example, `cascade-mj` maps to `cascade_img.interfaces.cli.generate_image:main`). They are thin aliases to that code.
+These three commands are console-script entry points declared in `pyproject.toml` under `[project.scripts]`. Installing puts a small executable wrapper for each on your `PATH`, and each wrapper imports and calls the named function (for example, `cascade-mj` maps to `cascade_img.interfaces.cli.generate_image:main`). They are thin aliases to that code.
 
 - `cascade-mj-bridge` — the MJ Discord bridge daemon
 - `cascade-mcp` — the MCP server (Claude Desktop / Cursor / Cline)
@@ -390,7 +390,7 @@ Three algorithms ship under `alpha_key_corners`:
 
 - **`method="flood"` (default)** — 4-connected flood-fill from each corner. Subject regions surrounded by a darker outline stay opaque because the outline blocks the flood (the case where a light subject sits on a light background). Correct for most MJ outputs with a uniform background.
 - **`method="threshold"`** — global per-pixel distance from the corner-average color. Faster, simpler, but removes subject pixels whose color is close to the background. Available for cases where flood-fill leaks (broken outlines, intentional gradients from bg into subject).
-- **`method="rembg"`** — ML background removal via the optional `rembg` dependency (`pip install cascade-img[ml]`). For gradient backgrounds and broken outlines that defeat both geometric methods. Note the result may come back auto-cropped (different dimensions than the input).
+- **`method="rembg"`** — ML background removal via the optional `rembg` dependency (`pip install -e '.[ml]'`). For gradient backgrounds and broken outlines that defeat both geometric methods. Note the result may come back auto-cropped (different dimensions than the input).
 
 `tolerance` (0-255 per channel) controls how permissive each algorithm is. Default 24 works for MJ's anti-aliased output. The MCP `alpha_key` envelope returns `keyed_count`, `total_count`, and `keyed_ratio` (0.0-1.0). A clean subject-on-uniform-background frame typically keys 0.4-0.8. Ratios under 0.1 mean the keyer found no background (gradient, vignette, wrong tolerance, wrong method). Ratios over 0.9 mean the keyer removed the subject itself — reject and regenerate, swap method, or skip alpha-keying for this asset.
 

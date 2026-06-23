@@ -1,7 +1,5 @@
 # cascade-img
 
-[![PyPI](https://img.shields.io/pypi/v/cascade-img.svg)](https://pypi.org/project/cascade-img/)
-[![Python](https://img.shields.io/pypi/pyversions/cascade-img.svg)](https://pypi.org/project/cascade-img/)
 [![CI](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml/badge.svg)](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
@@ -9,7 +7,7 @@ cascade-img is a visual asset generation pipeline an LLM can run. You tell an AI
 
 Instead of making one image at a time on a paid generation service, then saving each result in the web UI, downloading it, making folders, and keeping track of it all, you generate by conversation and manage the whole process yourself. Just open the repo, point your AI assistant at it, tell it to read [AGENTS.md](./AGENTS.md), and your Claude can drive the whole thing over MCP at your direction.
 
-Of course, there is also a CLI, and you can import it as a package to use in code.
+Of course, there is also a CLI, and it will soon be published as a package.
 
 The generator we drive today is Midjourney — the hardest one to reach, which is why we started there. Other backends (Flux, DALL-E, Imagen, …) are built to slot in behind the same interface.
 
@@ -56,13 +54,15 @@ Midjourney comes first by design. Midjourney has no public API, so driving it th
 
 cascade-img drives *your own* Midjourney account and runs locally on your machine.
 
-### 1. Install
+### 1. Get it
 
 ```bash
-pip install cascade-img
+git clone https://github.com/laffeyp/cascade-img
+cd cascade-img/packages/python
+pip install -e .
 ```
 
-This puts three console scripts on your `PATH` — a long-running daemon plus two
+This pulls in the dependencies and puts three console scripts on your `PATH` — a long-running daemon plus two
 short-lived clients that connect to it, like a database and the apps that use it:
 `cascade-mj-bridge` (the bridge daemon), `cascade-mcp` (the MCP server), and
 `cascade-mj` (the CLI). Step 3 explains why the daemon stays running while you
@@ -256,7 +256,6 @@ cascade-img/
 │   ├── src/cascade_img/     #   prompt/, interfaces/, backends/, curation/, vocabulary/
 │   ├── tests/               #   behavior tests
 │   └── tools/               #   live smoke walk
-├── packages/typescript/        # npm name reservation for the v0.3 TypeScript wrapper (placeholder)
 ├── examples/              # three short, generic walkthroughs of the operating loop
 ├── vocabulary/0.1.json     # mirror of the package's event log-line catalog
 └── *.md                    # README, ARCHITECTURE, RUNBOOK, AGENTS, AGENT_RUNDOWN, …
