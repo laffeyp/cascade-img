@@ -63,10 +63,8 @@ pip install -e .
 ```
 
 This pulls in the dependencies and puts three console scripts on your `PATH` — a long-running daemon plus two
-short-lived clients that connect to it, like a database and the apps that use it:
-`cascade-mj-bridge` (the bridge daemon), `cascade-mcp` (the MCP server), and
-`cascade-mj` (the CLI). Step 3 explains why the daemon stays running while you
-drive everything through the other two.
+short-lived clients that connect to it: `cascade-mj-bridge` (the bridge daemon),
+`cascade-mcp` (the MCP server), and `cascade-mj` (the CLI).
 
 ### 2. Configure (one-time)
 
