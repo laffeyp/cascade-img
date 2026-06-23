@@ -10,27 +10,31 @@ Two layers, no live Discord:
 
 from __future__ import annotations
 
-from cascade_img.backends.midjourney_discord import bridge
-from cascade_img.backends.midjourney_discord.bridge import (
+from cascade_img.backends.midjourney_discord import (
+    bridge,
+    config,
+    discord_parse,
+    job_table,
+    runtime,
+)
+from cascade_img.backends.midjourney_discord.config import MJ_BOT_ID
+from cascade_img.backends.midjourney_discord.discord_parse import (
     _ACTION_MARKERS,
-    JOBS,
-    LOCK,
-    MJ_BOT_ID,
-    Job,
-    Status,
     _classify_derived,
     _find_action_custom_id,
     _has_result_button,
-    _ingest_message,
-    _job_by_upscale_message_id,
 )
+from cascade_img.backends.midjourney_discord.ingest import _ingest_message
+from cascade_img.backends.midjourney_discord.job import Job, Status
+from cascade_img.backends.midjourney_discord.job_table import JOBS, LOCK
+from cascade_img.backends.midjourney_discord.matching import _job_by_upscale_message_id
 from cascade_img.vocabulary import clear, snapshot
 
 
 def _reset_jobs():
     with LOCK:
         JOBS.clear()
-        bridge.PENDING_GRID.clear()
+        job_table.PENDING_GRID.clear()
 
 
 def _tags() -> list[str]:
@@ -154,7 +158,7 @@ def test_action_unknown_action_returns_400():
 
 
 def test_action_not_ready_returns_503():
-    bridge._ready.clear()
+    runtime._ready.clear()
     client = bridge.app.test_client()
     r = client.post("/action/whatever", json={"action": "vary_strong"})
     assert r.status_code == 503
@@ -163,21 +167,21 @@ def test_action_not_ready_returns_503():
 
 def test_action_unknown_job_returns_404():
     _reset_jobs()
-    bridge._ready.set()
+    runtime._ready.set()
     try:
         client = bridge.app.test_client()
         r = client.post("/action/nope", json={"action": "vary_strong"})
         assert r.status_code == 404
         assert r.get_json()["error"]["code"] == "UNKNOWN_JOB"
     finally:
-        bridge._ready.clear()
+        runtime._ready.clear()
 
 
 def test_action_no_upscaled_image_returns_409_and_emits_failure():
     """A job with no upscaled image can't be acted on — the buttons live on a
     SOLO upscale. Emits MJ_ACTION_FAILED(NO_UPSCALED_IMAGE)."""
     _reset_jobs()
-    bridge._ready.set()
+    runtime._ready.set()
     clear()
     try:
         job = Job(
@@ -191,7 +195,7 @@ def test_action_no_upscaled_image_returns_409_and_emits_failure():
         assert r.get_json()["error"]["code"] == "NO_UPSCALED_IMAGE"
         assert "MJ_ACTION_FAILED" in _tags()
     finally:
-        bridge._ready.clear()
+        runtime._ready.clear()
         _reset_jobs()
 
 
@@ -278,7 +282,7 @@ def _make_parent(monkeypatch, tmp_path):
         output_dir=tmp_path,
         port=5057,
     )
-    monkeypatch.setattr(bridge, "cfg", cfg)
+    monkeypatch.setattr(config, "cfg", cfg)
     parent = Job(job_id="p1", asset_id="livebird", prompt="a small bird", status=Status.DONE)
     parent.upscale_message_id = _SOLO_ID
     with LOCK:
@@ -330,7 +334,7 @@ def test_has_result_button_distinguishes_final_from_progress():
 
 def test_derived_result_routes_to_parent_and_emits(tmp_path, monkeypatch):
     parent = _make_parent(monkeypatch, tmp_path)
-    monkeypatch.setattr(bridge, "_download_to", lambda url, path: 295714)
+    monkeypatch.setattr(discord_parse, "_download_to", lambda url, path: 295714)
     _ingest_message(_vary_final())
     assert len(parent.derived) == 1
     d = parent.derived[0]
@@ -343,7 +347,7 @@ def test_derived_result_routes_to_parent_and_emits(tmp_path, monkeypatch):
 
 def test_derived_animation_is_classified_and_downloaded(tmp_path, monkeypatch):
     parent = _make_parent(monkeypatch, tmp_path)
-    monkeypatch.setattr(bridge, "_download_to", lambda url, path: 2496346)
+    monkeypatch.setattr(discord_parse, "_download_to", lambda url, path: 2496346)
     _ingest_message(_animate_final())
     assert len(parent.derived) == 1
     d = parent.derived[0]
@@ -360,7 +364,7 @@ def test_derived_claimed_once_across_edits(tmp_path, monkeypatch):
         calls["n"] += 1
         return 295714
 
-    monkeypatch.setattr(bridge, "_download_to", _count)
+    monkeypatch.setattr(discord_parse, "_download_to", _count)
     msg = _vary_final()
     _ingest_message(msg)
     _ingest_message(msg)  # a later edit of the same final re-enters
@@ -370,7 +374,7 @@ def test_derived_claimed_once_across_edits(tmp_path, monkeypatch):
 
 def test_favorite_confirmation_produces_no_artifact(tmp_path, monkeypatch):
     parent = _make_parent(monkeypatch, tmp_path)
-    monkeypatch.setattr(bridge, "_download_to", lambda url, path: 1)
+    monkeypatch.setattr(discord_parse, "_download_to", lambda url, path: 1)
     # raw-capture line 86: references the SOLO but has no attachment / no buttons.
     fav = _DMsg(
         1511319783969263847,
@@ -384,7 +388,7 @@ def test_favorite_confirmation_produces_no_artifact(tmp_path, monkeypatch):
 
 def test_progress_frame_is_not_downloaded(tmp_path, monkeypatch):
     parent = _make_parent(monkeypatch, tmp_path)
-    monkeypatch.setattr(bridge, "_download_to", lambda url, path: 1)
+    monkeypatch.setattr(discord_parse, "_download_to", lambda url, path: 1)
     # raw-capture line 33-style: references SOLO, has a low-res preview, but only
     # a Cancel button and a "(35%)" marker — must not be taken for the final.
     progress = _DMsg(
@@ -402,7 +406,7 @@ def test_foreign_job_result_is_not_misrouted(tmp_path, monkeypatch):
     """The capture proved a foreign job interleaved into the channel. Its result
     references its OWN solo id, not ours — the reference key must exclude it."""
     parent = _make_parent(monkeypatch, tmp_path)
-    monkeypatch.setattr(bridge, "_download_to", lambda url, path: 12483848)
+    monkeypatch.setattr(discord_parse, "_download_to", lambda url, path: 12483848)
     # raw-capture line 45: foreign animate, references the foreign solo 1511317460668780624.
     foreign = _DMsg(
         1511318740325346068,

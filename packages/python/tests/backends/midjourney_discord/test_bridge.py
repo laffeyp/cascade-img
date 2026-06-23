@@ -12,25 +12,18 @@ from __future__ import annotations
 import threading
 import time
 
-from cascade_img.backends.midjourney_discord import bridge
-from cascade_img.backends.midjourney_discord.bridge import (
-    JOBS,
-    LOCK,
-    TERMINAL_CV,
-    Job,
-    Status,
-    _emit_shutdown,
-    _evict_if_needed,
-    _match_grid,
-    _token_needle,
-)
+from cascade_img.backends.midjourney_discord import bridge, config, job_table
+from cascade_img.backends.midjourney_discord.bridge import _emit_shutdown
+from cascade_img.backends.midjourney_discord.job import Job, Status, _evict_if_needed
+from cascade_img.backends.midjourney_discord.job_table import JOBS, LOCK, TERMINAL_CV
+from cascade_img.backends.midjourney_discord.matching import _match_grid, _token_needle
 from cascade_img.vocabulary import clear, snapshot
 
 
 def _reset_jobs():
     with LOCK:
         JOBS.clear()
-        bridge.PENDING_GRID.clear()
+        job_table.PENDING_GRID.clear()
         bridge._shutdown_emitted = False
 
 
@@ -60,8 +53,8 @@ def test_match_grid_routes_by_token_not_substring():
     with LOCK:
         JOBS["a"] = job_a
         JOBS["b"] = job_b
-        bridge.PENDING_GRID.append("a")
-        bridge.PENDING_GRID.append("b")
+        job_table.PENDING_GRID.append("a")
+        job_table.PENDING_GRID.append("b")
 
     # MJ message for job B — contains the prompt AND token B
     msg_for_b = "a mountain icon at dawn over water --no cscidnocollidebbb22222 (Waiting to start)"
@@ -103,7 +96,7 @@ def test_evict_ttl_drops_old_terminal_jobs(monkeypatch):
     clear()
     now = time.time()
     # Three terminal jobs older than the TTL.
-    monkeypatch.setattr(bridge, "TERMINAL_AGE_SECONDS", 10.0)
+    monkeypatch.setattr(config, "TERMINAL_AGE_SECONDS", 10.0)
     for i in range(3):
         j = Job(job_id=f"old{i}", asset_id=f"a{i}", prompt="p")
         j.status = Status.DONE
@@ -132,8 +125,8 @@ def test_evict_ttl_drops_old_terminal_jobs(monkeypatch):
 def test_evict_lru_caps_size(monkeypatch):
     _reset_jobs()
     clear()
-    monkeypatch.setattr(bridge, "MAX_JOBS", 3)
-    monkeypatch.setattr(bridge, "TERMINAL_AGE_SECONDS", 9999.0)
+    monkeypatch.setattr(config, "MAX_JOBS", 3)
+    monkeypatch.setattr(config, "TERMINAL_AGE_SECONDS", 9999.0)
     # Fill past cap; first three are DONE so LRU can evict them.
     for i in range(5):
         j = Job(job_id=f"j{i}", asset_id=f"a{i}", prompt="p")
@@ -153,7 +146,7 @@ def test_evict_preserves_in_flight_when_capacity_exhausted(monkeypatch):
     """If everything over-cap is in-flight, eviction stops and the dict
     grows past cap rather than orphaning a live job."""
     _reset_jobs()
-    monkeypatch.setattr(bridge, "MAX_JOBS", 2)
+    monkeypatch.setattr(config, "MAX_JOBS", 2)
     for i in range(5):
         j = Job(job_id=f"f{i}", asset_id=f"a{i}", prompt="p")
         j.status = Status.PROGRESS

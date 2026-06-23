@@ -7,11 +7,8 @@ second --no (which would break Midjourney's parsing and the match path).
 
 from __future__ import annotations
 
-from cascade_img.backends.midjourney_discord.bridge import (
-    Job,
-    _merge_no_clause,
-    _token_needle,
-)
+from cascade_img.backends.midjourney_discord.job import Job, _merge_no_clause
+from cascade_img.backends.midjourney_discord.matching import _token_needle
 
 
 def test_appends_fresh_no_clause_when_none_present():

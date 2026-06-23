@@ -76,7 +76,7 @@ def test_delete_removes_row():
 def test_status_enum_member_persists_as_value():
     """A Status(str, Enum) member must store as 'done', not 'Status.DONE', or
     the terminal filter silently rehydrates finished jobs."""
-    from cascade_img.backends.midjourney_discord.bridge import Status
+    from cascade_img.backends.midjourney_discord.job import Status
 
     store = JobStore(":memory:")
     store.put(_row("term", Status.DONE))
@@ -116,8 +116,8 @@ def test_bridge_rehydrates_nonterminal_jobs(monkeypatch, tmp_path):
     JSON-lossy fields. In-flight jobs (PROGRESS/UPSCALING, grid already seen)
     resume intact; pre-grid jobs (QUEUED/SUBMITTED/...) are failed with
     RESUBMIT_REQUIRED so they cannot linger as never-evicted phantoms."""
-    from cascade_img.backends.midjourney_discord import bridge
-    from cascade_img.backends.midjourney_discord.bridge import Status
+    from cascade_img.backends.midjourney_discord import job_table, persistence, rehydrate
+    from cascade_img.backends.midjourney_discord.job import Status
 
     store = JobStore(tmp_path / "jobs.db")
     store.put(_row("live1", "submitted"))
@@ -132,24 +132,26 @@ def test_bridge_rehydrates_nonterminal_jobs(monkeypatch, tmp_path):
     )
     store.put(_row("dead", "done"))
 
-    monkeypatch.setattr(bridge, "_store", store)
-    monkeypatch.setattr(bridge, "JOBS", OrderedDict())
-    monkeypatch.setattr(bridge, "PENDING_GRID", [])
+    monkeypatch.setattr(persistence, "_store", store)
+    # _rehydrate_jobs lives in rehydrate.py and writes to job_table.JOBS (read as
+    # a module attribute), so patch the table on its owning module.
+    monkeypatch.setattr(job_table, "JOBS", OrderedDict())
+    monkeypatch.setattr(job_table, "PENDING_GRID", [])
 
-    n = bridge._rehydrate_jobs()
+    n = rehydrate._rehydrate_jobs()
     assert n == 2  # terminal excluded; both non-terminal rows restored into JOBS
-    assert set(bridge.JOBS) == {"live1", "live2"}
+    assert set(job_table.JOBS) == {"live1", "live2"}
 
-    j2 = bridge.JOBS["live2"]
+    j2 = job_table.JOBS["live2"]
     assert j2.status == Status.UPSCALING  # coerced back to the enum, resumed
     assert j2.upscale_pending == [2, 4]
     assert j2.upscale_paths == {1: "/p/u1.png"}  # int key restored
 
     # The pre-grid job is failed (terminal, hence TTL-evictable) rather than
     # rejoining PENDING_GRID as a potential phantom; the in-flight one is not.
-    j1 = bridge.JOBS["live1"]
+    j1 = job_table.JOBS["live1"]
     assert j1.status == Status.FAILED
     assert j1.error_code == "RESUBMIT_REQUIRED"
-    assert "live1" not in bridge.PENDING_GRID
-    assert "live2" not in bridge.PENDING_GRID
+    assert "live1" not in job_table.PENDING_GRID
+    assert "live2" not in job_table.PENDING_GRID
     store.close()

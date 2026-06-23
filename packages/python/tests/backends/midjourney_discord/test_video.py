@@ -12,14 +12,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from cascade_img.backends.midjourney_discord import bridge
-from cascade_img.backends.midjourney_discord.bridge import (
+from cascade_img.backends.midjourney_discord import (
+    bridge,
+    config,
+    discord_parse,
+    ingest,
+    matching,
+    runtime,
+)
+from cascade_img.backends.midjourney_discord.job import Job, Status
+from cascade_img.backends.midjourney_discord.job_table import (
     JOBS,
     LOCK,
     PENDING_GRID,
     PENDING_VIDEO,
-    Job,
-    Status,
 )
 from cascade_img.vocabulary import clear, snapshot
 
@@ -50,7 +56,7 @@ def _cfg(tmp_path):
 
 
 class _Author:
-    id = bridge.MJ_BOT_ID
+    id = config.MJ_BOT_ID
 
 
 class _Channel:
@@ -121,13 +127,13 @@ def test_match_video_binds_on_ack_then_matches_by_key():
     JOBS[job.job_id] = job
     PENDING_VIDEO.append(job.job_id)
 
-    bound = bridge._match_video(_ACK)
+    bound = matching._match_video(_ACK)
     assert bound is job
     assert job.video_match_key == SHORT
     assert not PENDING_VIDEO  # consumed
     # progress + final now route by the bound key
-    assert bridge._match_video(_PROGRESS) is job
-    assert bridge._match_video(_FINAL) is job
+    assert matching._match_video(_PROGRESS) is job
+    assert matching._match_video(_FINAL) is job
 
 
 def test_match_video_ignores_non_video_and_unbound():
@@ -136,7 +142,7 @@ def test_match_video_ignores_non_video_and_unbound():
     JOBS[job.job_id] = job
     PENDING_VIDEO.append(job.job_id)
     # An s.mj.run link without --video must not bind (not a video echo).
-    assert bridge._match_video(f"some message <{SHORT}> no video flag") is None
+    assert matching._match_video(f"some message <{SHORT}> no video flag") is None
     assert job.video_match_key is None
     assert len(PENDING_VIDEO) == 1 and PENDING_VIDEO[0] == job.job_id  # still unbound
 
@@ -149,24 +155,24 @@ def test_video_ingest_downloads_webp_and_completes(monkeypatch, tmp_path):
     (not GRID_RECEIVED) and the webp saved as the result image."""
     _reset()
     clear()
-    bridge.cfg = _cfg(tmp_path)
+    config.cfg = _cfg(tmp_path)
 
     def fake_download(url, path):
         Path(path).write_bytes(b"RIFF\x00\x00\x00\x00WEBPVP8 " + b"x" * 64)
         return 80
 
-    monkeypatch.setattr(bridge, "_download_to", fake_download)
+    monkeypatch.setattr(discord_parse, "_download_to", fake_download)
 
     job = Job(job_id="vj", asset_id="vid", prompt=f"{SHORT} --video --loop", kind="video")
     JOBS[job.job_id] = job
     PENDING_VIDEO.append(job.job_id)
 
-    bridge._ingest_message(_vid_msg(700, _ACK))  # binds + PROGRESS
+    ingest._ingest_message(_vid_msg(700, _ACK))  # binds + PROGRESS
     assert job.video_match_key == SHORT
     assert job.status == Status.PROGRESS
 
     # progress frame: short URL + % + jpeg previews, NO result buttons -> skipped
-    bridge._ingest_message(_vid_msg(701, _PROGRESS, atts=[("https://cdn/p0.jpeg", "p0.jpeg")]))
+    ingest._ingest_message(_vid_msg(701, _PROGRESS, atts=[("https://cdn/p0.jpeg", "p0.jpeg")]))
     assert job.status == Status.PROGRESS
     assert job.grid_path in (None, "")
 
@@ -174,7 +180,7 @@ def test_video_ingest_downloads_webp_and_completes(monkeypatch, tmp_path):
     # message (ref_id=701, the job's current message_id) — as real MJ does. This
     # must COMPLETE the job (VIDEO_RECEIVED), not be hijacked into `derived` by
     # _video_result_parent (which only matches DONE jobs). (regression, live 06-16)
-    bridge._ingest_message(
+    ingest._ingest_message(
         _vid_msg(
             702,
             _FINAL,
@@ -198,19 +204,19 @@ def test_video_download_failure_emits_video_failed(monkeypatch, tmp_path):
     generic JOB_FAILED) with the video error code."""
     _reset()
     clear()
-    bridge.cfg = _cfg(tmp_path)
+    config.cfg = _cfg(tmp_path)
 
     def boom(url, path):
         raise OSError("disk full")
 
-    monkeypatch.setattr(bridge, "_download_to", boom)
+    monkeypatch.setattr(discord_parse, "_download_to", boom)
 
     job = Job(job_id="vf", asset_id="vid", prompt=f"{SHORT} --video", kind="video")
     JOBS[job.job_id] = job
     PENDING_VIDEO.append(job.job_id)
 
-    bridge._ingest_message(_vid_msg(710, _ACK))
-    bridge._ingest_message(
+    ingest._ingest_message(_vid_msg(710, _ACK))
+    ingest._ingest_message(
         _vid_msg(711, _FINAL, atts=[("https://cdn/final.webp", "v.webp")], buttons=_FINAL_BTNS)
     )
     assert job.status == Status.FAILED
@@ -229,7 +235,7 @@ def test_terminal_video_leaves_pending_so_next_binds(tmp_path):
     LIVE job, not the dead one."""
     _reset()
     clear()
-    bridge.cfg = _cfg(tmp_path)
+    config.cfg = _cfg(tmp_path)
     dead = Job(job_id="va", asset_id="a", prompt=f"{SHORT} --video", kind="video")
     JOBS[dead.job_id] = dead
     PENDING_VIDEO.append(dead.job_id)
@@ -241,7 +247,7 @@ def test_terminal_video_leaves_pending_so_next_binds(tmp_path):
     )
     JOBS[live.job_id] = live
     PENDING_VIDEO.append(live.job_id)
-    bound = bridge._match_video("Creating video with prompt **<https://s.mj.run/NEW> --video 1**")
+    bound = matching._match_video("Creating video with prompt **<https://s.mj.run/NEW> --video 1**")
     assert bound is live
     assert live.video_match_key == "https://s.mj.run/NEW"
 
@@ -256,7 +262,7 @@ def test_match_video_skips_dead_pending_entry():
     JOBS["vd"] = dead
     JOBS["vl"] = live
     PENDING_VIDEO.extend(["vd", "vl"])  # dead one first
-    bound = bridge._match_video(f"Creating video **<{SHORT}> --video 1**")
+    bound = matching._match_video(f"Creating video **<{SHORT}> --video 1**")
     assert bound is live
     assert not PENDING_VIDEO  # both popped (dead skipped, live bound)
 
@@ -269,8 +275,8 @@ def test_video_route_rejects_second_while_one_unbound(tmp_path):
     (PENDING_VIDEO non-empty) a second submit is refused VIDEO_IN_FLIGHT, so the
     FIFO bind stays unambiguous. (review R1)"""
     _reset()
-    bridge.cfg = _cfg(tmp_path)
-    bridge._ready.set()
+    config.cfg = _cfg(tmp_path)
+    runtime._ready.set()
     try:
         PENDING_VIDEO.append("already-awaiting-bind")
         client = bridge.app.test_client()
@@ -280,7 +286,7 @@ def test_video_route_rejects_second_while_one_unbound(tmp_path):
         assert r.status_code == 409
         assert r.get_json()["code"] == "VIDEO_IN_FLIGHT"
     finally:
-        bridge._ready.clear()
+        runtime._ready.clear()
         _reset()
 
 
@@ -293,13 +299,13 @@ def test_video_upscale_solo_routes_to_job_derived(monkeypatch, tmp_path):
     _ingest_derived download (format-agnostic — handles mp4). (V-3)"""
     _reset()
     clear()
-    bridge.cfg = _cfg(tmp_path)
+    config.cfg = _cfg(tmp_path)
 
     def fake_dl(url, path):
         Path(path).write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"x" * 32)
         return 40
 
-    monkeypatch.setattr(bridge, "_download_to", fake_dl)
+    monkeypatch.setattr(discord_parse, "_download_to", fake_dl)
 
     job = Job(job_id="vu", asset_id="vid", prompt=f"{SHORT} --video", kind="video")
     job.status = Status.DONE
@@ -313,7 +319,7 @@ def test_video_upscale_solo_routes_to_job_derived(monkeypatch, tmp_path):
         buttons=["MJ::JOB::animate_high_extend::1::uuid", "MJ::JOB::animate_low_extend::1::uuid"],
         ref_id=800,  # replies to the grid
     )
-    bridge._ingest_message(solo)
+    ingest._ingest_message(solo)
 
     assert len(job.derived) == 1
     d = job.derived[0]
@@ -356,9 +362,9 @@ def test_video_result_parent_matches_only_done_video_grid():
     inprog.status = Status.PROGRESS
     for j in (vid, img, inprog):
         JOBS[j.job_id] = j
-    assert bridge._video_result_parent(900) is vid  # DONE video → derived parent
-    assert bridge._video_result_parent(901) is None  # image grid never matches here
-    assert bridge._video_result_parent(902) is None  # in-progress video → its result completes
+    assert matching._video_result_parent(900) is vid  # DONE video → derived parent
+    assert matching._video_result_parent(901) is None  # image grid never matches here
+    assert matching._video_result_parent(902) is None  # in-progress video → its result completes
 
 
 def test_video_upscale_slot_selects_the_right_button():
@@ -370,15 +376,15 @@ def test_video_upscale_slot_selects_the_right_button():
     msg = _vid_msg(950, "grid", buttons=cids)
     for n in (1, 2, 3, 4):
         assert (
-            bridge._find_action_custom_id(msg, "video_upscale", slot=n)
+            discord_parse._find_action_custom_id(msg, "video_upscale", slot=n)
             == f"MJ::JOB::video_virtual_upscale::{n}::uuid"
         )
     # video_upscale with no slot defaults to ::1.
     assert (
-        bridge._find_action_custom_id(msg, "video_upscale")
+        discord_parse._find_action_custom_id(msg, "video_upscale")
         == "MJ::JOB::video_virtual_upscale::1::uuid"
     )
     # The grid's reroll button is present but video_reroll is NOT an exposed
     # action (deferred, review #9 F2: untracked result + bind-perturbation), so
     # it has no marker and never matches — even though the button is right there.
-    assert bridge._find_action_custom_id(msg, "video_reroll") is None
+    assert discord_parse._find_action_custom_id(msg, "video_reroll") is None

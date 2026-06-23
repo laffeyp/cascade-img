@@ -24,20 +24,27 @@ from unittest.mock import MagicMock
 import discord
 import pytest
 
-from cascade_img.backends.midjourney_discord import bridge
-from cascade_img.backends.midjourney_discord.bridge import (
-    JOBS,
-    LOCK,
-    PENDING_GRID,
-    DiscordNotReadyError,
-    Job,
-    Status,
+from cascade_img.backends.midjourney_discord import (
+    bridge,
+    config,
+    discord_client,
+    discord_parse,
+    ingest,
+    maintenance,
+    persistence,
+    rehydrate,
+    runtime,
+)
+from cascade_img.backends.midjourney_discord.discord_client import (
     _is_terminal_auth_failure,
     _reconnect_backoff_seconds,
-    _safe_output_path,
     _session_id_or_raise,
 )
+from cascade_img.backends.midjourney_discord.errors import DiscordNotReadyError
+from cascade_img.backends.midjourney_discord.job import Job, Status
 from cascade_img.backends.midjourney_discord.job_store import JobStore
+from cascade_img.backends.midjourney_discord.job_table import JOBS, LOCK, PENDING_GRID
+from cascade_img.backends.midjourney_discord.persistence import _safe_output_path
 from cascade_img.vocabulary import clear, snapshot
 
 
@@ -47,7 +54,7 @@ def _reset_bridge_state() -> None:
         PENDING_GRID.clear()
         bridge._shutdown_emitted = False
         bridge._shutdown_event.clear()
-        bridge._ready.clear()
+        runtime._ready.clear()
 
 
 def _tags() -> list[str]:
@@ -102,8 +109,8 @@ def test_terminal_auth_failure_classifier_ignores_transient():
 def test_run_discord_stops_on_auth_failure(valid_env, monkeypatch):
     _reset_bridge_state()
     clear()
-    bridge.cfg = bridge.Config.from_env()
-    monkeypatch.setattr(bridge, "_reconnect_backoff_seconds", lambda n: 0.0)
+    config.cfg = bridge.Config.from_env()
+    monkeypatch.setattr(discord_client, "_reconnect_backoff_seconds", lambda n: 0.0)
 
     call_count = {"n": 0}
 
@@ -111,7 +118,7 @@ def test_run_discord_stops_on_auth_failure(valid_env, monkeypatch):
         call_count["n"] += 1
         raise discord.LoginFailure("test: token rejected")
 
-    monkeypatch.setattr(bridge.client, "start", fake_start)
+    monkeypatch.setattr(discord_client.client, "start", fake_start)
 
     bridge._run_discord()
 
@@ -122,7 +129,7 @@ def test_run_discord_stops_on_auth_failure(valid_env, monkeypatch):
     failed = next(r for r in snapshot() if r["tag"] == "DISCORD_RECONNECT_FAILED")
     assert failed["payload"]["reason"] == "auth"
     assert failed["payload"]["attempts"] == 1
-    assert not bridge._ready.is_set()
+    assert not runtime._ready.is_set()
 
 
 # ---------------------------------------------------------------------------
@@ -133,8 +140,8 @@ def test_run_discord_stops_on_auth_failure(valid_env, monkeypatch):
 def test_run_discord_retries_on_transient_then_stops_on_shutdown(valid_env, monkeypatch):
     _reset_bridge_state()
     clear()
-    bridge.cfg = bridge.Config.from_env()
-    monkeypatch.setattr(bridge, "_reconnect_backoff_seconds", lambda n: 0.0)
+    config.cfg = bridge.Config.from_env()
+    monkeypatch.setattr(discord_client, "_reconnect_backoff_seconds", lambda n: 0.0)
 
     call_count = {"n": 0}
 
@@ -145,7 +152,7 @@ def test_run_discord_retries_on_transient_then_stops_on_shutdown(valid_env, monk
             bridge._shutdown_event.set()
         raise ConnectionResetError("transient")
 
-    monkeypatch.setattr(bridge.client, "start", fake_start)
+    monkeypatch.setattr(discord_client.client, "start", fake_start)
 
     bridge._run_discord()
 
@@ -167,8 +174,8 @@ def test_run_discord_clean_close_also_triggers_reconnect(valid_env, monkeypatch)
     treats it as a disconnect and tries again — until shutdown."""
     _reset_bridge_state()
     clear()
-    bridge.cfg = bridge.Config.from_env()
-    monkeypatch.setattr(bridge, "_reconnect_backoff_seconds", lambda n: 0.0)
+    config.cfg = bridge.Config.from_env()
+    monkeypatch.setattr(discord_client, "_reconnect_backoff_seconds", lambda n: 0.0)
 
     call_count = {"n": 0}
 
@@ -178,7 +185,7 @@ def test_run_discord_clean_close_also_triggers_reconnect(valid_env, monkeypatch)
             bridge._shutdown_event.set()
         # Return normally — clean close.
 
-    monkeypatch.setattr(bridge.client, "start", fake_start)
+    monkeypatch.setattr(discord_client.client, "start", fake_start)
 
     bridge._run_discord()
 
@@ -196,13 +203,13 @@ def test_run_discord_clean_close_also_triggers_reconnect(valid_env, monkeypatch)
 def test_on_disconnect_clears_ready_and_emits():
     _reset_bridge_state()
     clear()
-    bridge._ready.set()
+    runtime._ready.set()
 
     # The discord.py-self decorator wraps on_disconnect onto the client; call
     # via the wrapped name. Build a loop to run the coroutine.
-    asyncio.run(bridge.on_disconnect())
+    asyncio.run(discord_client.on_disconnect())
 
-    assert not bridge._ready.is_set()
+    assert not runtime._ready.is_set()
     tags = _tags()
     assert "DISCORD_DISCONNECTED" in tags
     dc = next(r for r in snapshot() if r["tag"] == "DISCORD_DISCONNECTED")
@@ -216,7 +223,7 @@ def test_on_disconnect_quiet_when_was_not_ready():
     clear()
     # _ready already clear by reset.
 
-    asyncio.run(bridge.on_disconnect())
+    asyncio.run(discord_client.on_disconnect())
 
     tags = _tags()
     assert "DISCORD_DISCONNECTED" not in tags
@@ -228,7 +235,7 @@ def test_on_disconnect_quiet_when_was_not_ready():
 
 
 def test_session_id_or_raise_when_ws_none(monkeypatch):
-    monkeypatch.setattr(bridge.client, "ws", None, raising=False)
+    monkeypatch.setattr(discord_client.client, "ws", None, raising=False)
     with pytest.raises(DiscordNotReadyError) as exc_info:
         _session_id_or_raise()
     assert exc_info.value.code == "DISCORD_NOT_READY"
@@ -239,7 +246,7 @@ def test_session_id_or_raise_when_ws_none(monkeypatch):
 def test_session_id_or_raise_when_session_id_none(monkeypatch):
     fake_ws = MagicMock()
     fake_ws.session_id = None
-    monkeypatch.setattr(bridge.client, "ws", fake_ws, raising=False)
+    monkeypatch.setattr(discord_client.client, "ws", fake_ws, raising=False)
     with pytest.raises(DiscordNotReadyError) as exc_info:
         _session_id_or_raise()
     assert "session_id is None" in str(exc_info.value)
@@ -248,7 +255,7 @@ def test_session_id_or_raise_when_session_id_none(monkeypatch):
 def test_session_id_or_raise_returns_session_id_when_ready(monkeypatch):
     fake_ws = MagicMock()
     fake_ws.session_id = "abc123session"
-    monkeypatch.setattr(bridge.client, "ws", fake_ws, raising=False)
+    monkeypatch.setattr(discord_client.client, "ws", fake_ws, raising=False)
     assert _session_id_or_raise() == "abc123session"
 
 
@@ -281,14 +288,18 @@ def _patch_coroutine_threadsafe(monkeypatch, future: _FakeFuture) -> None:
             coro.close()
         return future
 
-    monkeypatch.setattr(bridge.asyncio, "run_coroutine_threadsafe", fake_run)
-    monkeypatch.setattr(bridge, "_running_loop", lambda: object())
+    # Patch the asyncio module attribute process-wide (the routes call
+    # ``asyncio.run_coroutine_threadsafe`` from their own modules) and the loop
+    # accessor on its owning module ``runtime`` (the routes read
+    # ``runtime._running_loop``).
+    monkeypatch.setattr(asyncio, "run_coroutine_threadsafe", fake_run)
+    monkeypatch.setattr(runtime, "_running_loop", lambda: object())
 
 
 def test_imagine_returns_503_on_discord_not_ready(monkeypatch):
     _reset_bridge_state()
     clear()
-    bridge._ready.set()
+    runtime._ready.set()
     _patch_coroutine_threadsafe(
         monkeypatch,
         _FakeFuture(raises=DiscordNotReadyError("client.ws is None")),
@@ -326,7 +337,7 @@ def test_imagine_returns_202_on_submit_timeout(monkeypatch, exc):
     # SUBMIT_FAILED that evicts a job MJ may have accepted (double-bill risk).
     _reset_bridge_state()
     clear()
-    bridge._ready.set()
+    runtime._ready.set()
     _patch_coroutine_threadsafe(
         monkeypatch,
         _FakeFuture(raises=exc("interaction post timed out")),
@@ -355,7 +366,7 @@ def test_imagine_returns_502_on_other_exception(monkeypatch):
     existing contract for non-timeout, non-not-ready errors)."""
     _reset_bridge_state()
     clear()
-    bridge._ready.set()
+    runtime._ready.set()
     _patch_coroutine_threadsafe(
         monkeypatch,
         _FakeFuture(raises=ConnectionError("network down")),
@@ -595,16 +606,16 @@ def test_shutdown_event_cuts_backoff_short(valid_env, monkeypatch):
     sleeping out the full interval."""
     _reset_bridge_state()
     clear()
-    bridge.cfg = bridge.Config.from_env()
+    config.cfg = bridge.Config.from_env()
     # Pick a long backoff so we'd notice if it actually slept.
-    monkeypatch.setattr(bridge, "_reconnect_backoff_seconds", lambda n: 30.0)
+    monkeypatch.setattr(discord_client, "_reconnect_backoff_seconds", lambda n: 30.0)
 
     async def fake_start(*args, **kwargs):
         # First (and only) attempt fails transiently; the test thread will
         # signal shutdown during the backoff window.
         raise ConnectionResetError("transient")
 
-    monkeypatch.setattr(bridge.client, "start", fake_start)
+    monkeypatch.setattr(discord_client.client, "start", fake_start)
 
     def _signal_shutdown_soon():
         # Give _run_discord a beat to enter the backoff wait, then signal.
@@ -664,7 +675,7 @@ def test_concurrent_grid_ingest_only_downloads_once(monkeypatch, tmp_path):
     _reset_bridge_state()
     clear()
     # Wire a Config so _cfg() works in _ingest_message.
-    bridge.cfg = bridge.Config(
+    config.cfg = bridge.Config(
         discord_token="t",
         channel_id=1,
         guild_id=None,
@@ -686,7 +697,7 @@ def test_concurrent_grid_ingest_only_downloads_once(monkeypatch, tmp_path):
         Path(path).write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 100)
         return 108
 
-    monkeypatch.setattr(bridge, "_download_to", fake_download)
+    monkeypatch.setattr(discord_parse, "_download_to", fake_download)
 
     # Fake MJ message that both threads will try to ingest.
     class _Att:
@@ -694,7 +705,7 @@ def test_concurrent_grid_ingest_only_downloads_once(monkeypatch, tmp_path):
         filename = "example.png"
 
     class _Author:
-        id = bridge.MJ_BOT_ID
+        id = config.MJ_BOT_ID
 
     class _Channel:
         id = 1  # matches cfg.channel_id
@@ -715,7 +726,7 @@ def test_concurrent_grid_ingest_only_downloads_once(monkeypatch, tmp_path):
             self.components = [type("Row", (), {"children": [btn]})()]
 
     # Fire two ingests in parallel — the second must short-circuit.
-    threads = [threading.Thread(target=bridge._ingest_message, args=(_Msg(),)) for _ in range(2)]
+    threads = [threading.Thread(target=ingest._ingest_message, args=(_Msg(),)) for _ in range(2)]
     for t in threads:
         t.start()
     for t in threads:
@@ -739,7 +750,7 @@ def test_concurrent_upscale_ingest_only_downloads_once(monkeypatch, tmp_path):
     guard for the bug the hunt reproduced 18/18.)"""
     _reset_bridge_state()
     clear()
-    bridge.cfg = bridge.Config(
+    config.cfg = bridge.Config(
         discord_token="t",
         channel_id=1,
         guild_id=None,
@@ -763,14 +774,14 @@ def test_concurrent_upscale_ingest_only_downloads_once(monkeypatch, tmp_path):
         Path(path).write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 100)
         return 108
 
-    monkeypatch.setattr(bridge, "_download_to", fake_download)
+    monkeypatch.setattr(discord_parse, "_download_to", fake_download)
 
     class _Att:
         url = "https://cdn/u1.png"
         filename = "u1.png"
 
     class _Author:
-        id = bridge.MJ_BOT_ID
+        id = config.MJ_BOT_ID
 
     class _Channel:
         id = 1  # matches cfg.channel_id
@@ -787,7 +798,7 @@ def test_concurrent_upscale_ingest_only_downloads_once(monkeypatch, tmp_path):
             self.attachments = [_Att()]
             self.components = []
 
-    threads = [threading.Thread(target=bridge._ingest_message, args=(_Msg(),)) for _ in range(2)]
+    threads = [threading.Thread(target=ingest._ingest_message, args=(_Msg(),)) for _ in range(2)]
     for t in threads:
         t.start()
     for t in threads:
@@ -815,7 +826,7 @@ def test_imagine_idempotency_key_replays_not_resubmits(monkeypatch):
     (review #3 idempotency)"""
     _reset_bridge_state()
     clear()
-    bridge._ready.set()
+    runtime._ready.set()
     _patch_coroutine_threadsafe(monkeypatch, _FakeFuture(returns=_FakeResponse(204)))
 
     client = bridge.app.test_client()
@@ -843,7 +854,7 @@ def test_imagine_distinct_keys_make_distinct_jobs(monkeypatch):
     deduplicated (the whole point of not keying on asset_id). (review #3)"""
     _reset_bridge_state()
     clear()
-    bridge._ready.set()
+    runtime._ready.set()
     _patch_coroutine_threadsafe(monkeypatch, _FakeFuture(returns=_FakeResponse(204)))
 
     client = bridge.app.test_client()
@@ -864,7 +875,7 @@ def test_imagine_without_key_always_new_job(monkeypatch):
     preserved; idempotency is strictly opt-in). (review #3)"""
     _reset_bridge_state()
     clear()
-    bridge._ready.set()
+    runtime._ready.set()
     _patch_coroutine_threadsafe(monkeypatch, _FakeFuture(returns=_FakeResponse(204)))
 
     client = bridge.app.test_client()
@@ -889,13 +900,13 @@ def test_grid_and_upscale_sentinels_stripped_on_persist(tmp_path):
     the sentinels, exactly as it already does for derived rows. (review #4)"""
     _reset_bridge_state()
     store = JobStore(":memory:")
-    bridge._store = store
+    persistence._store = store
     try:
         job = Job(job_id="sent", asset_id="A", prompt="p")
         job.status = Status.UPSCALING
         job.grid_path = ""  # reservation sentinel, mid grid-download
         job.upscale_paths = {1: "/real/u1.png", 2: ""}  # slot 2 mid-download
-        bridge._persist(job)
+        persistence._persist(job)
 
         rows = store.load_nonterminal()
         assert len(rows) == 1
@@ -903,7 +914,7 @@ def test_grid_and_upscale_sentinels_stripped_on_persist(tmp_path):
         # JSON stringifies dict keys; slot 2's "" sentinel is gone, slot 1 stays.
         assert rows[0]["upscale_paths"] == {"1": "/real/u1.png"}
     finally:
-        bridge._store = None
+        persistence._store = None
         store.close()
 
 
@@ -918,7 +929,7 @@ def test_job_from_row_strips_baked_in_sentinels():
     base.upscale_pending = [2, 3]
     row = asdict(base)
 
-    job = bridge._job_from_row(row)
+    job = rehydrate._job_from_row(row)
     assert job.grid_path is None  # re-matchable: grid matcher will re-claim it
     assert job.upscale_paths == {1: "/real/u1.png"}  # slot 2 sentinel dropped
     assert 2 in job.upscale_pending  # slot 2 still pending -> re-matchable
@@ -938,7 +949,7 @@ def _solo_upscale_msg(slot: int, msg_id: int, token: str):
         filename = f"u{slot}.png"
 
     class _Author:
-        id = bridge.MJ_BOT_ID
+        id = config.MJ_BOT_ID
 
     class _Channel:
         id = 1  # matches the test cfg.channel_id
@@ -981,7 +992,7 @@ def test_partial_upscale_download_failure_keeps_job_and_completes_on_survivors(
     (review #6)"""
     _reset_bridge_state()
     clear()
-    bridge.cfg = _upscale_cfg(tmp_path)
+    config.cfg = _upscale_cfg(tmp_path)
 
     job = Job(job_id="dlJ", asset_id="dlA", prompt="p", request_token="tokDL", upscale="all")
     job.status = Status.UPSCALING
@@ -996,19 +1007,19 @@ def test_partial_upscale_download_failure_keeps_job_and_completes_on_survivors(
         Path(path).write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 50)
         return 58
 
-    monkeypatch.setattr(bridge, "_download_to", fake_download)
+    monkeypatch.setattr(discord_parse, "_download_to", fake_download)
 
     # Slot 2 lands first and its download fails — the job must survive.
-    bridge._ingest_message(_solo_upscale_msg(2, 902, "tokDL"))
+    ingest._ingest_message(_solo_upscale_msg(2, 902, "tokDL"))
     assert job.status == Status.UPSCALING  # NOT failed
     assert 2 in job.upscale_download_failures
     assert 2 not in job.upscale_pending
     assert "JOB_FAILED" not in _tags()
 
     # The surviving slots land and the job completes on them.
-    bridge._ingest_message(_solo_upscale_msg(1, 901, "tokDL"))
-    bridge._ingest_message(_solo_upscale_msg(3, 903, "tokDL"))
-    bridge._ingest_message(_solo_upscale_msg(4, 904, "tokDL"))
+    ingest._ingest_message(_solo_upscale_msg(1, 901, "tokDL"))
+    ingest._ingest_message(_solo_upscale_msg(3, 903, "tokDL"))
+    ingest._ingest_message(_solo_upscale_msg(4, 904, "tokDL"))
 
     assert job.status == Status.DONE
     assert set(job.upscale_paths) == {1, 3, 4}  # U2 absent (its download failed)
@@ -1034,7 +1045,7 @@ def test_last_slot_download_failure_after_survivor_completes_not_hangs(monkeypat
     (review #6)"""
     _reset_bridge_state()
     clear()
-    bridge.cfg = _upscale_cfg(tmp_path)
+    config.cfg = _upscale_cfg(tmp_path)
 
     job = Job(job_id="lastF", asset_id="lastA", prompt="p", request_token="tokL", upscale="all")
     job.status = Status.UPSCALING
@@ -1049,13 +1060,13 @@ def test_last_slot_download_failure_after_survivor_completes_not_hangs(monkeypat
         Path(path).write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 50)
         return 58
 
-    monkeypatch.setattr(bridge, "_download_to", fake_download)
+    monkeypatch.setattr(discord_parse, "_download_to", fake_download)
 
     # Slot 1 lands; job stays UPSCALING (slot 2 still pending).
-    bridge._ingest_message(_solo_upscale_msg(1, 301, "tokL"))
+    ingest._ingest_message(_solo_upscale_msg(1, 301, "tokL"))
     assert job.status == Status.UPSCALING
     # Slot 2 (the last pending one) fails — job completes on the survivor U1.
-    bridge._ingest_message(_solo_upscale_msg(2, 302, "tokL"))
+    ingest._ingest_message(_solo_upscale_msg(2, 302, "tokL"))
     assert job.status == Status.DONE
     assert set(job.upscale_paths) == {1}
     assert 2 in job.upscale_download_failures
@@ -1070,7 +1081,7 @@ def test_all_upscale_downloads_fail_fails_job(monkeypatch, tmp_path):
     keeps the job alive while some slot can still land. (review #6)"""
     _reset_bridge_state()
     clear()
-    bridge.cfg = _upscale_cfg(tmp_path)
+    config.cfg = _upscale_cfg(tmp_path)
 
     job = Job(job_id="dlF", asset_id="dlA", prompt="p", request_token="tokF", upscale="all")
     job.status = Status.UPSCALING
@@ -1082,14 +1093,14 @@ def test_all_upscale_downloads_fail_fails_job(monkeypatch, tmp_path):
     def fake_download(url, path):
         raise OSError("disk full")
 
-    monkeypatch.setattr(bridge, "_download_to", fake_download)
+    monkeypatch.setattr(discord_parse, "_download_to", fake_download)
 
     # First slot fails but slot 2 is still pending — job stays alive.
-    bridge._ingest_message(_solo_upscale_msg(1, 201, "tokF"))
+    ingest._ingest_message(_solo_upscale_msg(1, 201, "tokF"))
     assert job.status == Status.UPSCALING
 
     # Last slot fails too — nothing can land, so the job fails.
-    bridge._ingest_message(_solo_upscale_msg(2, 202, "tokF"))
+    ingest._ingest_message(_solo_upscale_msg(2, 202, "tokF"))
     assert job.status == Status.FAILED
     assert job.error_code == "UPSCALE_DOWNLOAD_FAILED"
     assert {1, 2} <= set(job.upscale_download_failures)
@@ -1115,7 +1126,7 @@ def test_reaper_fails_stalled_inflight_jobs_resubmit_required(monkeypatch):
     evictable, and tells the operator to re-submit and verify. (review #7, #8)"""
     _reset_bridge_state()
     clear()
-    monkeypatch.setattr(bridge, "INFLIGHT_TIMEOUT_SECONDS", 100.0)
+    monkeypatch.setattr(config, "INFLIGHT_TIMEOUT_SECONDS", 100.0)
     now = time.time()
 
     def _job(jid, status, age):
@@ -1134,7 +1145,7 @@ def test_reaper_fails_stalled_inflight_jobs_resubmit_required(monkeypatch):
             JOBS[j.job_id] = j
         PENDING_GRID.extend(["sp", "su", "sx"])
 
-    reaped = bridge._reap_stalled_jobs()
+    reaped = maintenance._reap_stalled_jobs()
 
     assert reaped == 3
     for j in (stalled_progress, stalled_upscaling, stalled_unconfirmed):
@@ -1148,14 +1159,14 @@ def test_reaper_fails_stalled_inflight_jobs_resubmit_required(monkeypatch):
     assert all(r["payload"]["error_code"] == "RESUBMIT_REQUIRED" for r in failed)
 
     # Idempotent: the reaped jobs are now terminal, so a second sweep is a no-op.
-    assert bridge._reap_stalled_jobs() == 0
+    assert maintenance._reap_stalled_jobs() == 0
 
 
 def test_reaper_noop_when_all_fresh(monkeypatch):
     """No job past the timeout -> nothing reaped, nothing emitted. (review #8)"""
     _reset_bridge_state()
     clear()
-    monkeypatch.setattr(bridge, "INFLIGHT_TIMEOUT_SECONDS", 100.0)
+    monkeypatch.setattr(config, "INFLIGHT_TIMEOUT_SECONDS", 100.0)
     now = time.time()
     j = Job(job_id="fresh", asset_id="A", prompt="p")
     j.status = Status.UPSCALING
@@ -1163,6 +1174,6 @@ def test_reaper_noop_when_all_fresh(monkeypatch):
     with LOCK:
         JOBS[j.job_id] = j
 
-    assert bridge._reap_stalled_jobs() == 0
+    assert maintenance._reap_stalled_jobs() == 0
     assert j.status == Status.UPSCALING
     assert "JOB_FAILED" not in _tags()
