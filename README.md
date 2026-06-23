@@ -23,7 +23,7 @@ For example, you can set a moodboard and a reference image, then move quickly th
 
 And everything is recorded. Each attempt (the prompt, the result, why it was kept or discarded) goes into a log the assistant reads back next time, so it builds on what has already been tried instead of starting over.
 
-In practice you can go from an idea to a folder of finished, consistent, organized assets in a single conversation — generating and discarding options much faster than by hand, with a written trail of exactly what produced each final image. The CLI and Python API are there for scripting and embedding, but the agent loop is, at least for the author, the main point; [AGENTS.md](./AGENTS.md) is the guide an assistant reads once.
+You can go from an idea to a folder of finished, consistent, organized assets in a single conversation — generating and discarding options much faster than by hand, with a written trail of exactly what produced each final image. The CLI and Python API are there for scripting and embedding, but the agent loop is, at least for the author, the main point; [AGENTS.md](./AGENTS.md) is the guide an assistant reads once.
 
 ## Two paths
 
@@ -91,12 +91,12 @@ Fully quit Discord (Cmd+Q, not just closing the window), reopen it, then press
 
 **Capture each value into your `.env`:**
 
-| Variable | Required? | How to capture |
-|---|---|---|
-| `MJ_CHANNEL_ID` | yes | Discord Settings → Advanced → **Developer Mode** on. Right-click your Midjourney channel → **Copy Channel ID**. |
-| `MJ_IMAGINE_VERSION` | yes | DevTools → **Network**. Run `/imagine` in the MJ channel, read `data.version` (19-digit) from the `POST /api/v9/interactions` payload. |
-| `MJ_GUILD_ID` | when the channel is in a server (almost always) | Right-click the server icon → **Copy Server ID**. |
-| `DISCORD_USER_TOKEN` | yes | In DevTools, open the **Console** tab and turn on mobile emulation (**Cmd+Shift+M**). Paste the snippet below into the console, press Enter, and copy the token it prints. |
+| Variable | How to capture |
+|---|---|
+| `MJ_CHANNEL_ID` | Turn on Discord Settings → Advanced → **Developer Mode**, then right-click your Midjourney channel → **Copy Channel ID**. |
+| `MJ_GUILD_ID` | Right-click the server that holds your Midjourney channel → **Copy Server ID**. |
+| `MJ_IMAGINE_VERSION` | In DevTools → **Network**, run `/imagine` in the MJ channel and read `data.version` (19-digit) from the `POST /api/v9/interactions` payload. |
+| `DISCORD_USER_TOKEN` | In DevTools, open the **Console** tab and turn on mobile emulation (**Cmd+Shift+M**). Paste the snippet below into the console, press Enter, and copy the token it prints. |
 
 ```javascript
 const iframe = document.createElement('iframe');
