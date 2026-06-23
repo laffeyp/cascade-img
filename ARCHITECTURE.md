@@ -4,7 +4,7 @@
 
 | Module | Role |
 |---|---|
-| `prompt/composer.py` | Turns composable prompt parts (subject, style reference, identity reference, aspect ratio, …) into a Midjourney prompt string (version-aware; V8.1 by default, V7 when an Omni Reference identity lock or `--q` is requested). Pure; no I/O. |
+| `prompt/composer.py` | Turns composable prompt parts (subject, style reference, identity reference, aspect ratio, …) into a Midjourney prompt string (version-aware; supports V8.1 and V7). Pure; no I/O. |
 | `prompt/prompt_log.py` | `PromptLog` — an append-only JSONL ledger that is the agent's working memory. |
 | `backends/base.py` | `ImageGenerationBackend` — the pluggable interface (sync `imagine`/`wait`/`status`/`health`) — and `BackendCapabilities`. |
 | `backends/midjourney_discord/bridge_client.py` | The v0.1 backend: a thin HTTP client that talks to the bridge daemon. |

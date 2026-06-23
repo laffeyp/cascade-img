@@ -210,7 +210,7 @@ prompt = PromptComposer().compose(
     style=StyleStack(moodboard="<your-moodboard-code>", sref="https://cdn.../style.png"),
     identity=IdentityStack(oref="https://cdn.../reference.png", ow=1000),
     aspect_ratio="1:1",
-    version="7",  # oref (omni-reference identity lock) is V7-only; omit it to use the V8.1 default
+    version="7",  # V7 supports oref and --q; omit version for the V8.1 default
 )
 ```
 
@@ -269,7 +269,7 @@ top-level Markdown plus that package.
 
 | version | headline |
 |---|---|
-| v0.1 (current) | MJ backend (version-aware: V8.1 default, V7 for the `--oref` identity lock), prompt composer, curation tools (crop + flood-fill alpha key + promote), MCP server, AGENTS.md, prompt templates, Python package. |
+| v0.1 (current) | MJ backend (version-aware — V8.1 and V7), prompt composer, curation tools (crop + flood-fill alpha key + promote), MCP server, AGENTS.md, prompt templates, Python package. |
 | v0.2 | More Midjourney commands (`/describe`, `/show`, Vary Region inpaint, `/blend`, `/shorten`, `/tune`, `/info`); internal code cleanup — break apart the large bridge module and split the long ingest function. |
 | v0.3 | A TypeScript wrapper; the first API backends — [Flux](https://bfl.ai/) via [Fal](https://fal.ai/) (with instruction-edit through [Flux Kontext](https://bfl.ai/models/flux-kontext)) and [Ideogram](https://ideogram.ai/) for reliable in-image text; Windows bridge. |
 | v0.4 | More backends — [Google Imagen](https://deepmind.google/models/imagen/) and [Recraft](https://www.recraft.ai/) (native vector/SVG output); bundled-binary install path. |
