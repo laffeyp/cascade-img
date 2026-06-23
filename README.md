@@ -50,7 +50,7 @@ Midjourney comes first by design. Midjourney has no public API, so driving it th
 - A **paid Midjourney subscription** ([midjourney.com](https://midjourney.com)).
 - A **Discord account where you can run `/imagine`** and get a grid back — i.e. the Midjourney bot is in one of your channels. New to this: subscribe to Midjourney and use it [through Discord](https://docs.midjourney.com/hc/en-us/sections/32013439485197-Using-Discord), or invite the MJ bot to your own server.
 - **Python 3.14** (`brew install python@3.14` on macOS) — cascade-img targets the latest stable Python.
-- About five minutes to capture three values from the Discord desktop app's DevTools (token, channel ID, command version); [RUNBOOK.md](./RUNBOOK.md) walks each one.
+- About five minutes to capture a few values from the Discord desktop app (your token, channel ID, the `/imagine` version, and server ID); [RUNBOOK.md](./RUNBOOK.md) walks each one.
 
 cascade-img drives *your own* Midjourney account and runs locally on your machine.
 
@@ -171,10 +171,10 @@ cascade-mj mountain-icon --registry assets.json --upscale all --pretty
 
 JSON to stdout, exit 0 on `done`; generated images land in `./generated`.
 
-> **Verify a release before relying on it.** From a clone:
-> `pytest packages/python/tests/` runs the offline suite, and
-> `python3 packages/python/tools/smoke_mcp_walk.py --env-file .env` runs a live
-> end-to-end check (boots the bridge and MCP server, exercises every tool).
+> **Verify before relying on it.** From `packages/python/`, install the dev extra
+> (`pip install -e '.[dev]'`), then run `pytest` for the offline suite or
+> `python tools/smoke_mcp_walk.py --env-file .env` for a live end-to-end check
+> (boots the bridge and MCP server and exercises every tool).
 
 ---
 
