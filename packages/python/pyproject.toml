@@ -62,8 +62,9 @@ dev = [
     "mypy>=1.8",
 ]
 ml = [
-    # Optional ML curation. rembg (background removal) pulls onnxruntime (~150 MB).
-    "rembg>=2.0",
+    # Optional ML curation. rembg (background removal); the [cpu] extra pulls the
+    # onnxruntime CPU backend (~150 MB) rembg needs to actually run.
+    "rembg[cpu]>=2.0",
 ]
 
 [project.scripts]
