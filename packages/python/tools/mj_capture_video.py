@@ -1,12 +1,11 @@
 """Live probe of the Midjourney NATIVE video (`--video`) result shape.
 
 Distinct from mj_capture_animate.py (which presses the Animate button on a SOLO
-upscale). This probes the path V-2 must build: fire ``/imagine`` with a starting
-image URL + ``--video --loop`` and capture EXACTLY how MJ returns native video —
-how many clips, in one message or several, the attachment types, and the buttons
-on the result. The receiver (match + download the video batch) has to be built to
-this shape, so we observe it rather than guess (the --sd / --stop external-grammar
-discipline, edge case).
+upscale). This probes the path the video backend must build: fire ``/imagine``
+with a starting image URL + ``--video --loop`` and capture EXACTLY how MJ returns
+native video — how many clips, in one message or several, the attachment types,
+and the buttons on the result. The receiver (match + download the video batch)
+has to be built to this shape, so we observe it rather than guess.
 
 Flow: /imagine an icon -> grid -> press U1 -> grab the upscaled image's CDN URL ->
 /imagine ``<url> --video --loop`` -> log every MJ message until a video lands (or

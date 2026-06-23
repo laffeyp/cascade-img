@@ -120,7 +120,7 @@ def _ingest_derived(parent: Job, message) -> None:
     # then replies to this message and routes back via _job_by_upscale_message_id
     # (which scans upscale_message_ids). Recorded BEFORE the emit so an agent that
     # observes MJ_DERIVED_RECEIVED and immediately fires extend can't race a
-    # not-yet-registered surface. (V-3, F3)
+    # not-yet-registered surface.
     if parent.kind == "video":
         sl = None
         for row in getattr(message, "components", None) or []:

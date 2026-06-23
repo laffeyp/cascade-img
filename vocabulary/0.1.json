@@ -324,7 +324,7 @@
       "stratum": "event",
       "payload": ["src", "dest", "frame_count", "duration_s"],
       "optional_payload": ["fps", "w", "h"],
-      "note": "video_filmstrip() sampled N keyframes of an animated video (webp) into one vision-readable contact sheet so an agent can inspect a temporal artifact the way it reads a still (F32). frame_count/w/h are the source video signature (duration_s/fps are best-effort — 0 when the source carries no per-frame duration, as PIL reports for many webp); dest is the filmstrip PNG."
+      "note": "video_filmstrip() sampled N keyframes of an animated video (webp) into one vision-readable contact sheet so an agent can inspect a temporal artifact the way it reads a still. frame_count/w/h are the source video signature (duration_s/fps are best-effort — 0 when the source carries no per-frame duration, as PIL reports for many webp); dest is the filmstrip PNG."
     },
     {
       "name": "LOOP_SEAM_MEASURED",
@@ -332,7 +332,7 @@
       "stratum": "summary",
       "payload": ["src", "frame_count", "delta"],
       "optional_payload": [],
-      "note": "loop_seam_delta() measured how cleanly a looping video closes: delta is the normalized (0-1) pixel distance between the last and first frames (low = seamless loop), reported as a number instead of a human eyeballing the seam (F33). The video analog of the audio click-at-the-loop-point check."
+      "note": "loop_seam_delta() measured how cleanly a looping video closes: delta is the normalized (0-1) pixel distance between the last and first frames (low = seamless loop), reported as a number instead of a human eyeballing the seam. The video analog of the audio click-at-the-loop-point check."
     },
     {
       "name": "PALETTE_QUANTIZED",

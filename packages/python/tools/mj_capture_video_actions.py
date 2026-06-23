@@ -1,10 +1,10 @@
-"""Live probe of the Midjourney native-video RESULT button surface (V-3).
+"""Live probe of the Midjourney native-video RESULT button surface.
 
-V-2 captured the native video result (a webp grid with `video_virtual_upscale`
-+ `reroll` buttons). This probes what those buttons DO: fire a native video,
-wait for the grid result, press `video_virtual_upscale::1`, and log the SOLO
-video that comes back + its buttons (the Extend High/Low surface) — so V-3's
-mj_action-for-video is built to the observed custom_ids/routing, not guessed.
+The native video result is a webp grid with `video_virtual_upscale` + `reroll`
+buttons. This probes what those buttons DO: fire a native video, wait for the
+grid result, press `video_virtual_upscale::1`, and log the SOLO video that comes
+back + its buttons (the Extend High/Low surface) — so the video mj_action surface
+is built to the observed custom_ids/routing.
 
     python3 tools/mj_capture_video_actions.py --env-file /path/to/.env
 """

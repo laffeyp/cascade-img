@@ -1,12 +1,11 @@
-"""Project a video into a vision-readable filmstrip + signature (F32).
+"""Project a video into a vision-readable filmstrip + signature.
 
 An agent cannot "inspect with vision" an animated webp the way it reads a still
 PNG — the curation step has no spatial frame to look at. So sample N
 keyframes (first / evenly-spaced / last) into one labeled contact sheet the
 agent reads with vision, AND emit a structured signature (frame_count,
 duration_s, fps, dims). The video then speaks for itself. This is the video
-analog of foundation 01's audio-waveform-with-time-markers and the grid
-``contact_sheet``.
+analog of an audio waveform-with-time-markers and the grid ``contact_sheet``.
 """
 
 from __future__ import annotations

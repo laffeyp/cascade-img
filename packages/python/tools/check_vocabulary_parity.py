@@ -29,8 +29,8 @@ def compute_tag_set_hash(data: dict) -> str:
     """sha256 over the sorted ``"<name>:<comma-joined required payload>"`` lines —
     the tag surface consumers actually key on (tag names + required payload
     fields). Notes, sequence/timing rules, and ``optional_payload`` are
-    deliberately excluded so prose edits and additive rule-field work (sprint 013)
-    never churn the hash; only a change to a tag's name or required payload does.
+    deliberately excluded so prose edits and additive rule-field work never churn
+    the hash; only a change to a tag's name or required payload does.
     """
     lines = sorted(f"{t['name']}:{','.join(t.get('payload', []))}" for t in data.get("tags", []))
     return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()

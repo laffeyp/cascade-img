@@ -1,9 +1,9 @@
-"""Measure how cleanly a looping video closes (F33).
+"""Measure how cleanly a looping video closes.
 
 A looping video's quality is seam cleanliness: does the last frame match the
 first? Rather than make a human eyeball the seam, report it as a number — the
 normalized (0-1) pixel distance between the last and first frames (low = clean
-loop). The video analog of foundation 01's "click at the loop point" audio check.
+loop). The video analog of the classic "click at the loop point" audio check.
 """
 
 from __future__ import annotations

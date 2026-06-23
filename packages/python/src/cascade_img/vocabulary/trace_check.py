@@ -3,11 +3,11 @@
 Executes the catalog's declared sequence and timing rules
 (``state_transitions.rules`` and ``temporal_invariants.invariants``) against a
 recorded event trace — a list of ``Signal.to_dict()`` shapes, as produced by
-``snapshot()`` or read back from the ``CASCADE_EVENT_LOG`` JSONL sink (012). The
-rules became mechanically checkable in sprint 013, which added the structured
-fields this module reads (``payload_match``, ``to_tags``, ``applies_when``,
-``severity``, ``forbidden_tags_after``, ``exempt_tags``, ``or_exit_via``);
-nothing here interprets a prose ``note``.
+``snapshot()`` or read back from the ``CASCADE_EVENT_LOG`` JSONL sink. The rules
+are checked mechanically through the structured fields this module reads
+(``payload_match``, ``to_tags``, ``applies_when``, ``severity``,
+``forbidden_tags_after``, ``exempt_tags``, ``or_exit_via``); nothing here
+interprets a prose ``note``.
 
 The checker is a *consumer* of the stream, never a speaker: it emits no signals
 (that would be a feedback loop), imports nothing from the package beyond loading

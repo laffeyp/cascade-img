@@ -16,8 +16,7 @@ all take it).
 explicit instead). Set `version="7"` whenever you need identity lock or `--q`.
 
 **Feature support is gated by version** and the composer fails loudly on a
-mismatch rather than letting MJ reject or silently rewrite the render (the
-external-grammar trap). The split below is grounded in Midjourney's own Version
+mismatch rather than letting MJ reject or silently rewrite the render. The split below is grounded in Midjourney's own Version
 compatibility chart ([docs](https://docs.midjourney.com/hc/en-us/articles/32199405667853-Version),
 updated 2026-06-11):
 

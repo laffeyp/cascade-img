@@ -307,8 +307,7 @@ class PromptComposer:
             )
         # Resolve the default from the single source (_DEFAULT_VERSION), then
         # normalize + validate. A typo ('v7', '7.0') must fail loudly here rather
-        # than ride into "--v <typo>" and be rejected by MJ only at render time
-        # (the edge case external-grammar trap).
+        # than ride into "--v <typo>" and be rejected by MJ only at render time.
         version = _DEFAULT_VERSION if version is None else str(version).strip()
         if version not in _SUPPORTED_VERSIONS:
             raise ValueError(
@@ -458,8 +457,8 @@ class PromptComposer:
         - ``batch_size`` — ``--bs`` (1, 2, or 4); how many videos to generate.
 
         Per the validate-at-composition contract, conflicts fail loudly here
-        rather than at the wire. (V-1 scope: composition only — firing native
-        video through the bridge + its signal vocabulary lands in V-2.)
+        rather than at the wire. (Composition only — firing the native-video
+        prompt through the bridge happens in the bridge/backend layer.)
         """
         if not image_url or not image_url.strip():
             raise ValueError(

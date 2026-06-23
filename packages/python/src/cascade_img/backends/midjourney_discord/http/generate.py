@@ -197,7 +197,7 @@ def http_video():
     Distinct from /imagine in three ways: the prompt is fired RAW (video prompts
     reject the ``--no`` routing token, so there's nothing to merge); the job is
     kind="video" and waits in PENDING_VIDEO to be bound to MJ's echoed
-    ``s.mj.run/XXX`` short URL (F34); and it emits VIDEO_REQUESTED. The final
+    ``s.mj.run/XXX`` short URL; and it emits VIDEO_REQUESTED. The final
     artifact is one animated webp, downloaded through the same lifecycle as a
     grid (it has no upscale). Caller supplies the already-composed video
     ``prompt`` (the MCP/backend layer builds it via PromptComposer.compose_video).
