@@ -20,7 +20,7 @@ async def log_append(
 ) -> dict[str, Any]:
     """Append a record to the prompt log.
 
-    ``agent_decision`` must be one of: ``"promote"``, ``"reroll"``,
+    ``agent_decision`` must be one of: ``"promote"``, ``"regenerate"``,
     ``"escalate"``, ``"dry_run"`` (or omitted). Invalid values produce a
     structured ValueError via the ``_run_tool`` envelope, naming the allowed
     set in the message.

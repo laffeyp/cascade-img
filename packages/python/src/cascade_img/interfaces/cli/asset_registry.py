@@ -41,7 +41,7 @@ def _int_or_none(value: Any) -> int | None:
     float slipping through un-coerced (the loader previously passed them through
     raw, unlike ``ow``/``aspect_ratio``) would surface only when the composer or
     backend choked — crashing the CLI with a raw traceback instead of the
-    structured ``CLI_ROLL_FAILED`` envelope. Coercing here means a malformed
+    structured ``CLI_GENERATION_FAILED`` envelope. Coercing here means a malformed
     value raises at load time, where :func:`load_registry` already wraps it into
     a ``ValueError`` the CLI envelopes.
     """
@@ -58,7 +58,7 @@ def _float_or_none(value: Any) -> float | None:
 class AssetEntry:
     """One entry from the registry. ``subject`` is the only required field.
 
-    Mirrors the full composer surface so a registry roll can express everything
+    Mirrors the full composer surface so a registry-driven generation can express everything
     the MCP ``compose_prompt`` tool can — content (constraints, negatives, image
     prompts + weight), style (moodboard/sref/sw/stylize/style_raw), identity
     (oref/ow, V7-only), render controls (tile/exp/chaos/weird/quality/seed and
@@ -89,7 +89,7 @@ class AssetEntry:
     # Midjourney model version. ``None`` => the composer's default model (V8.1);
     # we don't re-hardcode the default here so it can't drift from
     # composer._DEFAULT_VERSION. An entry using oref (the V7-only identity lock)
-    # must set "version": "7", or the composer raises CLI_ROLL_FAILED with a
+    # must set "version": "7", or the composer raises CLI_GENERATION_FAILED with a
     # clear remediation.
     version: str | None = None
     # V8.1 native-resolution toggles (mutually exclusive; V8.1 only).

@@ -2,9 +2,9 @@
 
 How to run `cascade-img` end-to-end against a real Midjourney account, what breaks, and how to recover. Each failure mode named here has been exercised against live MJ.
 
-> **Context.** Midjourney has no public API. Driving it through a Discord user account is the established OSS pattern for programmatic access. Both Discord's and Midjourney's Terms of Service prohibit user-account automation. See [TOS.md](./TOS.md).
+> **Context.** Midjourney has no public API. Driving it through a Discord user account is the established OSS pattern for programmatic access. Both Discord's and Midjourney's Terms of Service prohibit user-account automation.
 
-> **The point of the package.** cascade-img is built to be driven by an **LLM agent** over its MCP tools: the agent composes a prompt, fires the generation, waits, inspects the image, curates the winner, and logs the attempt — looping without a human on every roll, reading its own log to decide the next move. Most of the time, though, you're watching it happen and directing — steering the work in plain language instead of doing it by hand, and stepping in whenever you want. That agent loop is what cascade-img is *for*; the CLI and Python paths are conveniences for scripting and embedding. The loop itself is specified in **[LLM-agent operation](#llm-agent-operation)** below — if you read one section, read that one.
+> **The point of the package.** cascade-img is built to be driven by an **LLM agent** over its MCP tools: the agent composes a prompt, fires the generation, waits, inspects the image, curates the winner, and logs the attempt — looping without a human on every generation, reading its own log to decide the next move. Most of the time, though, you're watching it happen and directing — steering the work in plain language instead of doing it by hand, and stepping in whenever you want. That agent loop is what cascade-img is *for*; the CLI and Python paths are conveniences for scripting and embedding. The loop itself is specified in **[LLM-agent operation](#llm-agent-operation)** below — if you read one section, read that one.
 
 ---
 
@@ -392,7 +392,7 @@ Three algorithms ship under `alpha_key_corners`:
 - **`method="threshold"`** — global per-pixel distance from the corner-average color. Faster, simpler, but removes subject pixels whose color is close to the background. Available for cases where flood-fill leaks (broken outlines, intentional gradients from bg into subject).
 - **`method="rembg"`** — ML background removal via the optional `rembg` dependency (`pip install cascade-img[ml]`). For gradient backgrounds and broken outlines that defeat both geometric methods. Note the result may come back auto-cropped (different dimensions than the input).
 
-`tolerance` (0-255 per channel) controls how permissive each algorithm is. Default 24 works for MJ's anti-aliased output. The MCP `alpha_key` envelope returns `keyed_count`, `total_count`, and `keyed_ratio` (0.0-1.0). A clean subject-on-uniform-background frame typically keys 0.4-0.8. Ratios under 0.1 mean the keyer found no background (gradient, vignette, wrong tolerance, wrong method). Ratios over 0.9 mean the keyer removed the subject itself — reject and reroll, swap method, or skip alpha-keying for this asset.
+`tolerance` (0-255 per channel) controls how permissive each algorithm is. Default 24 works for MJ's anti-aliased output. The MCP `alpha_key` envelope returns `keyed_count`, `total_count`, and `keyed_ratio` (0.0-1.0). A clean subject-on-uniform-background frame typically keys 0.4-0.8. Ratios under 0.1 mean the keyer found no background (gradient, vignette, wrong tolerance, wrong method). Ratios over 0.9 mean the keyer removed the subject itself — reject and regenerate, swap method, or skip alpha-keying for this asset.
 
 Full-scene images (backgrounds, landscapes, anything where the whole frame is the asset) should not be alpha-keyed.
 
@@ -405,9 +405,9 @@ The whole point of the package is that an LLM can close the loop without a human
 1. **Compose** — `compose_prompt(subject, constraints=…, moodboard=…, sref=…, oref=…, ow=…, aspect_ratio=…)`. Only `subject` is required; everything else is optional. Returns `{ok, result: {prompt}}`.
 2. **Fire** — `imagine(prompt, asset_id, upscale=None|"1".."4"|"all")` → returns `job_id`.
 3. **Wait** — `wait(job_id, timeout=180|360|600)` → returns the full job record (`image_path`, `grid_path`, `upscale_paths`, status).
-4. **Inspect** — read the returned image path with vision. Decide: promote / re-roll / raise `ow` or constraints / escalate.
+4. **Inspect** — read the returned image path with vision. Decide: promote / regenerate / raise `ow` or constraints / escalate.
 5. **Curate** — `crop_grid` → (optional) `alpha_key` → `promote` for the winner.
-6. **Log** — `log_append(asset_id, prompt, job_id, outputs, agent_decision, agent_reason)`. `agent_decision` is one of `promote` / `reroll` / `escalate` / `dry_run`.
+6. **Log** — `log_append(asset_id, prompt, job_id, outputs, agent_decision, agent_reason)`. `agent_decision` is one of `promote` / `regenerate` / `escalate` / `dry_run`.
 
 The next iteration starts with `read_prompt_log(n=5)` to surface what's already been tried for this asset — that's the working memory across loop iterations. Curation has more tools when you need them: `score_grid` ranks the four quadrants, `auto_trim` / `palette_quantize` post-process, and `contact_sheet` / `sprite_sheet` assemble multiple results.
 
@@ -422,16 +422,16 @@ Failures carry a stable `error_code` and a `remediation` string. Codes the agent
 | `MISSING_DISCORD_TOKEN` / `MISSING_CHANNEL_ID` / `MISSING_IMAGINE_VERSION` / `INVALID_*` | escalate to human — one-time setup gap (raised by `Config.from_env` before the daemon starts) |
 | `DISCORD_401` | escalate to human — token re-capture |
 | `DISCORD_NOT_READY` (HTTP 503) | retry after a short delay; the bridge's reconnect loop is in flight |
-| `MJ_UUID_MISSING` | re-roll once; if reproducible, escalate |
-| `GRID_DOWNLOAD_FAILED` / `UPSCALE_DOWNLOAD_FAILED` | re-roll automatically |
+| `MJ_UUID_MISSING` | regenerate once; if reproducible, escalate |
+| `GRID_DOWNLOAD_FAILED` / `UPSCALE_DOWNLOAD_FAILED` | regenerate automatically |
 | `UPSCALE_BUTTON_FAILED` / `UPSCALE_ALL_BUTTONS_FAILED` | retry the imagine; transient Discord interaction error |
 | `NO_UPSCALED_IMAGE` (HTTP 409) | upscale first, then retry the action. On a still image: `imagine` with `upscale=1-4`. On a video `extend_*`: press `video_upscale`, and when its SOLO clip lands, `extend_*` on that same slot |
-| `VIDEO_IN_FLIGHT` (HTTP 409) | a prior video is still awaiting its first Midjourney ack — poll `/wait`, then submit the next video. Do NOT re-roll or retry immediately; the window clears as soon as the prior video binds |
-| `NOT_A_VIDEO_PROMPT` (HTTP 400) | the `/video` prompt is missing `--video` — rebuild it with `compose_video`. Deterministic input error: do NOT re-roll, fix the prompt |
+| `VIDEO_IN_FLIGHT` (HTTP 409) | a prior video is still awaiting its first Midjourney ack — poll `/wait`, then submit the next video. Do NOT regenerate or retry immediately; the window clears as soon as the prior video binds |
+| `NOT_A_VIDEO_PROMPT` (HTTP 400) | the `/video` prompt is missing `--video` — rebuild it with `compose_video`. Deterministic input error: do NOT regenerate, fix the prompt |
 
 A `/imagine` that returns HTTP 202 with `status: "submitted_unconfirmed"` is NOT a failure: poll `/wait` for the actual outcome. Re-firing `/imagine` for the same asset before `/wait` resolves would double-bill if MJ processed the original.
 
-Everything else: re-roll up to N times, then escalate. The three rows above are exceptions — `NOT_A_VIDEO_PROMPT` is a deterministic input error (re-rolling repeats it) and `VIDEO_IN_FLIGHT` clears on its own (poll, don't re-roll).
+Everything else: regenerate up to N times, then escalate. The three rows above are exceptions — `NOT_A_VIDEO_PROMPT` is a deterministic input error (regenerating repeats it) and `VIDEO_IN_FLIGHT` clears on its own (poll, don't regenerate).
 
 ---
 

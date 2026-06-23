@@ -1,4 +1,4 @@
-"""Prompt domain — building the backend prompt string and recording each roll.
+"""Prompt domain — building the backend prompt string and recording each generation run.
 
 * :mod:`.composer` turns composable parts (subject, style reference, identity
   reference, params, aspect ratio) into a Midjourney prompt string

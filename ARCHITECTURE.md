@@ -12,7 +12,7 @@
 | `backends/midjourney_discord/job_store.py` | A write-through SQLite sidecar to the bridge's in-memory job table, so a daemon restart can resume tracking in-flight jobs. |
 | `curation/` | Post-generation image steps, grouped into `geometry/` (`grid_crop`, `auto_trim`), `color/` (`alpha_key`, `palette_quantize`), `sheets/` (`contact_sheet`, `sprite_sheet`), and `select/` (`score_grid`, `promote`). |
 | `interfaces/mcp/tool_server.py` | A FastMCP server exposing the composer, backend, curation, and log as tools (`cascade-mcp`), with the response envelope in `_envelope.py` and the tools split across `tools/{prompt_tools,generation_tools,curation_tools,log_tools}.py`. |
-| `interfaces/cli/generate_image.py` | The `cascade-mj` roll-and-record command. |
+| `interfaces/cli/generate_image.py` | The `cascade-mj` generate-and-record command. |
 | `interfaces/cli/asset_registry.py` | Loads and validates the JSON asset registry (`asset_id` → prompt parts) that `cascade-mj` reads. |
 
 ## Data flow
@@ -27,7 +27,7 @@ and stopped per invocation.
 ```
    ┌───────────────────┐          ┌────────────────────────┐
    │  cascade-mj  (CLI) │          │ cascade-mcp (MCP server)│   entry points:
-   │  human / script    │          │  agent host             │   one composes & rolls,
+   │  human / script    │          │  agent host             │   one composes & generates,
    └─────────┬──────────┘          └───────────┬─────────────┘   one exposes tools
              └───────────────┬─────────────────┘
                              │   MidjourneyDiscordBackend — a thin HTTP client

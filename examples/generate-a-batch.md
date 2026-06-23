@@ -27,7 +27,7 @@ For each `asset_id` in the list:
 4. **Wait.** `wait(job_id, timeout=600)` → `upscale_paths` (a dict keyed 1–4).
 
 5. **Pick.** Open each of the four and choose the one that best matches the
-   request and the shared style. If none are acceptable, re-roll with a tighter
+   request and the shared style. If none are acceptable, regenerate with a tighter
    subject description; after ~3 misses, escalate to the human.
 
 6. **Curate.** Crop the winning quadrant out of the grid and promote it:

@@ -346,8 +346,8 @@ class Job:
     # instead of submitting again — closing the double-submit/double-bill window
     # a cancelled-mid-imagine MCP call can open (the orphaned worker-thread POST
     # lands, then the agent retries). Deliberately NOT keyed on asset_id: that
-    # would reject legitimate re-rolls. A retry must reuse the key to dedup; a
-    # fresh roll gets a fresh key (or none) and a fresh job.
+    # would reject legitimate regenerations. A retry must reuse the key to dedup; a
+    # fresh generation gets a fresh key (or none) and a fresh job.
     idempotency_key: str | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)

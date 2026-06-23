@@ -326,7 +326,7 @@ async def _walk(args: argparse.Namespace, output_dir: Path) -> Path:
                     print(
                         f"  warning: keyed_ratio={ratio} — keyer ate most "
                         "of the frame; subject likely matched background "
-                        "(reroll with higher contrast or skip alpha-key)",
+                        "(regenerate with higher contrast or skip alpha-key)",
                         flush=True,
                     )
             promote_src = keyed

@@ -66,7 +66,7 @@ async def alpha_key(
     (0.0-1.0). The agent can use it to detect failure: typical sprite outputs
     key 0.4-0.8 of the frame; ratios <0.1 mean the keyer didn't find the
     background (gradient/vignette/wrong tolerance); ratios >0.9 mean the keyer
-    ate the subject and the result should be rejected or re-rolled.
+    ate the subject and the result should be rejected or regenerated.
     """
     from PIL import Image
 

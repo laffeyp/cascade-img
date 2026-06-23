@@ -127,7 +127,7 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
         # Optional idempotency key: reusing it on a retry makes the call safe —
         # the bridge replays the existing job instead of submitting (and billing)
         # again. Closes the cancelled-mid-imagine double-submit window. A fresh
-        # roll passes a fresh key (or none) and gets a fresh job.
+        # a fresh generation passes a fresh key (or none) and gets a fresh job.
         if idempotency_key is not None:
             body["idempotency_key"] = idempotency_key
         # Must exceed the bridge's 35 s submit budget, or a slow-but-successful
@@ -161,7 +161,7 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
 
         A wait-timeout is deliberately NOT raised as an error: the bridge
         returns HTTP 504 with ``timed_out=True`` and the job may still be
-        rendering. Re-rolling on a timeout would double-bill, so the timeout is
+        rendering. Regenerating on a timeout would double-bill, so the timeout is
         a non-terminal signal, not a failure. Callers must branch on the
         returned ``status`` (``done`` / ``failed`` / something in-progress) and
         on ``timed_out`` — a successful HTTP response does NOT imply the job
@@ -178,7 +178,7 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
                 # an intermediary (reverse proxy / LB) commonly carries an HTML
                 # body, and an unguarded r.json() there raises JSONDecodeError
                 # (a ValueError) — which a caller would mistake for a hard
-                # failure instead of the "still rendering, poll, do NOT re-roll"
+                # failure instead of the "still rendering, poll, do NOT regenerate"
                 # timeout this branch must convey. Fall back to an empty record
                 # (also coercing a non-dict JSON body) and keep timed_out=True.
                 try:

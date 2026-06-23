@@ -15,7 +15,7 @@ Options:
   --pretty                       Indent JSON output
 
 Output (JSON to stdout). Every return carries ``ok`` and ``asset_id``; the
-other keys depend on how far the roll got before returning::
+other keys depend on how far the generation run got before returning::
 
     success:   { "ok": true,  "asset_id", "prompt", "job_id", "status": "done",
                  "outputs": { "image_path", "grid_path", "upscale_paths" },
@@ -25,7 +25,7 @@ other keys depend on how far the roll got before returning::
 
 On failure, ``error`` is always the full ``{code, message, remediation}`` (the
 stable ``code`` is the branch key); on success it is ``null``. The failure
-return also gains ``prompt`` / ``job_id`` / ``status`` / ``outputs`` as the roll
+return also gains ``prompt`` / ``job_id`` / ``status`` / ``outputs`` as the generation run
 reaches each — an early registry/compose failure has only ``error``; a failed
 job after waiting has all of them.
 """
@@ -94,7 +94,7 @@ async def run(
     dry_run: bool,
 ) -> dict[str, Any]:
     """Execute one generation end-to-end. Returns the structured result dict."""
-    emit("CLI_ROLL_STARTED", asset_id=asset_id, dry_run=dry_run, upscale=upscale or "grid")
+    emit("CLI_GENERATION_STARTED", asset_id=asset_id, dry_run=dry_run, upscale=upscale or "grid")
 
     log = PromptLog(log_path)
 
@@ -102,7 +102,10 @@ async def run(
         registry = load_registry(registry_path)
     except (FileNotFoundError, ValueError) as e:
         emit(
-            "CLI_ROLL_FAILED", asset_id=asset_id, error_code=type(e).__name__, error_message=str(e)
+            "CLI_GENERATION_FAILED",
+            asset_id=asset_id,
+            error_code=type(e).__name__,
+            error_message=str(e),
         )
         return {
             "ok": False,
@@ -119,7 +122,7 @@ async def run(
 
     if asset_id not in registry:
         emit(
-            "CLI_ROLL_FAILED",
+            "CLI_GENERATION_FAILED",
             asset_id=asset_id,
             error_code="UNKNOWN_ASSET_ID",
             error_message=f"asset_id {asset_id!r} not in registry",
@@ -138,12 +141,15 @@ async def run(
     # Compose inside the envelope: a registry the loader accepted can still
     # carry a value the composer rejects (e.g. an out-of-range param), and
     # _compose() sitting outside any try would crash the CLI with a raw
-    # traceback instead of the structured CLI_ROLL_FAILED error.
+    # traceback instead of the structured CLI_GENERATION_FAILED error.
     try:
         prompt = _compose(entry)
     except Exception as e:
         emit(
-            "CLI_ROLL_FAILED", asset_id=asset_id, error_code=type(e).__name__, error_message=str(e)
+            "CLI_GENERATION_FAILED",
+            asset_id=asset_id,
+            error_code=type(e).__name__,
+            error_message=str(e),
         )
         return {
             "ok": False,
@@ -167,7 +173,7 @@ async def run(
             agent_decision="dry_run",
             agent_reason="--dry-run, did not fire",
         )
-        emit("CLI_ROLL_COMPLETED", asset_id=asset_id, dry_run=True, status="dry_run")
+        emit("CLI_GENERATION_COMPLETED", asset_id=asset_id, dry_run=True, status="dry_run")
         return {
             "ok": True,
             "asset_id": asset_id,
@@ -184,7 +190,10 @@ async def run(
         submitted = await asyncio.to_thread(backend.imagine, prompt, asset_id, upscale)
     except Exception as e:
         emit(
-            "CLI_ROLL_FAILED", asset_id=asset_id, error_code=type(e).__name__, error_message=str(e)
+            "CLI_GENERATION_FAILED",
+            asset_id=asset_id,
+            error_code=type(e).__name__,
+            error_message=str(e),
         )
         log.append(
             asset_id=asset_id,
@@ -216,7 +225,10 @@ async def run(
         result = await asyncio.to_thread(backend.wait, job_id, timeout)
     except Exception as e:
         emit(
-            "CLI_ROLL_FAILED", asset_id=asset_id, error_code=type(e).__name__, error_message=str(e)
+            "CLI_GENERATION_FAILED",
+            asset_id=asset_id,
+            error_code=type(e).__name__,
+            error_message=str(e),
         )
         log.append(
             asset_id=asset_id,
@@ -237,7 +249,7 @@ async def run(
                 "remediation": (
                     f"The job was submitted but the wait failed (bridge unreachable "
                     f"mid-wait, or the job was evicted). Poll GET /status/{job_id} on the "
-                    f"bridge; do NOT re-roll blindly — the original may still complete."
+                    f"bridge; do NOT regenerate blindly — the original may still complete."
                 ),
             },
         }
@@ -262,10 +274,10 @@ async def run(
     # (backend marks timed_out=True on the 504) while MJ may still be rendering.
     # Without this branch the CLI returned ok=false / error=null — there was no
     # way for a caller to tell "the job failed" from "still in progress". Emit a
-    # stable WAIT_TIMEOUT code with remediation that says poll, do NOT re-roll
-    # (a re-roll double-bills MJ if the original lands).
+    # stable WAIT_TIMEOUT code with remediation that says poll, do NOT regenerate
+    # (regenerating double-bills MJ if the original lands).
     if result.get("timed_out") or status not in {"done", "failed"}:
-        emit("CLI_ROLL_COMPLETED", asset_id=asset_id, dry_run=False, status="unknown")
+        emit("CLI_GENERATION_COMPLETED", asset_id=asset_id, dry_run=False, status="unknown")
         return {
             "ok": False,
             "asset_id": asset_id,
@@ -281,12 +293,12 @@ async def run(
                 ),
                 "remediation": (
                     "Poll the job via GET /status/<job_id> or /wait/<job_id> on the bridge; "
-                    "do NOT re-roll — the original may still complete and a re-roll bills MJ twice."
+                    "do NOT regenerate — the original may still complete and regenerating bills MJ twice."
                 ),
             },
         }
 
-    emit("CLI_ROLL_COMPLETED", asset_id=asset_id, dry_run=False, status=status or "unknown")
+    emit("CLI_GENERATION_COMPLETED", asset_id=asset_id, dry_run=False, status=status or "unknown")
 
     # status is "done" or "failed" here (the non-terminal / timed-out cases
     # returned above). On a real failure, mirror every other error path and the
@@ -320,7 +332,7 @@ async def run(
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="cascade-mj")
-    parser.add_argument("asset_id", help="ID of the asset to roll, must exist in the registry")
+    parser.add_argument("asset_id", help="ID of the asset to generate, must exist in the registry")
     parser.add_argument(
         "--registry",
         required=True,

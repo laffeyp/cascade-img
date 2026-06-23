@@ -68,7 +68,7 @@ def sprite_sheet(
         cx, cy = (i % cols) * cell_w, (i // cols) * cell_h
         sheet.paste(im, (cx, cy))
         # Cells are placed by unique index, but the map is keyed by file stem —
-        # two inputs sharing a stem (re-rolls of one name, a cross-dir gather)
+        # two inputs sharing a stem (regenerations of one name, a cross-dir gather)
         # would otherwise overwrite each other's entry, silently dropping a
         # placed cell and leaving SPRITE_SHEET_PACKED count != len(frames).
         # Disambiguate so every placed cell gets a distinct key: the first

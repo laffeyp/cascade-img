@@ -23,7 +23,7 @@ Each record:
       "upscale": "1" | "all" | null,
       "outputs": { "image_path": "...", "grid_path": "...", "upscale_paths": {...} },
       "error": null | "...",
-      "agent_decision": "promote" | "reroll" | "escalate" | null,
+      "agent_decision": "promote" | "regenerate" | "escalate" | null,
       "agent_reason": "..." | null
     }
 
@@ -47,7 +47,7 @@ log = logging.getLogger("cascade_img.prompt_log")
 
 
 class AgentDecision(StrEnum):
-    """The closed set of decisions an LLM operator may record on a roll.
+    """The closed set of decisions an LLM operator may record on a generation run.
 
     Enforced at append time so the prompt log doesn't accumulate freeform
     nonsense an operator can't grep for. Operators that need a state outside
@@ -55,13 +55,13 @@ class AgentDecision(StrEnum):
     """
 
     PROMOTE = "promote"
-    REROLL = "reroll"
+    REGENERATE = "regenerate"
     ESCALATE = "escalate"
     DRY_RUN = "dry_run"
 
 
 class PromptLog:
-    """Append-only JSONL log of every roll. Thread-safe."""
+    """Append-only JSONL log of every generation run. Thread-safe."""
 
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
@@ -165,7 +165,7 @@ class PromptLog:
         records = self.read()
         if not records:
             return ""
-        chunks: list[str] = ["# Prompt log\n", "*Append-only. One block per roll.*\n"]
+        chunks: list[str] = ["# Prompt log\n", "*Append-only. One block per generation run.*\n"]
         for r in records:
             chunks.append(
                 f"\n## {r.get('ts', '?')} — {r.get('asset_id', '?')} "

@@ -61,7 +61,7 @@ def test_read_empty_log(tmp_path: Path):
 
 def test_agent_decision_enum_values_pass(tmp_path: Path):
     log = PromptLog(tmp_path / "log.jsonl")
-    for value in ("promote", "reroll", "escalate", "dry_run"):
+    for value in ("promote", "regenerate", "escalate", "dry_run"):
         log.append(asset_id="x", prompt="p", backend="b", agent_decision=value)
 
 
@@ -196,7 +196,7 @@ def test_render_markdown_tolerates_schema_incomplete_record(tmp_path: Path):
 
 
 def test_append_with_agent_decision(tmp_path: Path):
-    """Agent decision is one of '', 'promote', 'reroll', 'escalate'."""
+    """Agent decision is one of '', 'promote', 'regenerate', 'escalate'."""
     clear()
     log = PromptLog(tmp_path / "log.jsonl")
     log.append(

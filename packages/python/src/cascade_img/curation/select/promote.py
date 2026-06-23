@@ -2,7 +2,7 @@
 
 Thin wrapper: read bytes, write bytes, emit a signal. Creates parent
 directories as needed; overwrites the destination if present (curation
-re-rolls are expected to replace prior promotions).
+regenerations are expected to replace prior promotions).
 """
 
 from __future__ import annotations

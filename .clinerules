@@ -3,14 +3,14 @@
 
 ## What cascade-img is, and how you drive it
 
-**What it is.** cascade-img is an LLM-operable image-generation pipeline — Midjourney through a Discord bridge at v0.1, with pluggable backends (Flux, DALL-E, Imagen, …) behind one interface after. **You, the agent, are its primary operator:** it is built so you compose a prompt, generate, curate the winner, and log the attempt without a human on every roll.
+**What it is.** cascade-img is an LLM-operable image-generation pipeline — Midjourney through a Discord bridge at v0.1, with pluggable backends (Flux, DALL-E, Imagen, …) behind one interface after. **You, the agent, are its primary operator:** it is built so you compose a prompt, generate, curate the winner, and log the attempt without a human on every generation.
 
-**The loop, per asset.** `compose_prompt → imagine → wait → inspect (read the PNG with vision) → curate (crop_grid → [alpha_key?] → promote) → log_append`. Open each iteration with `read_prompt_log(n=5)` — the append-only log is your working memory across rolls.
+**The loop, per asset.** `compose_prompt → imagine → wait → inspect (read the PNG with vision) → curate (crop_grid → [alpha_key?] → promote) → log_append`. Open each iteration with `read_prompt_log(n=5)` — the append-only log is your working memory across generation runs.
 
 **The shape — one daemon, two entry points, all over local HTTP:**
 - `cascade-mj-bridge` — the daemon, and the only process that talks to Discord. It must stay running the whole session: it holds the live Discord connection and the in-flight job table, while the two entry points below are stateless clients that reach it over local HTTP.
 - `cascade-mcp` — the MCP server exposing 20 tools; this is how you, the agent, drive everything.
-- `cascade-mj` — the CLI, for scripting and one-off rolls.
+- `cascade-mj` — the CLI, for scripting and one-off generations.
 
 **The 20 MCP tools, by job.** *generation* — `imagine`, `generate_video` (native image→video; composes + fires `--video`/`--loop`/`--motion`/`--end`/`--bs`), `wait`, `status`, `bridge_health`, `mj_action`; *composition* — `compose_prompt`, `compose_video` (build a native image→video prompt without firing); *curation* — `crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `video_filmstrip` (sample a video's keyframes into a vision-readable still), `loop_seam_delta` (score how cleanly a `--loop` video closes), `promote`; *working memory* — `log_append`, `read_prompt_log`. Every call returns `{ok, result}` or `{ok: false, error: {code, remediation}}` — branch on the stable `code`, never the message.
 

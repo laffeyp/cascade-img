@@ -10,7 +10,7 @@ A video job differs from an image job in three ways worth knowing up front:
 - Videos **bind FIFO** (a video prompt can't carry the `--no` routing token), so
   the bridge accepts **one unbound video at a time**: a `VIDEO_IN_FLIGHT` (409)
   means a prior video is still awaiting its first Midjourney ack — poll `wait`
-  then submit the next, don't re-roll.
+  then submit the next, don't regenerate.
 - To **extend** a clip you must **upscale a slot first** (`video_upscale`),
   then `extend_*` keys off that SOLO's own slot.
 
@@ -22,7 +22,7 @@ A video job differs from an image job in three ways worth knowing up front:
 2. **Generate the clip.** `generate_video(...)` composes the video prompt and
    fires it in one call:
    - `image_url`: the starting frame (required) — a URL to the image you want to
-     animate (e.g. an upscale you promoted from an earlier image roll).
+     animate (e.g. an upscale you promoted from an earlier image generation).
    - `asset_id`: e.g. `"mountain-flythrough"`.
    - `text` (optional): what should happen, e.g. `"slow camera push toward the
      peak, drifting clouds"`.
@@ -43,7 +43,7 @@ A video job differs from an image job in three ways worth knowing up front:
    frames=5)` samples keyframes into one still you can open and read with vision.
    For a `loop=True` clip, also run `loop_seam_delta(src=<video_path>)` — it
    scores how cleanly the last frame meets the first; a high delta means a
-   visible seam (re-roll or drop `loop`).
+   visible seam (regenerate or drop `loop`).
 
 5. **Upscale a slot (optional).** To get a higher-resolution SOLO clip, or as the
    prerequisite for extending: `mj_action(job_id, action="video_upscale",
@@ -53,7 +53,7 @@ A video job differs from an image job in three ways worth knowing up front:
 6. **Extend (optional).** `mj_action(job_id, action="extend_high", slot=1)` (or
    `"extend_low"`) on the **same slot** you upscaled adds ~4s more. Calling
    `extend_*` before `video_upscale` returns `NO_UPSCALED_IMAGE` telling you to
-   upscale first. There is no exposed `video_reroll` — to re-roll, call
+   upscale first. There is no exposed `video_reroll` — to regenerate, call
    `generate_video` again.
 
 7. **Log.** `log_append(asset_id="mountain-flythrough", prompt=<the composed

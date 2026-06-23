@@ -107,8 +107,8 @@ def test_dry_run_composes_and_logs(tmp_path):
     assert records[0]["asset_id"] == "mountain-icon"
 
     tags = _tags()
-    assert "CLI_ROLL_STARTED" in tags
-    assert "CLI_ROLL_COMPLETED" in tags
+    assert "CLI_GENERATION_STARTED" in tags
+    assert "CLI_GENERATION_COMPLETED" in tags
     assert "PROMPT_COMPOSED" in tags  # composer fired
     assert "PROMPT_LOGGED" in tags  # log fired
 
@@ -132,7 +132,7 @@ def test_unknown_asset_id_returns_structured_error(tmp_path):
     assert result["ok"] is False
     assert result["error"]["code"] == "UNKNOWN_ASSET_ID"
     assert "mountain-icon" in result["error"]["remediation"]
-    assert "CLI_ROLL_FAILED" in _tags()
+    assert "CLI_GENERATION_FAILED" in _tags()
 
 
 def test_missing_registry_returns_structured_error(tmp_path):
@@ -152,7 +152,7 @@ def test_missing_registry_returns_structured_error(tmp_path):
 
     assert result["ok"] is False
     assert result["error"]["code"] == "FileNotFoundError"
-    assert "CLI_ROLL_FAILED" in _tags()
+    assert "CLI_GENERATION_FAILED" in _tags()
 
 
 def test_identity_lock_parts_flow_through(tmp_path):
@@ -287,7 +287,7 @@ def test_failed_wait_returns_structured_error_with_code(tmp_path, monkeypatch):
     assert result["error"]["code"] == "DISCORD_400_OUTDATED"
     assert "outdated" in result["error"]["message"]
     assert "remediation" in result["error"]
-    assert "CLI_ROLL_COMPLETED" in _tags()
+    assert "CLI_GENERATION_COMPLETED" in _tags()
 
 
 def test_done_wait_carries_null_error(tmp_path, monkeypatch):
@@ -344,7 +344,7 @@ def test_non_numeric_sw_rejected_at_load(tmp_path):
 def test_compose_failure_is_enveloped(tmp_path, monkeypatch):
     """A registry the loader accepted can still carry a value the composer
     rejects; _compose() must run inside the envelope so the CLI returns a
-    structured CLI_ROLL_FAILED rather than crashing with a raw traceback.
+    structured CLI_GENERATION_FAILED rather than crashing with a raw traceback.
     (review #9)"""
     clear()
     reg_path = _write_registry(tmp_path, REGISTRY_SAMPLE)
@@ -368,7 +368,7 @@ def test_compose_failure_is_enveloped(tmp_path, monkeypatch):
     assert result["ok"] is False
     assert result["error"]["code"] == "ValueError"
     assert "composer rejected" in result["error"]["message"]
-    assert "CLI_ROLL_FAILED" in _tags()
+    assert "CLI_GENERATION_FAILED" in _tags()
 
 
 # --------------------- main() argparse + exit-code contract ---------------------
@@ -435,7 +435,7 @@ def test_cli_main_unknown_asset_exits_1(tmp_path, monkeypatch, capsys):
 
 def test_imagine_raises_returns_structured_error(tmp_path, monkeypatch):
     """When backend.imagine() itself RAISES (bridge unreachable / requests error),
-    the CLI envelopes it as CLI_ROLL_FAILED with the bridge-unreachable
+    the CLI envelopes it as CLI_GENERATION_FAILED with the bridge-unreachable
     remediation — the exception branch the returned-'failed' test doesn't reach."""
     clear()
     reg_path = _write_registry(tmp_path, REGISTRY_SAMPLE)
@@ -462,7 +462,7 @@ def test_imagine_raises_returns_structured_error(tmp_path, monkeypatch):
     assert result["ok"] is False
     assert result["error"]["code"] == "ConnectionError"
     assert "cascade-mj-bridge --doctor" in result["error"]["remediation"]
-    assert "CLI_ROLL_FAILED" in _tags()
+    assert "CLI_GENERATION_FAILED" in _tags()
 
 
 def test_wait_raises_returns_structured_error_with_job_id(tmp_path, monkeypatch):
@@ -497,7 +497,7 @@ def test_wait_raises_returns_structured_error_with_job_id(tmp_path, monkeypatch)
     assert result["ok"] is False
     assert result["error"]["code"] == "TimeoutError"
     assert result["job_id"] == "job-boom"
-    assert "CLI_ROLL_FAILED" in _tags()
+    assert "CLI_GENERATION_FAILED" in _tags()
 
 
 # --------------------- registry expresses the full V8.1 surface (review G1/G2) --

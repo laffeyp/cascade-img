@@ -41,4 +41,4 @@ placeholder subject for your own.
 ## Done
 
 The asset has a `promote` record in the log, or — if nothing acceptable came out
-after a couple of re-rolls — an `escalate` record explaining what you tried.
+after a couple of regenerations — an `escalate` record explaining what you tried.

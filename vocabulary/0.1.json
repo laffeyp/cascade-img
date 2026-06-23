@@ -3,7 +3,7 @@
   "locked": true,
   "locked_at": "2026-06-02",
   "locked_by": "Peter Laffey",
-  "tag_set_hash": "f087a26fc60feac8430f4e3703fb7348243195dbd223890f1718bf5d45254eb7",
+  "tag_set_hash": "e3a41da2853b7cd92f0b74e1eefc7c39cbb4f0e925822f00642d0642e9f01b51",
   "prior_version": null,
   "categories": ["session", "config", "bridge", "job", "discord", "backend", "curation", "composer", "log", "mcp", "cli"],
 
@@ -64,7 +64,7 @@
       {"name": "PromptLog", "emits": ["PROMPT_LOGGED"], "location": "cascade_img/prompt/prompt_log.py"},
       {"name": "CurationKit", "emits": ["CROP_QUADRANT", "ALPHA_KEY_APPLIED", "ASSET_PROMOTED", "CONTACT_SHEET_RENDERED", "AUTO_TRIM_APPLIED", "PALETTE_QUANTIZED", "SPRITE_SHEET_PACKED", "GRID_SCORED"], "location": "cascade_img/curation/"},
       {"name": "MCPServer", "emits": ["MCP_SERVER_STARTED", "MCP_SERVER_STOPPED", "MCP_TOOL_CALLED", "MCP_TOOL_COMPLETED", "MCP_TOOL_FAILED"], "location": "cascade_img/interfaces/mcp/"},
-      {"name": "AssetCLI", "emits": ["CLI_ROLL_STARTED", "CLI_ROLL_COMPLETED", "CLI_ROLL_FAILED"], "location": "cascade_img/interfaces/cli/generate_image.py"}
+      {"name": "AssetCLI", "emits": ["CLI_GENERATION_STARTED", "CLI_GENERATION_COMPLETED", "CLI_GENERATION_FAILED"], "location": "cascade_img/interfaces/cli/generate_image.py"}
     ]
   },
 
@@ -372,7 +372,7 @@
       "stratum": "event",
       "payload": ["asset_id", "has_job_id", "has_error", "agent_decision"],
       "optional_payload": [],
-      "note": "PromptLog.append() wrote a record. agent_decision is one of '', 'promote', 'reroll', 'escalate'. Records read back via PromptLog.read() are the agent's working memory across loop iterations."
+      "note": "PromptLog.append() wrote a record. agent_decision is one of '', 'promote', 'regenerate', 'escalate'. Records read back via PromptLog.read() are the agent's working memory across loop iterations."
     },
     {
       "name": "MCP_SERVER_STARTED",
@@ -423,15 +423,15 @@
       "note": "cascade-mj-bridge --doctor completed. Pre-flight ladder: env + discord reachability + mcp_server import + discord.py-self import."
     },
     {
-      "name": "CLI_ROLL_STARTED",
+      "name": "CLI_GENERATION_STARTED",
       "category": "cli",
       "stratum": "event",
       "payload": ["asset_id", "dry_run", "upscale"],
       "optional_payload": [],
-      "note": "cascade-mj CLI accepted an asset_id and began the roll. upscale is 'grid' (default, no upscale), '1'-'4' (single), or 'all'."
+      "note": "cascade-mj CLI accepted an asset_id and began the generation run. upscale is 'grid' (default, no upscale), '1'-'4' (single), or 'all'."
     },
     {
-      "name": "CLI_ROLL_COMPLETED",
+      "name": "CLI_GENERATION_COMPLETED",
       "category": "cli",
       "stratum": "event",
       "payload": ["asset_id", "dry_run", "status"],
@@ -439,7 +439,7 @@
       "note": "cascade-mj CLI returned. status is 'done', 'failed', 'dry_run', or 'unknown'."
     },
     {
-      "name": "CLI_ROLL_FAILED",
+      "name": "CLI_GENERATION_FAILED",
       "category": "cli",
       "stratum": "incident",
       "payload": ["asset_id", "error_code", "error_message"],

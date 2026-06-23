@@ -5,14 +5,14 @@ This file follows the [agents.md](https://agents.md) convention — drop it in f
 <!-- AGENT-ORIENTATION:START -->
 ## What cascade-img is, and how you drive it
 
-**What it is.** cascade-img is an LLM-operable image-generation pipeline — Midjourney through a Discord bridge at v0.1, with pluggable backends (Flux, DALL-E, Imagen, …) behind one interface after. **You, the agent, are its primary operator:** it is built so you compose a prompt, generate, curate the winner, and log the attempt without a human on every roll.
+**What it is.** cascade-img is an LLM-operable image-generation pipeline — Midjourney through a Discord bridge at v0.1, with pluggable backends (Flux, DALL-E, Imagen, …) behind one interface after. **You, the agent, are its primary operator:** it is built so you compose a prompt, generate, curate the winner, and log the attempt without a human on every generation.
 
-**The loop, per asset.** `compose_prompt → imagine → wait → inspect (read the PNG with vision) → curate (crop_grid → [alpha_key?] → promote) → log_append`. Open each iteration with `read_prompt_log(n=5)` — the append-only log is your working memory across rolls.
+**The loop, per asset.** `compose_prompt → imagine → wait → inspect (read the PNG with vision) → curate (crop_grid → [alpha_key?] → promote) → log_append`. Open each iteration with `read_prompt_log(n=5)` — the append-only log is your working memory across generation runs.
 
 **The shape — one daemon, two entry points, all over local HTTP:**
 - `cascade-mj-bridge` — the daemon, and the only process that talks to Discord. It must stay running the whole session: it holds the live Discord connection and the in-flight job table, while the two entry points below are stateless clients that reach it over local HTTP.
 - `cascade-mcp` — the MCP server exposing 20 tools; this is how you, the agent, drive everything.
-- `cascade-mj` — the CLI, for scripting and one-off rolls.
+- `cascade-mj` — the CLI, for scripting and one-off generations.
 
 **The 20 MCP tools, by job.** *generation* — `imagine`, `generate_video` (native image→video; composes + fires `--video`/`--loop`/`--motion`/`--end`/`--bs`), `wait`, `status`, `bridge_health`, `mj_action`; *composition* — `compose_prompt`, `compose_video` (build a native image→video prompt without firing); *curation* — `crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `video_filmstrip` (sample a video's keyframes into a vision-readable still), `loop_seam_delta` (score how cleanly a `--loop` video closes), `promote`; *working memory* — `log_append`, `read_prompt_log`. Every call returns `{ok, result}` or `{ok: false, error: {code, remediation}}` — branch on the stable `code`, never the message.
 
@@ -43,7 +43,7 @@ The agent's job, per asset:
 2. fire:     imagine(prompt, asset_id, upscale)              → job_id
 3. wait:     wait(job_id, timeout=180|360|600)               → job record
 4. inspect:  read the PNG at job.image_path with vision
-5. decide:   promote / re-roll / escalate ow / give up + ask human
+5. decide:   promote / regenerate / escalate ow / give up + ask human
 6. curate:   crop_grid → [alpha_key]? → promote   (if decision = promote)
               alpha_key is OPTIONAL — apply only when transparency is wanted
               and only when keyed_ratio lands in the healthy band (0.1-0.9)
@@ -105,7 +105,7 @@ On a **`generate_video` job** (not an upscaled image), `action` is instead one o
 - **Video upscale** (extract a slot as a standalone clip — the video `U1`-`U4`): `video_upscale` with `slot=1-4`
 - **Extend** (lengthen a SOLO clip ~4s): `extend_high`, `extend_low` with the `slot` you upscaled
 
-Press `video_upscale` first; when its SOLO clip lands, the bridge emits `MJ_ACTION_SURFACE_REGISTERED` and records that slot as an extendable surface, so `extend_*` on the same slot then works (the slot round-trips — MJ's SOLO extend buttons are grid-aligned). Calling `extend_*` before `video_upscale` returns `NO_UPSCALED_IMAGE` telling you to upscale first. To re-roll a video, call `generate_video` again (the grid's re-roll button is not exposed — its untracked result can perturb job routing).
+Press `video_upscale` first; when its SOLO clip lands, the bridge emits `MJ_ACTION_SURFACE_REGISTERED` and records that slot as an extendable surface, so `extend_*` on the same slot then works (the slot round-trips — MJ's SOLO extend buttons are grid-aligned). Calling `extend_*` before `video_upscale` returns `NO_UPSCALED_IMAGE` telling you to upscale first. To regenerate a video, call `generate_video` again (the grid's re-roll button is not exposed — its untracked result can perturb job routing).
 
 The pressed action's result — a new grid for vary/zoom/pan, a single image for `upscale_*`, a short animation for `animate_*`, an mp4 for `video_upscale`/`extend_*` — is routed back to the originating job automatically: the bridge downloads it and appends an entry to the job's `derived` list (`{action_kind, mj_uuid, path, content_type, ...}`), which you read via `status(job_id)`. `animate_*` arrives as an animated WebP (`image/webp`, ~125 frames), not an mp4; `video_upscale`/`extend_*` arrive as mp4 (`action_kind="animation"`). `favorite` only rates the image — it produces no artifact, so nothing lands in `derived`. With `upscale="all"` every per-slot image is actionable and a derived result replying to any of them routes home. (Known v0.1 limit: a derived result that is itself a grid — vary/zoom/pan — is recorded in `derived` but not re-tracked as a new job, so you can't then `mj_action` on its quadrants.)
 
@@ -161,19 +161,19 @@ Every error returned to you carries a stable `code`. The codes that matter for t
 | `MISSING_*` | env var not set | escalate to human — one-time setup gap |
 | `DISCORD_401` | token expired | escalate to human — token re-capture |
 | `DISCORD_NOT_READY` (HTTP 503) | bridge's WebSocket dropped, reconnect in flight | retry after a short delay; the daemon auto-reconnects with exponential backoff |
-| `MJ_UUID_MISSING` | grid arrived without U1-U4 buttons | re-roll once; if reproducible, escalate |
-| `GRID_DOWNLOAD_FAILED` / `UPSCALE_DOWNLOAD_FAILED` | network blip during PNG fetch | re-roll automatically |
-| `UPSCALE_BUTTON_FAILED` / `UPSCALE_ALL_BUTTONS_FAILED` | transient Discord interaction error on the U-button press | re-roll the imagine |
+| `MJ_UUID_MISSING` | grid arrived without U1-U4 buttons | regenerate once; if reproducible, escalate |
+| `GRID_DOWNLOAD_FAILED` / `UPSCALE_DOWNLOAD_FAILED` | network blip during PNG fetch | regenerate automatically |
+| `UPSCALE_BUTTON_FAILED` / `UPSCALE_ALL_BUTTONS_FAILED` | transient Discord interaction error on the U-button press | regenerate the imagine |
 | `NO_UPSCALED_IMAGE` (HTTP 409) | `mj_action` on a job with no upscaled image | upscale first, then retry. Still image: `imagine` with `upscale=1-4`. Video `extend_*`: press `video_upscale`, then `extend_*` on that SOLO's slot once its clip lands |
 | `BUTTON_NOT_FOUND` (HTTP 404) | the requested action's button isn't on this image | MJ may not offer it for this image/version — pick another action or skip |
-| `VIDEO_IN_FLIGHT` (HTTP 409) | a prior video is still awaiting its first MJ ack (videos bind FIFO, so they submit serially) | poll `/wait`, then submit the next video. Do NOT re-roll — the window clears as soon as the prior video binds |
-| `NOT_A_VIDEO_PROMPT` (HTTP 400) | the `/video` prompt is missing `--video` | rebuild it with `compose_video`. Deterministic input error — do NOT re-roll, fix the prompt |
+| `VIDEO_IN_FLIGHT` (HTTP 409) | a prior video is still awaiting its first MJ ack (videos bind FIFO, so they submit serially) | poll `/wait`, then submit the next video. Do NOT regenerate — the window clears as soon as the prior video binds |
+| `NOT_A_VIDEO_PROMPT` (HTTP 400) | the `/video` prompt is missing `--video` | rebuild it with `compose_video`. Deterministic input error — do NOT regenerate, fix the prompt |
 
 A `/imagine` that returns HTTP 202 with `status: "submitted_unconfirmed"` is NOT a failure — the Discord interaction took longer than 35s but MJ may have processed it. Poll `/wait` for the actual outcome. DO NOT re-fire `/imagine` for the same asset before `/wait` resolves; that would double-bill if MJ processed the original.
 
-`imagine` accepts an optional `idempotency_key`. Pass one (any unique string, e.g. a UUID you generate per attempt) and reuse it on a retry of the *same* attempt: if the original submission actually landed, the bridge replays the existing job (`idempotent_replay: true` in the response) instead of submitting and billing again. Use a fresh key (or none) for a deliberate re-roll — the key dedupes retries, not assets.
+`imagine` accepts an optional `idempotency_key`. Pass one (any unique string, e.g. a UUID you generate per attempt) and reuse it on a retry of the *same* attempt: if the original submission actually landed, the bridge replays the existing job (`idempotent_replay: true` in the response) instead of submitting and billing again. Use a fresh key (or none) for a deliberate regeneration — the key dedupes retries, not assets.
 
-Everything else (generic backend exceptions, timeouts): re-roll up to N times (3 is a reasonable default), then escalate. The two video codes above are exceptions to the re-roll default — `NOT_A_VIDEO_PROMPT` is a deterministic input error (re-rolling just repeats it) and `VIDEO_IN_FLIGHT` resolves itself (poll, don't re-roll).
+Everything else (generic backend exceptions, timeouts): regenerate up to N times (3 is a reasonable default), then escalate. The two video codes above are exceptions to the regenerate default — `NOT_A_VIDEO_PROMPT` is a deterministic input error (regenerating just repeats it) and `VIDEO_IN_FLIGHT` resolves itself (poll, don't regenerate).
 
 ## When to ask the human
 
@@ -182,8 +182,8 @@ The human's preference about involvement comes first. If they've asked to see th
 Absent that, you're capable of deciding these on your own, so don't reflexively ask:
 
 - Which quadrant of a grid is best — you can read the PNG with vision and pick. But if the human would rather see the grid and choose, show it to them and let them.
-- Whether to re-roll — apply the policy above.
-- Whether to alpha-key — read the cropped PNG; if it needs transparency, call `alpha_key` (default `method="flood"`, `tolerance=24`). The tool envelope returns `keyed_ratio`. Healthy band is 0.1-0.9. Under 0.1 means the keyer found no background (swap `method="threshold"` or skip alpha-key). Over 0.9 means it keyed out the subject itself (reject and reroll with higher-contrast composition, or skip alpha-key for this asset).
+- Whether to regenerate — apply the policy above.
+- Whether to alpha-key — read the cropped PNG; if it needs transparency, call `alpha_key` (default `method="flood"`, `tolerance=24`). The tool envelope returns `keyed_ratio`. Healthy band is 0.1-0.9. Under 0.1 means the keyer found no background (swap `method="threshold"` or skip alpha-key). Over 0.9 means it keyed out the subject itself (reject and regenerate with higher-contrast composition, or skip alpha-key for this asset).
 
 You should ask the human for:
 
@@ -198,7 +198,7 @@ Every `/imagine` submission gets a per-job request token appended to the prompt 
 
 ## The prompt log is your working memory
 
-`read_prompt_log(n=5)` returns the last 5 records as structured dicts. Read it at the top of each loop iteration to know what you've already tried for the current asset_id. Write to it via `log_append` after every roll, including failures — the next iteration's read depends on yours having been written.
+`read_prompt_log(n=5)` returns the last 5 records as structured dicts. Read it at the top of each loop iteration to know what you've already tried for the current asset_id. Write to it via `log_append` after every generation run, including failures — the next iteration's read depends on yours having been written.
 
 Fields per record:
 
@@ -212,7 +212,7 @@ Fields per record:
   "upscale": "1" | "all" | null,
   "outputs": { "image_path": "...", "grid_path": "...", "upscales": {...} },
   "error": null | "...",
-  "agent_decision": "promote" | "reroll" | "escalate" | null,
+  "agent_decision": "promote" | "regenerate" | "escalate" | null,
   "agent_reason": "freeform — one sentence, what informed the call"
 }
 ```

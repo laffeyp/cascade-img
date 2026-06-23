@@ -6,7 +6,7 @@ and `MIDJOURNEY_DISCORD_CAPABILITIES` (in `bridge_client.py`) mirror it.
 
 **Version stance.** cascade-img is **version-aware** and defaults to **Midjourney
 V8.1** — MJ's default model since 2026-06-11. The composer's `version` accepts
-`"8.1"` (default), `"8"`, or `"7"`; pick the version per roll (the MCP
+`"8.1"` (default), `"8"`, or `"7"`; pick the version per generation (the MCP
 `compose_prompt` tool, the `cascade-mj` registry, and `PromptComposer.compose`
 all take it).
 
@@ -162,7 +162,7 @@ live for slots 1 and 2. The whole chain — `generate_video` → `video_upscale`
 > The grid's **re-roll** button is deliberately not exposed as an action. It
 > generates a fresh, untracked video whose own `--video` short-URL ack would be
 > claimed by the bind-on-vendor-echo matcher and could mis-bind a pending
-> `generate_video` job — re-roll by calling `generate_video` again instead, which
+> `generate_video` job — regenerate by calling `generate_video` again instead, which
 > is tracked and serialized.
 
 ---
@@ -182,7 +182,7 @@ than implied:
 - **Video SD/HD resolution** — a settings-panel toggle, not a prompt flag, so
   it's not exposed. (Native video *generation* and its result buttons —
   `video_upscale` / `extend_*` — ARE wired; see "Video result actions" above.
-  The grid's re-roll button is deliberately deferred — re-roll via
+  The grid's re-roll button is deliberately deferred — regenerate via
   `generate_video` instead.)
 - **Character Reference (`--cref` / `--cw`).** Superseded by Omni Reference
   (`--oref` / `--ow`, V7-only), which **is** supported on V7.
