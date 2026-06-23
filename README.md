@@ -96,7 +96,7 @@ Fully quit Discord (Cmd+Q, not just closing the window), reopen it, then press
 | `MJ_CHANNEL_ID` | yes | Discord Settings → Advanced → **Developer Mode** on. Right-click your Midjourney channel → **Copy Channel ID**. |
 | `MJ_IMAGINE_VERSION` | yes | DevTools → **Network**. Run `/imagine` in the MJ channel, read `data.version` (19-digit) from the `POST /api/v9/interactions` payload. |
 | `MJ_GUILD_ID` | when the channel is in a server (almost always) | Right-click the server icon → **Copy Server ID**. |
-| `DISCORD_USER_TOKEN` | yes | DevTools → **Console** with mobile emulation on (**Cmd+Shift+M**) — run the snippet just below and copy the printed token. |
+| `DISCORD_USER_TOKEN` | yes | In DevTools, open the **Console** tab and turn on mobile emulation (**Cmd+Shift+M**). Paste the snippet below into the console, press Enter, and copy the token it prints. |
 
 ```javascript
 const iframe = document.createElement('iframe');
