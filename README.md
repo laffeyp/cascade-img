@@ -5,19 +5,19 @@
 [![CI](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml/badge.svg)](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
-cascade-img is a visual asset generation pipeline an LLM can run. Right now we wrap and instrument Midjourney's image and video generation so that it's far easier than before to create assets using only your voice or text to drive an LLM — you go from an idea to a set of coherent, related assets.
+cascade-img is a visual asset generation pipeline an LLM can run. You tell an AI assistant what you want — by voice or text — and it composes the prompts, generates the images or video, picks the good ones, cleans them up, and files them away. You start with an idea and end up with a whole set of coherent, related assets.
 
 Instead of making one image at a time on a paid generation service, then saving each result in the web UI, downloading it, making folders, and keeping track of it all, you generate by conversation and manage the whole process yourself. Just open the repo, point your AI assistant at it, tell it to read [AGENTS.md](./AGENTS.md), and your Claude can drive the whole thing over MCP at your direction.
 
 Of course, there is also a CLI, and you can import it as a package to use in code.
 
-## What is Midjourney, and why Discord?
+The generator we drive today is Midjourney — the hardest one to reach, which is why we started there. Other backends (Flux, DALL-E, Imagen, …) are built to slot in behind the same interface.
+
+## How it works
 
 Midjourney is a text-to-image generator — you describe a picture ("a flat-design icon of a mountain") and it paints it, one of the strongest models for stylized, art-directed work. The catch: it has no public API. The only way to reach it is its Discord bot, where you type `/imagine <prompt>` and it replies with a 2×2 grid of four candidates to pick one from and *upscale* to full resolution. (It needs a paid subscription — [midjourney.com](https://midjourney.com).) If you have used Midjourney, this is familiar; if you have not, it is a little complicated to explain.
 
-cascade-img automates your interaction with this Midjourney/Discord flow, and in the future will let you compose asset pipelines *between* different image generation services.
-
-## How it works
+cascade-img automates that whole Midjourney/Discord flow for you, so you never have to touch Discord or learn the prompt syntax yourself.
 
 We split the prompt into composable parts you set independently, log every attempt as working memory for the next pass, and expose the whole loop through an MCP server — the protocol [Claude, Cursor, Cline, and others](https://modelcontextprotocol.io) use to call tools — so an agent can compose, generate, curate, and log without your input on every generation.
 
