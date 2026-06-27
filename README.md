@@ -9,8 +9,6 @@
 
 Generate Midjourney images by conversation instead of by hand. You describe what you want; your AI assistant composes the prompt, fires it, inspects the grid with vision, crops the best quadrant, cleans it up, and logs what worked.
 
-> **Heads up:** Midjourney has no public API. This tool reaches it through a Discord user account — the same way every open-source MJ tool works. Both Discord and Midjourney's ToS prohibit this. A paid MJ subscription is required. [Details below.](#disclaimer)
-
 ```
 You: "I need a flat-design mountain icon, centered, simple shapes, transparent background"
 
