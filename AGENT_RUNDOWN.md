@@ -42,8 +42,9 @@ Then give me, in plain language and in this order:
   - THE MENTAL MODEL: composable prompt parts -> compose -> imagine -> wait ->
     curate (crop / alpha-key / promote) -> log; and the split between the
     long-running bridge daemon and the CLI/MCP entry points.
-  - HOW TO RUN IT end to end: the three console scripts (names taken verbatim
-    from [project.scripts]), the required .env values (from RUNBOOK.md), and the
+  - HOW TO RUN IT end to end: the three operating console scripts (plus
+    `cascade-trace-check`, a trace validator; names taken verbatim from
+    [project.scripts]), the required .env values (from RUNBOOK.md), and the
     minimal happy path from install to a first generated image.
   - THE CONTRACT: the { ok, result | error: { code, message, remediation } }
     envelope, and what the stable error codes mean (from the JOB_FAILED tag).

@@ -23,7 +23,7 @@ updated 2026-06-11):
 - **Both V7 and V8.1:** `--ar`, `--style raw`, `--p`, `--sref`, `--sw`, `--s`,
   `--no`, `--tile`, `--exp`, `--chaos`, `--weird`, `--seed`, `--iw`, image prompts.
 - **V7 only:** `--oref`/`--ow` (Omni Reference), `--q` (Quality).
-- **V8.1 only:** `--hd` (native 2048px) / `--sd` (1024px).
+- **V8 family only (`8`/`8.1`, not V7):** `--hd` (native 2048px) / `--sd` (1024px).
 
 Midjourney changes its parameter surface over time; this reflects V8.1/V7 as of
 mid-2026. If a flag stops working, check Midjourney's
@@ -57,8 +57,8 @@ construction, so a bad value fails before it reaches Midjourney.
 | `chaos` | `--chaos` | 0–100 | Variety across the four grid candidates. |
 | `weird` | `--weird` | 0–3000 | Offbeat / unconventional aesthetics. |
 | `quality` | `--q` | 1, 2, or 4 | GPU-cost lever on the initial grid (no `--q 3`). **V7 only** (requires `version="7"`); V8.1 uses `hd`/`sd` instead. |
-| `hd` | `--hd` | on/off | **V8.1 only.** Native 2048×2048 render, no separate upscale step (~1.3 GPU-min). Mutually exclusive with `sd`. |
-| `sd` | `--sd` | on/off | **V8.1 only.** Native 1024×1024 render (~0.8 GPU-min). Mutually exclusive with `hd`. |
+| `hd` | `--hd` | on/off | **V8 family only (`8`/`8.1`).** Native 2048×2048 render, no separate upscale step (~1.3 GPU-min). Mutually exclusive with `sd`. |
+| `sd` | `--sd` | on/off | **V8 family only (`8`/`8.1`).** Native 1024×1024 render (~0.8 GPU-min). Mutually exclusive with `hd`. |
 | `seed` | `--seed` | 0–4294967295 | Near-reproducibility within a fixed model + params. |
 | `version` | `--v` | `8.1` (default), `8`, `7` | Midjourney model version. Default `8.1`; use `7` for the `oref` identity lock and `--q`. |
 

@@ -2,7 +2,7 @@
 
 Validates prompt-string assembly across the prompt-part combinations the
 consumer can build, plus the signal payload on each, and the version-aware
-feature gating (default V8.1; --oref/--q are V7-only; --hd/--sd are V8.1-only).
+feature gating (default V8.1; --oref/--q are V7-only; --hd/--sd are V8-family-only).
 """
 
 from __future__ import annotations
@@ -353,12 +353,12 @@ def test_quality_requires_v7():
 
 
 def test_hd_sd_require_v8():
-    """--hd/--sd are V8.1-only; requesting them on V7 fails loudly."""
+    """--hd/--sd are V8-family-only; requesting them on V7 fails loudly."""
     composer = PromptComposer()
     subj = Subject(text="x")
-    with pytest.raises(ValueError, match=r"--hd/--sd .* V8\.1 parameters"):
+    with pytest.raises(ValueError, match=r"--hd/--sd .* V8-family parameters"):
         composer.compose(subj, params=ParamStack(hd=True), version="7")
-    with pytest.raises(ValueError, match=r"--hd/--sd .* V8\.1 parameters"):
+    with pytest.raises(ValueError, match=r"--hd/--sd .* V8-family parameters"):
         composer.compose(subj, params=ParamStack(sd=True), version="7")
 
 

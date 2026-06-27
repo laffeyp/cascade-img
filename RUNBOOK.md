@@ -31,13 +31,15 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-This pulls in `discord.py-self`, `flask`, `requests`, `python-dotenv`, `Pillow`, and `mcp`. Three console scripts land on your `PATH`:
+This pulls in `discord.py-self`, `flask`, `requests`, `python-dotenv`, `Pillow`, and `mcp`. Three console scripts for operating cascade-img land on your `PATH`:
 
-These three commands are console-script entry points declared in `pyproject.toml` under `[project.scripts]`. Installing puts a small executable wrapper for each on your `PATH`, and each wrapper imports and calls the named function (for example, `cascade-mj` maps to `cascade_img.interfaces.cli.generate_image:main`). They are thin aliases to that code.
+These three commands — together with `cascade-trace-check` (a diagnostics validator, described below) — are console-script entry points declared in `pyproject.toml` under `[project.scripts]`. Installing puts a small executable wrapper for each on your `PATH`, and each wrapper imports and calls the named function (for example, `cascade-mj` maps to `cascade_img.interfaces.cli.generate_image:main`). They are thin aliases to that code.
 
 - `cascade-mj-bridge` — the MJ Discord bridge daemon
 - `cascade-mcp` — the MCP server (Claude Desktop / Cursor / Cline)
 - `cascade-mj` — the CLI that composes a prompt from a registry asset, fires the generation, waits, and logs the result
+
+Installation also adds `cascade-trace-check` — a diagnostics validator, not part of the runtime generation loop. It reads a recorded event-log JSONL (written when `CASCADE_EVENT_LOG` is set, below) and checks it against the vocabulary's declared event ordering and timing rules.
 
 ### Enable DevTools in the Discord desktop app
 

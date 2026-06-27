@@ -69,6 +69,21 @@ def load_vocab(path: Path) -> set[str]:
     return {t["name"] for t in data.get("tags", [])}
 
 
+def find_unmapped_tags(data: dict) -> list[str]:
+    """Tag names not claimed by any operator's ``emits`` in the catalog.
+
+    The ``operators`` map promises every tag traces to the component (and file)
+    that emits it; an unmapped tag renders as ``Emitted by ? (?)`` in the
+    generated ``0.1-reference.md``. The tag-list and emit-site checks can't catch
+    this — the tag exists and is emitted — so this is its own guard (origin: the
+    five video/loop tags shipped unmapped, 2026-06).
+    """
+    mapped: set[str] = set()
+    for op in data.get("operators", {}).get("operators", []):
+        mapped.update(op.get("emits", []))
+    return sorted(t["name"] for t in data.get("tags", []) if t["name"] not in mapped)
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser()
     p.add_argument(
@@ -118,6 +133,25 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 1
+
+    # Operator-coverage: every tag must be claimed by some operator's `emits`,
+    # else it renders as "Emitted by ? (?)" in the generated reference.
+    unmapped = find_unmapped_tags(raw)
+    if unmapped:
+        print(
+            f"[parity] OPERATOR COVERAGE GAP: {len(unmapped)} tag(s) are claimed by "
+            "no operator's 'emits' in the catalog — they render as "
+            "'Emitted by ? (?)' in 0.1-reference.md:",
+            file=sys.stderr,
+        )
+        for tag in unmapped:
+            print(f"  {tag}", file=sys.stderr)
+        print(
+            "[parity]   add each to the emitting operator's 'emits' list (both "
+            "catalog copies), then regenerate the reference.",
+            file=sys.stderr,
+        )
+        return 1
 
     vocab = load_vocab(vocab_path)
     calls = find_emit_calls(src_path)

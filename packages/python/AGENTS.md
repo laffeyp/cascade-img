@@ -115,7 +115,7 @@ cascade-img is **version-aware** and defaults to **Midjourney V8.1** (MJ's defau
 since 2026-06-11). Set `version` to `"8.1"` (default), `"8"`, or `"7"`. V8.1
 dropped some V7 features, so the composer gates them and fails loudly on a
 mismatch: **`oref`/`ow` and `quality` are V7-only** (set `version="7"`), and
-**`hd`/`sd` are V8.1-only**. Everything else works on both.
+**`hd`/`sd` are V8-family-only (`8`/`8.1`, not V7)**. Everything else works on both.
 
 The composer assembles these into the prompt string. The most-used:
 
@@ -128,7 +128,7 @@ The composer assembles these into the prompt string. The most-used:
 - **Aspect ratio (`--ar`)**: "1:1", "16:9", "9:16", etc.
 - **Version (`--v`)**: `"8.1"` (default), `"8"`, or `"7"`.
 
-The composer also accepts `sw` (`--sw` style weight, only with `sref`), `negatives` (`--no`), image prompts + `image_weight` (`--iw`), the render-control params `tile`, `exp` (`--exp` experimental aesthetics), `chaos`, `weird`, `seed`, the **V7-only** `quality` (`--q`), and the **V8.1-only** `hd`/`sd` (native 2048px / 1024px). **[CAPABILITIES.md](./CAPABILITIES.md) is the complete reference** — every part, its range, the per-version split, every `mj_action`, and the features intentionally not wired (draft mode, `--repeat`, GPU/stealth modes, …).
+The composer also accepts `sw` (`--sw` style weight, only with `sref`), `negatives` (`--no`), image prompts + `image_weight` (`--iw`), the render-control params `tile`, `exp` (`--exp` experimental aesthetics), `chaos`, `weird`, `seed`, the **V7-only** `quality` (`--q`), and the **V8-family-only** `hd`/`sd` (native 2048px / 1024px). **[CAPABILITIES.md](./CAPABILITIES.md) is the complete reference** — every part, its range, the per-version split, every `mj_action`, and the features intentionally not wired (draft mode, `--repeat`, GPU/stealth modes, …).
 
 ## Holding a non-photoreal style
 

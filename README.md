@@ -35,7 +35,7 @@ cd cascade-img/packages/python
 pip install -e .
 ```
 
-This puts three commands on your PATH: `cascade-mj-bridge` (the daemon), `cascade-mcp` (the MCP server), and `cascade-mj` (the CLI).
+This puts three commands for operating cascade-img on your PATH: `cascade-mj-bridge` (the daemon), `cascade-mcp` (the MCP server), and `cascade-mj` (the CLI). Installing also adds a fourth command, `cascade-trace-check` — a diagnostics validator (not part of the generation loop) that replays a recorded event log and checks it against the vocabulary's declared event ordering and timing rules.
 
 **Configure** — you need four values from the Discord desktop app (channel ID, server ID, imagine version, and your user token). Takes about five minutes. [RUNBOOK.md](./RUNBOOK.md) walks through each one step by step.
 
@@ -75,7 +75,7 @@ echo '{
   }
 }' > assets.json
 
-cascade-mj generate mountain-icon --registry assets.json --upscale all --pretty
+cascade-mj mountain-icon --registry assets.json --upscale all --pretty
 ```
 
 ---

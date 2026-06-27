@@ -188,10 +188,12 @@ mark them as coroutines when they are not.
 | `DISCORD_400_OUTDATED` | The `/imagine` command version is stale; re-capture it. |
 | `DISCORD_400_UNKNOWN_CHANNEL` | Channel/guild misconfigured (often a missing `MJ_GUILD_ID`). |
 | `DISCORD_401` | Token rejected; re-capture it. |
+| `DISCORD_HTTP_ERROR` | Any other non-2xx from the Discord interaction; the status is in `error_message`. |
 | `DISCORD_NOT_READY` | The gateway was disconnected at submit time. |
 | `GRID_DOWNLOAD_FAILED` / `UPSCALE_DOWNLOAD_FAILED` | Image fetch from Discord failed. |
 | `MJ_UUID_MISSING` | Midjourney did not return the expected job identifiers. |
 | `SUBMIT_FAILED` | The interaction POST itself failed. |
 | `UPSCALE_BUTTON_FAILED` / `UPSCALE_ALL_BUTTONS_FAILED` | One or all upscale presses failed. |
+| `RESUBMIT_REQUIRED` | A pre-grid job was failed on daemon-restart rehydration (MJ's processing is unconfirmable across the gap); re-submit and verify rather than risk a double-bill. |
 
 See `RUNBOOK.md` for the operator-facing recovery procedure behind each code.

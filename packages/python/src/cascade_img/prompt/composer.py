@@ -15,8 +15,9 @@ version, grounded in MJ's own Version compatibility chart
   ``--sw``, ``--s``, ``--no``, ``--tile``, ``--exp``, ``--chaos``, ``--weird``,
   ``--seed``, ``--iw``, leading image-prompt URLs.
 - **V7 only:** ``--oref``/``--ow`` (Omni Reference), ``--q`` (Quality).
-- **V8.1 only:** ``--hd`` (native 2048px) / ``--sd`` (1024px) — V8.1 renders at
-  native resolution without a separate upscale step.
+- **V8 family only (``8``/``8.1``, not V7):** ``--hd`` (native 2048px) /
+  ``--sd`` (1024px) — the V8 family renders at native resolution without a
+  separate upscale step.
 
 Cross-version conflicts (e.g. ``--oref`` requested on V8.1) fail loudly at
 ``compose()`` rather than silently altering the render — MJ itself silently
@@ -221,10 +222,10 @@ class ParamStack:
     - ``quality`` is ``--q``, one of {1, 2, 4} (GPU-cost lever; affects only the
       initial grid — the U-button upscales inherit the grid). **V7 only** — V8.1
       does not support ``--q`` (use ``hd``/``sd`` for V8.1 resolution control).
-    - ``hd`` toggles ``--hd``: V8.1 native 2048x2048 rendering, no separate
-      upscale step (~1.3 GPU-min). **V8.1 only.**
-    - ``sd`` toggles ``--sd``: V8.1 native 1024x1024 rendering (~0.8 GPU-min).
-      **V8.1 only.** Mutually exclusive with ``hd``.
+    - ``hd`` toggles ``--hd``: native 2048x2048 rendering, no separate
+      upscale step (~1.3 GPU-min). **V8 family only (``8``/``8.1``).**
+    - ``sd`` toggles ``--sd``: native 1024x1024 rendering (~0.8 GPU-min).
+      **V8 family only (``8``/``8.1``).** Mutually exclusive with ``hd``.
     - ``seed`` is ``--seed`` (0-4294967295). Reproducibility holds only within
       a fixed model + params in non-Turbo mode, and even then outputs are
       near-identical, not bit-identical. Store it as "the seed we requested".
@@ -243,7 +244,7 @@ class ParamStack:
         if self.hd and self.sd:
             raise ValueError(
                 "ParamStack.hd (2048px) and ParamStack.sd (1024px) are mutually "
-                "exclusive; set at most one (both are V8.1-only)."
+                "exclusive; set at most one (both are V8-family-only: 8 or 8.1)."
             )
         if self.exp is not None and not 0 <= self.exp <= 100:
             raise ValueError(
@@ -387,8 +388,9 @@ class PromptComposer:
                 if is_v7:
                     raise ValueError(
                         "--hd/--sd (native-resolution rendering) are Midjourney "
-                        "V8.1 parameters; V7 does not support them (V7 uses --q "
-                        "plus a separate upscale). Drop hd/sd, or render on V8.1."
+                        "V8-family parameters (version 8 or 8.1); V7 does not "
+                        "support them (V7 uses --q plus a separate upscale). "
+                        "Drop hd/sd, or render on the V8 family."
                     )
                 if params.hd:
                     flags.append("--hd")

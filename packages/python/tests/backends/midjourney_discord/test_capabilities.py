@@ -20,7 +20,7 @@ from cascade_img.vocabulary import clear, snapshot
 def test_capabilities_cover_composer():
     """Compose every part the composer can emit and assert each emitted token is
     declared in the backend's capabilities. Because feature support is
-    version-gated (oref/ow/quality are V7-only; hd/sd are V8.1-only), the full
+    version-gated (oref/ow/quality are V7-only; hd/sd are V8-family-only), the full
     surface can't be emitted in one call — so we compose a V7 prompt (with
     oref+quality) and a V8.1 prompt (with hd+sd) and union their emitted parts.
     ``style_raw`` is a real capability but isn't recorded as a used-part token,
@@ -50,7 +50,7 @@ def test_capabilities_cover_composer():
     )
     emitted |= set(snapshot()[-1]["payload"]["prompt_parts_used"])
 
-    # V8.1 path: exercises the V8.1-only features (hd; sd is hd's mutually
+    # V8.1 path: exercises the V8-family-only features (hd; sd is hd's mutually
     # exclusive sibling, covered separately below).
     clear()
     PromptComposer().compose(
