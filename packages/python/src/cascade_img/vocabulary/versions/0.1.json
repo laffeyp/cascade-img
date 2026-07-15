@@ -72,7 +72,7 @@
     "constraints": [
       {"target_tag": "JOB_FAILED", "target_field": "error_code", "enum": ["DISCORD_400_OUTDATED", "DISCORD_400_UNKNOWN_CHANNEL", "DISCORD_401", "DISCORD_HTTP_ERROR", "DISCORD_NOT_READY", "GRID_DOWNLOAD_FAILED", "MJ_UUID_MISSING", "SUBMIT_FAILED", "UPSCALE_DOWNLOAD_FAILED", "UPSCALE_BUTTON_FAILED", "UPSCALE_ALL_BUTTONS_FAILED", "RESUBMIT_REQUIRED"], "enforceability": "mechanical"},
       {"target_tag": "CONFIG_VALIDATION_FAILED", "target_field": "code", "enum": ["MISSING_DISCORD_TOKEN", "MISSING_CHANNEL_ID", "INVALID_CHANNEL_ID", "MISSING_IMAGINE_VERSION", "INVALID_PORT"], "enforceability": "mechanical"},
-      {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["compose_prompt", "compose_video", "generate_video", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log", "contact_sheet", "auto_trim", "palette_quantize", "sprite_sheet", "score_grid", "video_filmstrip", "loop_seam_delta", "mj_action"], "enforceability": "mechanical"},
+      {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["cascade_guide", "compose_prompt", "compose_video", "generate_video", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log", "contact_sheet", "auto_trim", "palette_quantize", "sprite_sheet", "score_grid", "video_filmstrip", "loop_seam_delta", "mj_action"], "enforceability": "mechanical"},
       {"target_tag": "GRID_MATCHED", "target_field": "match_path", "enum": ["pending", "progress_fallback", "unknown"], "enforceability": "mechanical"},
       {"target_tag": "MCP_SERVER_STARTED", "target_field": "transport", "enum": ["stdio", "http"], "enforceability": "mechanical"},
       {"target_tag": "MJ_ACTION_REQUESTED|MJ_ACTION_FAILED", "target_field": "action", "enum": ["upscale_subtle", "upscale_creative", "vary_subtle", "vary_strong", "zoom_out_2x", "zoom_out_1_5x", "pan_left", "pan_right", "pan_up", "pan_down", "animate_high", "animate_low", "favorite", "video_upscale", "extend_high", "extend_low"], "enforceability": "mechanical"},
@@ -388,7 +388,7 @@
       "stratum": "event",
       "payload": ["tool"],
       "optional_payload": [],
-      "note": "An MCP tool invocation began. tool is one of the names in the MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED evidence-constraint enum (the authoritative list): compose_prompt, compose_video, generate_video, imagine, wait, status, bridge_health, crop_grid, alpha_key, promote, log_append, read_prompt_log, contact_sheet, auto_trim, palette_quantize, sprite_sheet, score_grid, video_filmstrip, loop_seam_delta, mj_action."
+      "note": "An MCP tool invocation began. tool is one of the names in the MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED evidence-constraint enum (the authoritative list): cascade_guide, compose_prompt, compose_video, generate_video, imagine, wait, status, bridge_health, crop_grid, alpha_key, promote, log_append, read_prompt_log, contact_sheet, auto_trim, palette_quantize, sprite_sheet, score_grid, video_filmstrip, loop_seam_delta, mj_action."
     },
     {
       "name": "MCP_TOOL_COMPLETED",

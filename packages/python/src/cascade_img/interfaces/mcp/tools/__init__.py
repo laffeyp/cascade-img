@@ -30,12 +30,15 @@ from cascade_img.interfaces.mcp.tools.generation_tools import (
     status,
     wait,
 )
+from cascade_img.interfaces.mcp.tools.guide_tools import cascade_guide
 from cascade_img.interfaces.mcp.tools.log_tools import log_append, read_prompt_log
 from cascade_img.interfaces.mcp.tools.prompt_tools import compose_prompt, compose_video
 
-# Registration order = the order tools are advertised over MCP. Grouped by
-# concern: prompt -> generation -> curation -> log.
+# Registration order = the order tools are advertised over MCP. cascade_guide is
+# first (it is the START-HERE activation tool); then grouped by concern:
+# prompt -> generation -> curation -> log.
 ALL_TOOLS = (
+    cascade_guide,
     compose_prompt,
     compose_video,
     imagine,
@@ -63,6 +66,7 @@ __all__ = [
     "alpha_key",
     "auto_trim",
     "bridge_health",
+    "cascade_guide",
     "compose_prompt",
     "compose_video",
     "contact_sheet",

@@ -33,6 +33,23 @@ _VALID_ENV = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _guide_read_by_default() -> Iterator[None]:
+    """Default the MCP read-first gate to open for every test.
+
+    Tool tests drive the gated tools directly and assume the operator guide has
+    already been read — the steady state once a session is underway. The gate
+    itself is exercised in ``tests/tools/test_guide_gate.py``, which flips
+    ``_envelope._guide_read`` off in-body. Save/restore so the flag never leaks
+    across tests."""
+    from cascade_img.interfaces.mcp import _envelope
+
+    saved = _envelope._guide_read
+    _envelope._guide_read = True
+    yield
+    _envelope._guide_read = saved
+
+
 @pytest.fixture
 def scrubbed_env(monkeypatch, tmp_path) -> Iterator[None]:
     """Delete every Config-relevant env var and chdir to a tmp dir so no

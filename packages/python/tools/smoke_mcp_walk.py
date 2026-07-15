@@ -5,11 +5,15 @@ imports but via the real MCP stdio JSON-RPC transport. The bridge daemon and
 the MCP server are both launched as subprocesses; the walk talks to the MCP
 server the same way Claude Desktop, Cursor, or Cline would.
 
-The tool sequence mirrors a normal agent loop::
+The tool sequence mirrors a normal agent loop, including the read-first
+activation the server now requires::
 
-    bridge_health -> compose_prompt -> imagine -> wait
-                  -> crop_grid -> [alpha_key]? -> promote
+    bridge_health -> cascade_guide (read the manual) -> compose_prompt
+                  -> imagine -> wait -> crop_grid -> [alpha_key]? -> promote
                   -> log_append -> read_prompt_log
+
+Before calling cascade_guide the walk also asserts a gated tool is refused with
+GUIDE_UNREAD, proving the gate is live.
 
 ``alpha_key`` is opt-in: the agent (or this walk via ``--alpha-key``) decides
 per-asset whether transparency is wanted. The default walk does crop ->
@@ -102,8 +106,11 @@ def _print_envelope(name: str, envelope: dict, max_chars: int = 600) -> None:
         print(f"  (truncated at {max_chars} of {len(body)} chars)", flush=True)
 
 
-def _unwrap(name: str, result: Any) -> dict:
-    """Convert an mcp CallToolResult into the tool's structured envelope."""
+def _parse_envelope(name: str, result: Any) -> dict:
+    """Parse an mcp CallToolResult into its envelope dict WITHOUT asserting ok.
+
+    Used for the read-first-gate check, which expects ``ok: false`` on purpose.
+    """
     content = getattr(result, "content", None)
     if not content:
         raise StepFailure(f"{name}: empty MCP content")
@@ -117,6 +124,12 @@ def _unwrap(name: str, result: Any) -> dict:
         raise StepFailure(f"{name}: payload is not JSON: {text[:200]}") from e
     if not isinstance(envelope, dict) or "ok" not in envelope:
         raise StepFailure(f"{name}: envelope missing 'ok' field: {envelope!r}")
+    return envelope
+
+
+def _unwrap(name: str, result: Any) -> dict:
+    """Convert an mcp CallToolResult into the tool's structured envelope, asserting ok."""
+    envelope = _parse_envelope(name, result)
     if not envelope["ok"]:
         raise StepFailure(f"{name}: tool returned ok=false: {envelope.get('error')!r}")
     return envelope
@@ -232,13 +245,52 @@ async def _walk(args: argparse.Namespace, output_dir: Path) -> Path:
     async with _mcp_session(env) as session:
         _banner("tools/list")
         tools = await session.list_tools()
-        print(", ".join(t.name for t in tools.tools), flush=True)
+        tool_names = [t.name for t in tools.tools]
+        print(", ".join(tool_names), flush=True)
+        if "cascade_guide" not in tool_names:
+            raise StepFailure("cascade_guide missing from the advertised tool list")
+        if tool_names[0] != "cascade_guide":
+            print(
+                f"  note: cascade_guide is not advertised first (first={tool_names[0]})", flush=True
+            )
 
         _banner("bridge_health")
         env_resp = _unwrap("bridge_health", await session.call_tool("bridge_health", {}))
         _print_envelope("bridge_health", env_resp)
         if not env_resp["result"].get("discord_ready"):
             raise StepFailure("bridge_health says discord_ready=false")
+
+        # --- read-first gate: prove it's closed, then open it with the guide ---
+        # A fresh cascade-mcp process has not read the manual, so a gated tool
+        # (compose_prompt) must refuse with GUIDE_UNREAD until cascade_guide runs.
+        _banner("gate check (compose_prompt before cascade_guide)")
+        gate_env = _parse_envelope(
+            "compose_prompt(pre-guide)",
+            await session.call_tool(
+                "compose_prompt",
+                {
+                    "subject": subject,
+                    "constraints": constraints,
+                    "aspect_ratio": args.aspect_ratio,
+                },
+            ),
+        )
+        _print_envelope("compose_prompt(pre-guide)", gate_env)
+        if (
+            gate_env.get("ok") is not False
+            or gate_env.get("error", {}).get("code") != "GUIDE_UNREAD"
+        ):
+            raise StepFailure(
+                f"read-first gate not enforced: expected ok=false GUIDE_UNREAD, got {gate_env!r}"
+            )
+
+        _banner("cascade_guide (activation — read the full manual)")
+        guide_text = _unwrap("cascade_guide", await session.call_tool("cascade_guide", {}))[
+            "result"
+        ]["guide"]
+        print(f"[cascade_guide] operating manual loaded: {len(guide_text)} chars", flush=True)
+        if len(guide_text) < 60000:
+            raise StepFailure(f"cascade_guide returned a short manual: {len(guide_text)} chars")
 
         _banner("compose_prompt")
         env_resp = _unwrap(

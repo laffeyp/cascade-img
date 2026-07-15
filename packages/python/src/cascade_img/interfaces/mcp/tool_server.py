@@ -25,6 +25,7 @@ from cascade_img.interfaces.mcp.tools import (
     alpha_key,
     auto_trim,
     bridge_health,
+    cascade_guide,
     compose_prompt,
     compose_video,
     contact_sheet,
@@ -49,6 +50,7 @@ __all__ = [
     "alpha_key",
     "auto_trim",
     "bridge_health",
+    "cascade_guide",
     "compose_prompt",
     "compose_video",
     "contact_sheet",
@@ -70,7 +72,14 @@ __all__ = [
     "wait",
 ]
 
-mcp = FastMCP("cascade-mj")
+mcp = FastMCP(
+    "cascade-mj",
+    instructions=(
+        "Before calling any other tool, call cascade_guide — it returns the full "
+        "operating manual (the per-asset loop, every tool, the failure-to-action "
+        "table). The generation and curation tools are gated until you do."
+    ),
+)
 
 # Register each tool: its __name__ is the MCP tool name, its docstring the
 # description. Grouped by concern in ALL_TOOLS (prompt, generation, curation, log).
