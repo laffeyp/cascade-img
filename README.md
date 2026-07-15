@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml/badge.svg)](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
-[![Python 3.14](https://img.shields.io/badge/Python-3.14-blue.svg)](https://www.python.org/)
-[![MCP Tools: 20](https://img.shields.io/badge/MCP_Tools-20-green.svg)](./AGENTS.md)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
+[![MCP Tools: 21](https://img.shields.io/badge/MCP_Tools-21-green.svg)](./AGENTS.md)
 
 <!-- TODO: hero image — pipeline collage: prompt → grid → crop → finished asset -->
 
@@ -17,7 +17,7 @@ Agent: reads prompt log → composes prompt from parts → fires imagine →
        crops it → removes background → saves → logs what worked
 ```
 
-cascade-img is an MCP server with 20 tools that plugs into Claude, Cursor, Codex, or anything that speaks [MCP](https://modelcontextprotocol.io). Midjourney is the first backend; Flux, DALL-E, and Imagen are on the [roadmap](#roadmap). There's also a CLI.
+cascade-img is an MCP server with 21 tools that plugs into Claude, Cursor, Codex, or anything that speaks [MCP](https://modelcontextprotocol.io). Midjourney is the first backend; Flux, DALL-E, and Imagen are on the [roadmap](#roadmap). There's also a CLI.
 
 > **Not a programmer?** Open an AI assistant that can run commands ([Claude Code](https://claude.com/claude-code), Cursor, or Cline), point it at this repo, and say: *"Read RUNBOOK.md and set up cascade-img on this machine, then let me make images by describing them to you."* It does the technical parts. You just need a Midjourney subscription and to copy a few values from Discord.
 
@@ -25,7 +25,7 @@ cascade-img is an MCP server with 20 tools that plugs into Claude, Cursor, Codex
 
 ## Quick Start
 
-**You need:** a [paid Midjourney subscription](https://midjourney.com), a Discord account with the MJ bot in a channel, and Python 3.14.
+**You need:** a [paid Midjourney subscription](https://midjourney.com), a Discord account with the MJ bot in a channel, and Python 3.12 or newer.
 
 ```bash
 git clone https://github.com/laffeyp/cascade-img
@@ -78,10 +78,11 @@ cascade-mj mountain-icon --registry assets.json --upscale all --pretty
 
 ---
 
-## The 20 Tools
+## The 21 Tools
 
 | Category | Tools | What they do |
 |----------|-------|-------------|
+| **Onboarding** | `cascade_guide` | Returns the full operating manual in one call — the loop, every tool, the failure→action table. Call it first; the generation and curation tools are gated until it's read. |
 | **Generation** | `imagine`, `generate_video`, `wait`, `status`, `bridge_health`, `mj_action` | Compose and fire prompts, poll for results, check daemon health, trigger Midjourney actions (upscale, vary, pan) |
 | **Composition** | `compose_prompt`, `compose_video` | Build prompts from structured parts — subject, moodboard, style refs, aspect ratio, negatives — not freeform text |
 | **Curation** | `crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `video_filmstrip`, `loop_seam_delta`, `promote` | Extract quadrants from grids, remove backgrounds, trim whitespace, build sprite sheets, score results with vision, promote winners to final output |
@@ -99,7 +100,7 @@ Other open-source Midjourney tools focus on the generation step — fire the pro
 - **Structured prompt composition** — prompts built from parts (subject, style, identity, constraints), not raw strings
 - **Working memory** — append-only log persists across sessions; each run reads what came before
 - **Curation pipeline** — crop grids, remove backgrounds, build sprite sheets, promote winners
-- **MCP-native** — 20 tools that plug into Claude, Cursor, Codex, or anything that speaks MCP
+- **MCP-native** — 21 tools that plug into Claude, Cursor, Codex, or anything that speaks MCP
 - **Pluggable backends** — Midjourney now, Flux/DALL-E/Imagen on the roadmap
 
 ---
@@ -194,3 +195,6 @@ The backend interface is pluggable — Flux, DALL-E, and Imagen are on the [road
 ## License
 
 Apache-2.0. See [LICENSE](./LICENSE).
+
+<!-- mcp-name: io.github.laffeyp/cascade-img -->
+
