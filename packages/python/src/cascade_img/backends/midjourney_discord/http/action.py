@@ -68,7 +68,7 @@ def http_action(job_id):
     if slot is not None:
         try:
             slot = int(slot)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             return jsonify(
                 ok=False,
                 error={

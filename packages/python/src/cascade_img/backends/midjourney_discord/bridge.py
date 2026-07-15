@@ -137,7 +137,7 @@ def main() -> None:
     try:
         signal.signal(signal.SIGINT, _signal_handler)
         signal.signal(signal.SIGTERM, _signal_handler)
-    except ValueError, OSError:
+    except (ValueError, OSError):
         # Non-main-thread or platform without signal support — atexit catches it.
         pass
 

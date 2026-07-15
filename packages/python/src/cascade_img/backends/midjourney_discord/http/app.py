@@ -65,7 +65,7 @@ def http_wait(job_id):
     timeout_raw = request.args.get("timeout", "120")
     try:
         timeout = float(timeout_raw)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return jsonify(
             ok=False,
             error={

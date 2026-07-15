@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "LLM-operable image-generation pipeline. Midjourney via Discord at v0.1, pluggable backends after."
 readme = "README.md"
 license = { text = "Apache-2.0" }
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 authors = [
     { name = "Peter Laffey" },
 ]
@@ -37,6 +37,8 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Multimedia :: Graphics",
@@ -154,6 +156,11 @@ filterwarnings = [
     # by message because pytest attributes the warning to the asyncio frame, not
     # the discord package. Drop when discord.py-self migrates upstream.
     "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning",
+    # audioop is deprecated on 3.12 (removed in 3.13); discord.py-self imports it
+    # for voice support, which cascade-img never uses. Benign — fires at import
+    # time only on 3.12 (on 3.13+ the module is gone and discord handles its
+    # absence, which is why 3.14 collects clean). Drop when the floor passes 3.12.
+    "ignore:'audioop' is deprecated:DeprecationWarning",
 ]
 
 # ---------------------------------------------------------------------------
@@ -183,7 +190,7 @@ precision = 1
 
 [tool.ruff]
 line-length = 100
-target-version = "py314"
+target-version = "py312"
 extend-exclude = ["_source", "build", "dist"]
 
 [tool.ruff.lint]
@@ -216,7 +223,7 @@ indent-style = "space"
 # ---------------------------------------------------------------------------
 
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.12"
 strict = false
 warn_unused_configs = true
 warn_redundant_casts = true
