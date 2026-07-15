@@ -91,6 +91,17 @@ packages = ["src/cascade_img"]
 "src/cascade_img/vocabulary/versions/0.1.json" = "cascade_img/vocabulary/versions/0.1.json"
 "src/cascade_img/py.typed" = "cascade_img/py.typed"
 "src/cascade_img/.env.example" = "cascade_img/.env.example"
+# Operator guide — the full manual, shipped so a pip-installed (repo-less) agent
+# can read it via the cascade_guide MCP tool. Kept in sync with the repo-root
+# docs by tools/sync_guide_docs.py (--check gates drift).
+"src/cascade_img/guide/AGENTS.md" = "cascade_img/guide/AGENTS.md"
+"src/cascade_img/guide/RUNBOOK.md" = "cascade_img/guide/RUNBOOK.md"
+"src/cascade_img/guide/CAPABILITIES.md" = "cascade_img/guide/CAPABILITIES.md"
+"src/cascade_img/guide/ARCHITECTURE.md" = "cascade_img/guide/ARCHITECTURE.md"
+"src/cascade_img/guide/AGENT_RUNDOWN.md" = "cascade_img/guide/AGENT_RUNDOWN.md"
+"src/cascade_img/guide/example-generate-a-single-image.md" = "cascade_img/guide/example-generate-a-single-image.md"
+"src/cascade_img/guide/example-generate-a-batch.md" = "cascade_img/guide/example-generate-a-batch.md"
+"src/cascade_img/guide/example-generate-a-video.md" = "cascade_img/guide/example-generate-a-video.md"
 
 [tool.hatch.build.targets.sdist]
 include = [
