@@ -52,7 +52,11 @@ async def compose_prompt(
     ``--no`` clause; ``image_prompts`` are reference URLs prepended to the
     prompt with optional ``image_weight`` (``--iw``); ``exp``/``tile``/
     ``chaos``/``weird``/``quality``/``hd``/``sd``/``seed`` are render controls.
-    Out-of-range values return a structured ValueError through the envelope."""
+    Out-of-range values return a structured ValueError through the envelope.
+
+    This only builds the prompt string — fire the result with ``imagine``. It is
+    the first step of the loop; the full loop and every rule are in
+    cascade_guide."""
 
     def go():
         prompt = _envelope._composer.compose(

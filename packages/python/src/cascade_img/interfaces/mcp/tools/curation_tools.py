@@ -32,8 +32,11 @@ async def crop_grid(
     quadrant: int,
     dest: str | None = None,
 ) -> dict[str, Any]:
-    """Crop one quadrant of an MJ grid. ``quadrant=0`` returns the whole
-    image. If ``dest`` is set, write the cropped image to that path."""
+    """Crop one quadrant of a 2x2 MJ grid — the first curation step once a grid
+    lands. ``quadrant`` is 1=TL, 2=TR, 3=BL, 4=BR; ``quadrant=0`` returns the
+    whole image (use it on a single-upscale passthrough). If ``dest`` is set, the
+    cropped image is written there. Pick the quadrant on evidence (``score_grid``)
+    and confirm with vision before ``promote``."""
 
     def go():
         img = crop_quadrant(src, quadrant)
@@ -96,7 +99,11 @@ async def alpha_key(
 
 
 async def promote(src: str, dest: str) -> dict[str, Any]:
-    """Copy a curated asset from staging into the consumer's asset tree."""
+    """Copy a curated asset from staging into the consumer's asset tree — the
+    last step of the per-asset loop, after ``crop_grid`` (and any optional
+    ``alpha_key``/``auto_trim``). ``src`` is the curated file, ``dest`` the final
+    path; returns ``{dest}``. This is what marks an asset kept; record the
+    outcome with ``log_append`` afterward so the next iteration can read it."""
 
     def go():
         out = curation_promote(src, dest)

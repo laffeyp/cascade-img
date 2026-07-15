@@ -26,7 +26,10 @@ async def imagine(
     thread), and the bridge replays the existing job instead of submitting and
     billing Midjourney twice. The result then carries ``idempotent_replay:
     true``. Leave it unset (or use a fresh key) for a genuinely new generation —
-    regenerations are intentionally NOT deduplicated by asset_id."""
+    regenerations are intentionally NOT deduplicated by asset_id.
+
+    This is the generation step of the loop (compose_prompt -> imagine -> wait ->
+    curate). If you've lost the thread mid-session, re-read cascade_guide."""
     return await _envelope._run_tool(
         "imagine",
         _envelope._backend.imagine,
@@ -86,13 +89,23 @@ async def wait(job_id: str, timeout: int = 180) -> dict[str, Any]:
 
 
 async def status(job_id: str) -> dict[str, Any]:
-    """Non-blocking status read."""
+    """Read a job's current state without blocking — the non-blocking peer of
+    ``wait``. Returns the full job record under ``result``: ``status`` is
+    ``pending``/``running``/``done``/``failed``, plus ``grid_path``, ``derived``,
+    and error fields. Use it to poll an in-flight job, or to re-read a finished
+    one (e.g. to see a new entry in ``derived`` after ``mj_action``). Reading
+    status never costs a render; prefer ``wait`` when you want to block until the
+    job is terminal rather than poll."""
     return await _envelope._run_tool("status", _envelope._backend.status, job_id=job_id)
 
 
 async def bridge_health() -> dict[str, Any]:
-    """Check whether the bridge daemon is up and the Discord WebSocket is
-    connected."""
+    """Check the daemon before generating — a safe first call in any session.
+    Reports whether the bridge process is up and its Discord WebSocket is
+    connected (``discord_ready``). Generation cannot proceed until
+    ``discord_ready`` is true; a persistent false after re-capturing the token is
+    a structural failure that needs the human (see the failure-to-action table),
+    not something to retry. Read-only; callable any time."""
     return await _envelope._run_tool("bridge_health", _envelope._backend.health)
 
 
