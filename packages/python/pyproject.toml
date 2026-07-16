@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cascade-img"
-version = "0.1.0"
+version = "0.1.1"
 description = "LLM-operable image-generation pipeline. Midjourney via Discord at v0.1, pluggable backends after."
 readme = "README.md"
 license = { text = "Apache-2.0" }

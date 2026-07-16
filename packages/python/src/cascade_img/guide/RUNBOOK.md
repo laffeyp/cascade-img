@@ -10,23 +10,22 @@ How to run `cascade-img` end-to-end against a real Midjourney account, what brea
 
 ## One-time setup
 
-### Python 3.14
+### Python 3.12 or newer
 
-cascade-img targets the latest stable Python (3.14). macOS system Python is older; Homebrew gives you 3.14.
+cascade-img needs Python 3.12 or newer (tested on 3.12, 3.13, and 3.14). macOS system Python may be older; Homebrew gives you a current one.
 
 ```bash
-which python3.14        # should resolve to /opt/homebrew/bin/python3.14
-python3.14 --version    # >= 3.14.x
+python3 --version       # >= 3.12
 ```
 
-If missing: `brew install python@3.14`.
+If it's older: `brew install python@3.12` (or a newer line), and use that interpreter below.
 
 ### Clone and install
 
 ```bash
 git clone https://github.com/laffeyp/cascade-img
 cd cascade-img/packages/python
-python3.14 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
 ```
@@ -182,7 +181,7 @@ In your agent host's MCP config (Claude Desktop, Cursor, Cline):
 }
 ```
 
-The agent then sees all twenty tools and can drive the full loop autonomously: generation (`imagine`, `generate_video`, `wait`, `status`, `bridge_health`, `mj_action`), composition (`compose_prompt`, `compose_video`), curation (`crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `video_filmstrip`, `loop_seam_delta`, `promote`), and working memory (`log_append`, `read_prompt_log`). This is the primary way to operate cascade-img — see [LLM-agent operation](#llm-agent-operation) for the loop the agent runs.
+The agent then sees all 21 tools and can drive the full loop autonomously: onboarding (`cascade_guide` — returns the full operating manual; the generation and curation tools are gated behind it until called once per session), generation (`imagine`, `generate_video`, `wait`, `status`, `bridge_health`, `mj_action`), composition (`compose_prompt`, `compose_video`), curation (`crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `video_filmstrip`, `loop_seam_delta`, `promote`), and working memory (`log_append`, `read_prompt_log`). This is the primary way to operate cascade-img — see [LLM-agent operation](#llm-agent-operation) for the loop the agent runs.
 
 ### Via the Python library
 

@@ -7,14 +7,16 @@ This file follows the [agents.md](https://agents.md) convention — drop it in f
 
 **What it is.** cascade-img is an LLM-operable image-generation pipeline — Midjourney through a Discord bridge at v0.1, with pluggable backends (Flux, DALL-E, Imagen, …) behind one interface after. **You, the agent, are its primary operator:** it is built so you compose a prompt, generate, curate the winner, and log the attempt without a human on every generation.
 
+**Session start.** Your first tool call is `cascade_guide` — it returns this full operating manual in one call and unlocks the rest. The generation and curation tools refuse with `GUIDE_UNREAD` until you've called it once this session.
+
 **The loop, per asset.** `compose_prompt → imagine → wait → inspect (read the PNG with vision) → curate (crop_grid → [alpha_key?] → promote) → log_append`. Open each iteration with `read_prompt_log(n=5)` — the append-only log is your working memory across generation runs.
 
 **The shape — one daemon, two entry points, all over local HTTP:**
 - `cascade-mj-bridge` — the daemon, and the only process that talks to Discord. It must stay running the whole session: it holds the live Discord connection and the in-flight job table, while the two entry points below are stateless clients that reach it over local HTTP.
-- `cascade-mcp` — the MCP server exposing 20 tools; this is how you, the agent, drive everything.
+- `cascade-mcp` — the MCP server exposing 21 tools; this is how you, the agent, drive everything.
 - `cascade-mj` — the CLI, for scripting and one-off generations.
 
-**The 20 MCP tools, by job.** *generation* — `imagine`, `generate_video` (native image→video; composes + fires `--video`/`--loop`/`--motion`/`--end`/`--bs`), `wait`, `status`, `bridge_health`, `mj_action`; *composition* — `compose_prompt`, `compose_video` (build a native image→video prompt without firing); *curation* — `crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `video_filmstrip` (sample a video's keyframes into a vision-readable still), `loop_seam_delta` (score how cleanly a `--loop` video closes), `promote`; *working memory* — `log_append`, `read_prompt_log`. Every call returns `{ok, result}` or `{ok: false, error: {code, remediation}}` — branch on the stable `code`, never the message.
+**The 21 MCP tools, by job.** *onboarding* — `cascade_guide` (returns this full operating manual; call it first — the generation and curation tools are gated with `GUIDE_UNREAD` until you do); *generation* — `imagine`, `generate_video` (native image→video; composes + fires `--video`/`--loop`/`--motion`/`--end`/`--bs`), `wait`, `status`, `bridge_health`, `mj_action`; *composition* — `compose_prompt`, `compose_video` (build a native image→video prompt without firing); *curation* — `crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `video_filmstrip` (sample a video's keyframes into a vision-readable still), `loop_seam_delta` (score how cleanly a `--loop` video closes), `promote`; *working memory* — `log_append`, `read_prompt_log`. Every call returns `{ok, result}` or `{ok: false, error: {code, remediation}}` — branch on the stable `code`, never the message.
 
 **Where to go next.**
 - [RUNBOOK.md](./RUNBOOK.md) — install, the Discord `.env` values to capture, bring-up, and every failure mode with its error code and fix. Read this to set up or to recover.
@@ -60,10 +62,11 @@ The cycle is closeable end-to-end without human intervention for the common case
 
 ## Tools
 
-Available via the `cascade-mcp` MCP server. Each returns `{ok: bool, result: ...}` on success or `{ok: false, error: {code, message, remediation?}}` on failure.
+Available via the `cascade-mcp` MCP server. Each returns `{ok: bool, result: ...}` on success or `{ok: false, error: {code, message, remediation?}}` on failure. The generation and curation tools are gated behind `cascade_guide` — call it once per session (it returns this manual) before they'll run; the read-only tools (`bridge_health`, `status`, `wait`, `read_prompt_log`) stay open so you can orient.
 
 | tool | purpose |
 |---|---|
+| `cascade_guide()` | Returns this full operating manual in one call. Call once at session start — the generation and curation tools return `GUIDE_UNREAD` until you do |
 | `compose_prompt(subject, constraints, moodboard, sref, stylize, style_raw, oref, ow, aspect_ratio, version, hd, sd, …)` | Build a Midjourney prompt string from structured parts. `version` defaults to `"8.1"`; use `"7"` for `oref`/`quality` |
 | `compose_video(image_url, text, motion, raw, loop, end_frame, batch_size)` | Build a native image→video prompt (`--video` + `--loop`/`--motion`/`--end`/`--bs`). Video params only; `loop`/`end_frame` are mutually exclusive |
 | `imagine(prompt, asset_id, upscale)` | Fire the prompt at the bridge; returns `job_id` |
@@ -157,6 +160,7 @@ Every error returned to you carries a stable `code`. The codes that matter for t
 
 | code | what it means | what you do |
 |---|---|---|
+| `GUIDE_UNREAD` | you called a gated tool before `cascade_guide` this session | call `cascade_guide` once (it returns this manual), then retry — not an error, just the read-first gate |
 | `DISCORD_400_OUTDATED` | MJ updated the slash command | escalate to human — needs `MJ_IMAGINE_VERSION` re-capture |
 | `MISSING_*` | env var not set | escalate to human — one-time setup gap |
 | `DISCORD_401` | token expired | escalate to human — token re-capture |
