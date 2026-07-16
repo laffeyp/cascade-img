@@ -1,0 +1,51 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.laffeyp/cascade-img",
+  "title": "cascade-img",
+  "description": "LLM-operable Midjourney pipeline: 21 MCP tools to compose, generate, curate with vision, and log.",
+  "version": "0.1.1",
+  "repository": {
+    "url": "https://github.com/laffeyp/cascade-img",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "cascade-img",
+      "version": "0.1.1",
+      "runtimeHint": "uvx",
+      "runtimeArguments": [
+        { "type": "named", "name": "--from", "value": "cascade-img" },
+        { "type": "positional", "value": "cascade-mcp" }
+      ],
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DISCORD_USER_TOKEN",
+          "description": "Discord user-account token the bridge daemon uses to talk to Midjourney (captured from the Discord desktop app; see RUNBOOK.md).",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "MJ_CHANNEL_ID",
+          "description": "Discord channel ID where the Midjourney bot runs.",
+          "isRequired": true
+        },
+        {
+          "name": "MJ_IMAGINE_VERSION",
+          "description": "Version token for Midjourney's /imagine slash command, captured from Discord.",
+          "isRequired": true
+        },
+        {
+          "name": "CASCADE_BRIDGE_URL",
+          "description": "URL of the running cascade-mj-bridge daemon that cascade-mcp forwards to.",
+          "isRequired": false,
+          "default": "http://127.0.0.1:5000"
+        }
+      ]
+    }
+  ]
+}
