@@ -17,6 +17,7 @@ async def log_append(
     error: str | None = None,
     agent_decision: str | None = None,
     agent_reason: str | None = None,
+    origin: str | None = None,
 ) -> dict[str, Any]:
     """Append a record to the prompt log.
 
@@ -24,6 +25,10 @@ async def log_append(
     ``"escalate"``, ``"dry_run"`` (or omitted). Invalid values produce a
     structured ValueError via the ``_run_tool`` envelope, naming the allowed
     set in the message.
+
+    ``origin`` marks who initiated the recorded event: omit for the agent's own
+    loop; ``"human_in_discord"`` for a result the human produced by hand in the
+    channel (``adopt_message`` writes this automatically).
     """
 
     def go():
@@ -37,6 +42,7 @@ async def log_append(
             error=error,
             agent_decision=agent_decision,
             agent_reason=agent_reason,
+            origin=origin,
         )
         return {"record": record}
 

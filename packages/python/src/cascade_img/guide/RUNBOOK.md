@@ -181,7 +181,7 @@ In your agent host's MCP config (Claude Desktop, Cursor, Cline):
 }
 ```
 
-The agent then sees all 21 tools and can drive the full loop autonomously: onboarding (`cascade_guide` — returns the full operating manual; the generation and curation tools are gated behind it until called once per session), generation (`imagine`, `generate_video`, `wait`, `status`, `bridge_health`, `mj_action`), composition (`compose_prompt`, `compose_video`), curation (`crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `video_filmstrip`, `loop_seam_delta`, `promote`), and working memory (`log_append`, `read_prompt_log`). This is the primary way to operate cascade-img — see [LLM-agent operation](#llm-agent-operation) for the loop the agent runs.
+The agent then sees all 23 tools and can drive the full loop autonomously: onboarding (`cascade_guide` — returns the full operating manual; the generation and curation tools are gated behind it until called once per session), generation (`imagine`, `generate_video`, `wait`, `status`, `bridge_health`, `mj_action`), catch-up (`channel_recent`, `adopt_message` — see what the human did by hand in the channel and claim it into the pipeline), composition (`compose_prompt`, `compose_video`), curation (`crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `video_filmstrip`, `loop_seam_delta`, `promote`), and working memory (`log_append`, `read_prompt_log`). This is the primary way to operate cascade-img — see [LLM-agent operation](#llm-agent-operation) for the loop the agent runs.
 
 ### Via the Python library
 
@@ -427,6 +427,9 @@ Failures carry a stable `error_code` and a `remediation` string. Codes the agent
 | `GRID_DOWNLOAD_FAILED` / `UPSCALE_DOWNLOAD_FAILED` | regenerate automatically |
 | `UPSCALE_BUTTON_FAILED` / `UPSCALE_ALL_BUTTONS_FAILED` | retry the imagine; transient Discord interaction error |
 | `NO_UPSCALED_IMAGE` (HTTP 409) | upscale first, then retry the action. On a still image: `imagine` with `upscale=1-4`. On a video `extend_*`: press `video_upscale`, and when its SOLO clip lands, `extend_*` on that same slot |
+| `ALREADY_TRACKED` (HTTP 409) | `adopt_message` targeted a message an existing job already knows — act on the `job_id` in the error payload instead |
+| `MESSAGE_NOT_FOUND` / `NOT_AN_MJ_MESSAGE` | the adoption target doesn't resolve, isn't from the MJ bot, or has no artifact — re-check the id against `channel_recent` |
+| `ADOPT_DOWNLOAD_FAILED` / `CHANNEL_READ_FAILED` | network blip during adopt/catch-up — retry after a short delay |
 | `VIDEO_IN_FLIGHT` (HTTP 409) | a prior video is still awaiting its first Midjourney ack — poll `/wait`, then submit the next video. Do NOT regenerate or retry immediately; the window clears as soon as the prior video binds |
 | `NOT_A_VIDEO_PROMPT` (HTTP 400) | the `/video` prompt is missing `--video` — rebuild it with `compose_video`. Deterministic input error: do NOT regenerate, fix the prompt |
 

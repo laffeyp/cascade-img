@@ -22,10 +22,12 @@ from mcp.server.fastmcp import FastMCP
 
 from cascade_img.interfaces.mcp.tools import (
     ALL_TOOLS,
+    adopt_message,
     alpha_key,
     auto_trim,
     bridge_health,
     cascade_guide,
+    channel_recent,
     compose_prompt,
     compose_video,
     contact_sheet,
@@ -47,10 +49,12 @@ from cascade_img.interfaces.mcp.tools import (
 from cascade_img.vocabulary import emit
 
 __all__ = [
+    "adopt_message",
     "alpha_key",
     "auto_trim",
     "bridge_health",
     "cascade_guide",
+    "channel_recent",
     "compose_prompt",
     "compose_video",
     "contact_sheet",

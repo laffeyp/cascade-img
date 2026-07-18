@@ -79,12 +79,19 @@ class PromptLog:
         error: str | None = None,
         agent_decision: AgentDecision | str | None = None,
         agent_reason: str | None = None,
+        origin: str | None = None,
     ) -> dict[str, Any]:
         """Append one record. Returns the record dict.
 
         ``agent_decision`` is validated against :class:`AgentDecision`. Strings
         are accepted and coerced; values not in the enum raise ``ValueError``
         with the allowed set named in the message.
+
+        ``origin`` marks who initiated the generation the record describes.
+        ``None`` (the default) means the agent's own loop; ``"human_in_discord"``
+        marks a result the human produced by hand in the channel and the agent
+        adopted — so ``read_prompt_log`` reflects the director stepping in
+        rather than silently skipping it.
         """
         if agent_decision is not None and not isinstance(agent_decision, AgentDecision):
             try:
@@ -107,6 +114,7 @@ class PromptLog:
             "error": error,
             "agent_decision": decision_value,
             "agent_reason": agent_reason,
+            "origin": origin,
         }
         line = json.dumps(record, ensure_ascii=False)
         with self._lock, self.path.open("a", encoding="utf-8") as f:

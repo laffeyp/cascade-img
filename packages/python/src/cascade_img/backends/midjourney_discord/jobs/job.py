@@ -131,6 +131,12 @@ class Job:
     # would reject legitimate regenerations. A retry must reuse the key to dedup; a
     # fresh generation gets a fresh key (or none) and a fresh job.
     idempotency_key: str | None = None
+    # "submitted" for jobs this bridge fired; "adopted" for results claimed
+    # into the table from an existing channel message (POST /adopt/<id>) —
+    # typically something the human did by hand in Discord. Adopted jobs enter
+    # the table already DONE with the message registered as their action
+    # surface, so mj_action and derived-result routing work on them unchanged.
+    origin: str = "submitted"
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     # "pending" = matched while still in PENDING_GRID; "progress_fallback" =

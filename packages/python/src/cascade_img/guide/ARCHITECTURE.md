@@ -71,6 +71,8 @@ The bridge exposes:
 | `GET /status/<job_id>` | Non-blocking job state read. |
 | `GET /wait/<job_id>?timeout=<s>` | Long-poll until the job is terminal or the timeout fires. |
 | `POST /action/<job_id>` | Press a response-message button on the job's upscaled result: on an image (vary / zoom / pan / re-upscale / animate / favorite), or on a video (`video_upscale`, `extend_high` / `extend_low`). |
+| `GET /channel/recent?n=` | The newest MJ-bot channel messages as structured records (from a bounded in-memory buffer the ingest path feeds; REST-history fallback when the buffer is cold). Each record resolves against the job table — `tracked_job_id: null` marks results the human made by hand in Discord. |
+| `POST /adopt/<message_id>` | Claim an untracked MJ message into the job table (`origin: "adopted"`, already done, artifact downloaded to the standard path). The adopted message becomes the job's action surface, so `/action` and derived-result reply-routing work on it unchanged. Idempotent per message (`ALREADY_TRACKED`). |
 | `GET /jobs` | All tracked jobs (diagnostics). |
 | `GET /health` | Daemon up + Discord WebSocket connected. |
 

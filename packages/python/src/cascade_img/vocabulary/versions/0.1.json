@@ -3,94 +3,502 @@
   "locked": true,
   "locked_at": "2026-06-02",
   "locked_by": "Peter Laffey",
-  "tag_set_hash": "e3a41da2853b7cd92f0b74e1eefc7c39cbb4f0e925822f00642d0642e9f01b51",
+  "tag_set_hash": "005f12edee9083f4658c85afeb8f869d265a84f8c54a6772edded19368c62f81",
   "prior_version": null,
-  "categories": ["session", "config", "bridge", "job", "discord", "backend", "curation", "composer", "log", "mcp", "cli"],
-
+  "categories": [
+    "session",
+    "config",
+    "bridge",
+    "job",
+    "discord",
+    "backend",
+    "curation",
+    "composer",
+    "log",
+    "mcp",
+    "cli"
+  ],
   "ontology": {
     "entities": [
-      {"name": "Job", "definition": "One /imagine roll through to its terminal state (done | failed). Identified by job_id."},
-      {"name": "Asset", "definition": "A named output the user is generating (e.g., 'mountain-icon', 'hero-portrait'). Identified by asset_id."},
-      {"name": "Bridge", "definition": "The long-running Flask + discord.py-self daemon process. Operated through HTTP."},
-      {"name": "Backend", "definition": "The pluggable backend implementing ImageGenerationBackend. v0.1 has one (MidjourneyDiscordBackend)."}
+      {
+        "name": "Job",
+        "definition": "One /imagine roll through to its terminal state (done | failed). Identified by job_id."
+      },
+      {
+        "name": "Asset",
+        "definition": "A named output the user is generating (e.g., 'mountain-icon', 'hero-portrait'). Identified by asset_id."
+      },
+      {
+        "name": "Bridge",
+        "definition": "The long-running Flask + discord.py-self daemon process. Operated through HTTP."
+      },
+      {
+        "name": "Backend",
+        "definition": "The pluggable backend implementing ImageGenerationBackend. v0.1 has one (MidjourneyDiscordBackend)."
+      }
     ]
   },
-
   "sessions": {
     "strata": [
       {
         "name": "bridge_session",
         "open_tag": "CASCADE_INIT",
         "close_tag": "BRIDGE_SHUTDOWN",
-        "framed_tags": ["CONFIG_VALIDATED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_DOWNLOAD_DROPPED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED", "MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED", "MJ_DERIVED_RECEIVED", "MJ_DERIVED_FAILED", "MJ_ACTION_SURFACE_REGISTERED"],
-        "persistent_attributes": ["package_version", "backend"]
+        "framed_tags": [
+          "CONFIG_VALIDATED",
+          "DISCORD_CONNECTED",
+          "DISCORD_DISCONNECTED",
+          "DISCORD_RECONNECTING",
+          "DISCORD_RECONNECT_FAILED",
+          "BRIDGE_HEALTHY",
+          "IMAGINE_FIRED",
+          "JOB_SUBMIT_TIMEOUT",
+          "GRID_MATCHED",
+          "GRID_RECEIVED",
+          "OUTPUT_PATH_COLLISION",
+          "UPSCALE_REQUESTED",
+          "UPSCALE_PRESS_FAILED",
+          "UPSCALE_DOWNLOAD_DROPPED",
+          "UPSCALE_RECEIVED",
+          "JOB_COMPLETED",
+          "JOB_FAILED",
+          "JOB_EVICTED",
+          "JOB_STORE_INITIALIZED",
+          "JOB_STORE_REHYDRATED",
+          "MJ_ACTION_REQUESTED",
+          "MJ_ACTION_FAILED",
+          "MJ_DERIVED_RECEIVED",
+          "MJ_DERIVED_FAILED",
+          "MJ_ACTION_SURFACE_REGISTERED"
+        ],
+        "persistent_attributes": [
+          "package_version",
+          "backend"
+        ]
       },
       {
         "name": "mcp_session",
         "open_tag": "MCP_SERVER_STARTED",
         "close_tag": "MCP_SERVER_STOPPED",
-        "framed_tags": ["MCP_TOOL_CALLED", "MCP_TOOL_COMPLETED", "MCP_TOOL_FAILED"],
-        "persistent_attributes": ["transport"]
+        "framed_tags": [
+          "MCP_TOOL_CALLED",
+          "MCP_TOOL_COMPLETED",
+          "MCP_TOOL_FAILED"
+        ],
+        "persistent_attributes": [
+          "transport"
+        ]
       }
     ]
   },
-
   "temporal_invariants": {
     "invariants": [
-      {"kind": "window", "from_tag": "IMAGINE_FIRED", "to_tag": "JOB_COMPLETED", "duration_seconds": 180, "applies_when": {"upscale": "none"}, "severity": "warning", "note": "Grid-only completes within 180s typical. applies_when matches IMAGINE_FIRED.payload.upscale: null/absent -> none. Over-budget is severity 'warning' (a slow MJ day is not a gate failure), never an error."},
-      {"kind": "window", "from_tag": "IMAGINE_FIRED", "to_tag": "JOB_COMPLETED", "duration_seconds": 360, "applies_when": {"upscale": "single"}, "severity": "warning", "note": "Single upscale completes within 360s typical. applies_when matches IMAGINE_FIRED.payload.upscale: '1'-'4' -> single. Over-budget is severity 'warning', never an error."},
-      {"kind": "window", "from_tag": "IMAGINE_FIRED", "to_tag": "JOB_COMPLETED", "duration_seconds": 600, "applies_when": {"upscale": "all"}, "severity": "warning", "note": "upscale=all completes within 600s typical. applies_when matches IMAGINE_FIRED.payload.upscale: 'all' -> all. Over-budget is severity 'warning', never an error."},
-      {"kind": "pairing", "from_tag": "MCP_TOOL_CALLED", "to_tag": "MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "to_tags": ["MCP_TOOL_COMPLETED", "MCP_TOOL_FAILED"], "payload_match": "tool", "note": "Every tool call resolves to one of the two terminal tags, correlated by the tool field."},
-      {"kind": "forbidden_after", "from_tag": "JOB_COMPLETED", "to_tag": "GRID_MATCHED|GRID_RECEIVED|UPSCALE_REQUESTED|UPSCALE_RECEIVED", "to_tags": ["GRID_MATCHED", "GRID_RECEIVED", "UPSCALE_REQUESTED", "UPSCALE_RECEIVED"], "payload_match": "job_id", "note": "Terminal — no further job-state tags carry the same job_id."},
-      {"kind": "forbidden_after", "from_tag": "JOB_FAILED", "to_tag": "GRID_MATCHED|GRID_RECEIVED|UPSCALE_REQUESTED|UPSCALE_RECEIVED", "to_tags": ["GRID_MATCHED", "GRID_RECEIVED", "UPSCALE_REQUESTED", "UPSCALE_RECEIVED"], "payload_match": "job_id", "note": "Terminal — no further job-state tags carry the same job_id."}
+      {
+        "kind": "window",
+        "from_tag": "IMAGINE_FIRED",
+        "to_tag": "JOB_COMPLETED",
+        "duration_seconds": 180,
+        "applies_when": {
+          "upscale": "none"
+        },
+        "severity": "warning",
+        "note": "Grid-only completes within 180s typical. applies_when matches IMAGINE_FIRED.payload.upscale: null/absent -> none. Over-budget is severity 'warning' (a slow MJ day is not a gate failure), never an error."
+      },
+      {
+        "kind": "window",
+        "from_tag": "IMAGINE_FIRED",
+        "to_tag": "JOB_COMPLETED",
+        "duration_seconds": 360,
+        "applies_when": {
+          "upscale": "single"
+        },
+        "severity": "warning",
+        "note": "Single upscale completes within 360s typical. applies_when matches IMAGINE_FIRED.payload.upscale: '1'-'4' -> single. Over-budget is severity 'warning', never an error."
+      },
+      {
+        "kind": "window",
+        "from_tag": "IMAGINE_FIRED",
+        "to_tag": "JOB_COMPLETED",
+        "duration_seconds": 600,
+        "applies_when": {
+          "upscale": "all"
+        },
+        "severity": "warning",
+        "note": "upscale=all completes within 600s typical. applies_when matches IMAGINE_FIRED.payload.upscale: 'all' -> all. Over-budget is severity 'warning', never an error."
+      },
+      {
+        "kind": "pairing",
+        "from_tag": "MCP_TOOL_CALLED",
+        "to_tag": "MCP_TOOL_COMPLETED|MCP_TOOL_FAILED",
+        "to_tags": [
+          "MCP_TOOL_COMPLETED",
+          "MCP_TOOL_FAILED"
+        ],
+        "payload_match": "tool",
+        "note": "Every tool call resolves to one of the two terminal tags, correlated by the tool field."
+      },
+      {
+        "kind": "forbidden_after",
+        "from_tag": "JOB_COMPLETED",
+        "to_tag": "GRID_MATCHED|GRID_RECEIVED|UPSCALE_REQUESTED|UPSCALE_RECEIVED",
+        "to_tags": [
+          "GRID_MATCHED",
+          "GRID_RECEIVED",
+          "UPSCALE_REQUESTED",
+          "UPSCALE_RECEIVED"
+        ],
+        "payload_match": "job_id",
+        "note": "Terminal — no further job-state tags carry the same job_id."
+      },
+      {
+        "kind": "forbidden_after",
+        "from_tag": "JOB_FAILED",
+        "to_tag": "GRID_MATCHED|GRID_RECEIVED|UPSCALE_REQUESTED|UPSCALE_RECEIVED",
+        "to_tags": [
+          "GRID_MATCHED",
+          "GRID_RECEIVED",
+          "UPSCALE_REQUESTED",
+          "UPSCALE_RECEIVED"
+        ],
+        "payload_match": "job_id",
+        "note": "Terminal — no further job-state tags carry the same job_id."
+      }
     ]
   },
-
   "state_transitions": {
     "rules": [
-      {"kind": "pairing_ordering", "from_tag": "CONFIG_VALIDATED", "to_tags_allowed": ["CASCADE_INIT"], "note": "CASCADE_INIT (daemon announced) requires a prior CONFIG_VALIDATED (config loaded OK): Config.from_env() emits CONFIG_VALIDATED, then main() emits CASCADE_INIT — the CASCADE_INIT note 'config loaded' reflects this. On bad config, CONFIG_VALIDATION_FAILED fires instead and neither appears. CONFIG_VALIDATED can also fire without CASCADE_INIT (cascade-mj-bridge --check-env / --doctor validate config without starting the daemon), so this is an ordering precondition, not a forced_next. Corrected 2026-06-10 from a backwards forced_next surfaced by the live trace-gate."},
-      {"kind": "pairing_ordering", "from_tag": "DISCORD_CONNECTED", "to_tags_allowed": ["IMAGINE_FIRED"], "note": "IMAGINE_FIRED requires DISCORD_CONNECTED first (gated by _ready.is_set())."},
-      {"kind": "pairing_ordering", "from_tag": "GRID_MATCHED", "to_tags_allowed": ["GRID_RECEIVED"], "payload_match": "job_id", "note": "Grid received must follow grid matched for the same job_id."},
-      {"kind": "pairing_ordering", "from_tag": "UPSCALE_REQUESTED", "to_tags_allowed": ["UPSCALE_RECEIVED"], "payload_match": "job_id+slot", "note": "Slot N's UPSCALE_RECEIVED follows its UPSCALE_REQUESTED."},
-      {"kind": "terminal", "tags": ["JOB_COMPLETED", "JOB_FAILED", "VIDEO_FAILED"], "payload_match": "job_id", "forbidden_tags_after": ["VIDEO_REQUESTED", "VIDEO_RECEIVED", "VIDEO_FAILED", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_RECEIVED", "UPSCALE_DOWNLOAD_DROPPED", "JOB_COMPLETED", "JOB_FAILED"], "exempt_tags": ["MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED", "MJ_DERIVED_RECEIVED", "MJ_DERIVED_FAILED", "MJ_ACTION_SURFACE_REGISTERED", "JOB_EVICTED", "OUTPUT_PATH_COLLISION"], "note": "No further job-LIFECYCLE tag carries the same job_id after a terminal; VIDEO_FAILED is the native-video terminal and VIDEO_REQUESTED/RECEIVED are video-lifecycle tags forbidden after any terminal for the same job_id; post-terminal action/derived/surface/eviction/collision tags are additive by design (verified against bridge.py: MJ_ACTION_* and MJ_DERIVED_* act on an already-DONE job, MJ_ACTION_SURFACE_REGISTERED fires when a video SOLO lands post-DONE, JOB_EVICTED only drops DONE/FAILED jobs, OUTPUT_PATH_COLLISION can fire on a post-terminal derived download)."}
+      {
+        "kind": "pairing_ordering",
+        "from_tag": "CONFIG_VALIDATED",
+        "to_tags_allowed": [
+          "CASCADE_INIT"
+        ],
+        "note": "CASCADE_INIT (daemon announced) requires a prior CONFIG_VALIDATED (config loaded OK): Config.from_env() emits CONFIG_VALIDATED, then main() emits CASCADE_INIT — the CASCADE_INIT note 'config loaded' reflects this. On bad config, CONFIG_VALIDATION_FAILED fires instead and neither appears. CONFIG_VALIDATED can also fire without CASCADE_INIT (cascade-mj-bridge --check-env / --doctor validate config without starting the daemon), so this is an ordering precondition, not a forced_next. Corrected 2026-06-10 from a backwards forced_next surfaced by the live trace-gate."
+      },
+      {
+        "kind": "pairing_ordering",
+        "from_tag": "DISCORD_CONNECTED",
+        "to_tags_allowed": [
+          "IMAGINE_FIRED"
+        ],
+        "note": "IMAGINE_FIRED requires DISCORD_CONNECTED first (gated by _ready.is_set())."
+      },
+      {
+        "kind": "pairing_ordering",
+        "from_tag": "GRID_MATCHED",
+        "to_tags_allowed": [
+          "GRID_RECEIVED"
+        ],
+        "payload_match": "job_id",
+        "note": "Grid received must follow grid matched for the same job_id."
+      },
+      {
+        "kind": "pairing_ordering",
+        "from_tag": "UPSCALE_REQUESTED",
+        "to_tags_allowed": [
+          "UPSCALE_RECEIVED"
+        ],
+        "payload_match": "job_id+slot",
+        "note": "Slot N's UPSCALE_RECEIVED follows its UPSCALE_REQUESTED."
+      },
+      {
+        "kind": "terminal",
+        "tags": [
+          "JOB_COMPLETED",
+          "JOB_FAILED",
+          "VIDEO_FAILED"
+        ],
+        "payload_match": "job_id",
+        "forbidden_tags_after": [
+          "VIDEO_REQUESTED",
+          "VIDEO_RECEIVED",
+          "VIDEO_FAILED",
+          "IMAGINE_FIRED",
+          "JOB_SUBMIT_TIMEOUT",
+          "GRID_MATCHED",
+          "GRID_RECEIVED",
+          "UPSCALE_REQUESTED",
+          "UPSCALE_PRESS_FAILED",
+          "UPSCALE_RECEIVED",
+          "UPSCALE_DOWNLOAD_DROPPED",
+          "JOB_COMPLETED",
+          "JOB_FAILED"
+        ],
+        "exempt_tags": [
+          "MJ_ACTION_REQUESTED",
+          "MJ_ACTION_FAILED",
+          "MJ_DERIVED_RECEIVED",
+          "MJ_DERIVED_FAILED",
+          "MJ_ACTION_SURFACE_REGISTERED",
+          "JOB_EVICTED",
+          "OUTPUT_PATH_COLLISION"
+        ],
+        "note": "No further job-LIFECYCLE tag carries the same job_id after a terminal; VIDEO_FAILED is the native-video terminal and VIDEO_REQUESTED/RECEIVED are video-lifecycle tags forbidden after any terminal for the same job_id; post-terminal action/derived/surface/eviction/collision tags are additive by design (verified against bridge.py: MJ_ACTION_* and MJ_DERIVED_* act on an already-DONE job, MJ_ACTION_SURFACE_REGISTERED fires when a video SOLO lands post-DONE, JOB_EVICTED only drops DONE/FAILED jobs, OUTPUT_PATH_COLLISION can fire on a post-terminal derived download)."
+      }
     ]
   },
-
   "operators": {
     "operators": [
-      {"name": "MidjourneyDiscordBackend", "emits": ["BACKEND_HTTP_CALLED"], "consumes": "HTTP calls from the MCP server, CLI, or library consumers", "location": "cascade_img/backends/midjourney_discord/bridge_client.py"},
-      {"name": "BridgeDaemon", "emits": ["CASCADE_INIT", "CONFIG_VALIDATED", "CONFIG_VALIDATION_FAILED", "DISCORD_CONNECTED", "DISCORD_DISCONNECTED", "DISCORD_RECONNECTING", "DISCORD_RECONNECT_FAILED", "BRIDGE_HEALTHY", "BRIDGE_SHUTDOWN", "IMAGINE_FIRED", "JOB_SUBMIT_TIMEOUT", "GRID_MATCHED", "GRID_RECEIVED", "OUTPUT_PATH_COLLISION", "UPSCALE_REQUESTED", "UPSCALE_PRESS_FAILED", "UPSCALE_DOWNLOAD_DROPPED", "UPSCALE_RECEIVED", "JOB_COMPLETED", "JOB_FAILED", "JOB_EVICTED", "JOB_STORE_INITIALIZED", "JOB_STORE_REHYDRATED", "MJ_ACTION_REQUESTED", "MJ_ACTION_FAILED", "MJ_DERIVED_RECEIVED", "MJ_DERIVED_FAILED", "MJ_ACTION_SURFACE_REGISTERED", "VIDEO_REQUESTED", "VIDEO_RECEIVED", "VIDEO_FAILED", "BRIDGE_CHECKENV_RAN", "BRIDGE_DOCTOR_RAN"], "location": "cascade_img/backends/midjourney_discord/"},
-      {"name": "PromptComposer", "emits": ["PROMPT_COMPOSED"], "location": "cascade_img/prompt/composer.py"},
-      {"name": "PromptLog", "emits": ["PROMPT_LOGGED"], "location": "cascade_img/prompt/prompt_log.py"},
-      {"name": "CurationKit", "emits": ["CROP_QUADRANT", "ALPHA_KEY_APPLIED", "ASSET_PROMOTED", "CONTACT_SHEET_RENDERED", "AUTO_TRIM_APPLIED", "PALETTE_QUANTIZED", "SPRITE_SHEET_PACKED", "GRID_SCORED", "VIDEO_FILMSTRIP_RENDERED", "LOOP_SEAM_MEASURED"], "location": "cascade_img/curation/"},
-      {"name": "MCPServer", "emits": ["MCP_SERVER_STARTED", "MCP_SERVER_STOPPED", "MCP_TOOL_CALLED", "MCP_TOOL_COMPLETED", "MCP_TOOL_FAILED"], "location": "cascade_img/interfaces/mcp/"},
-      {"name": "AssetCLI", "emits": ["CLI_GENERATION_STARTED", "CLI_GENERATION_COMPLETED", "CLI_GENERATION_FAILED"], "location": "cascade_img/interfaces/cli/generate_image.py"}
+      {
+        "name": "MidjourneyDiscordBackend",
+        "emits": [
+          "BACKEND_HTTP_CALLED"
+        ],
+        "consumes": "HTTP calls from the MCP server, CLI, or library consumers",
+        "location": "cascade_img/backends/midjourney_discord/bridge_client.py"
+      },
+      {
+        "name": "BridgeDaemon",
+        "emits": [
+          "CASCADE_INIT",
+          "CONFIG_VALIDATED",
+          "CONFIG_VALIDATION_FAILED",
+          "DISCORD_CONNECTED",
+          "DISCORD_DISCONNECTED",
+          "DISCORD_RECONNECTING",
+          "DISCORD_RECONNECT_FAILED",
+          "BRIDGE_HEALTHY",
+          "BRIDGE_SHUTDOWN",
+          "IMAGINE_FIRED",
+          "JOB_SUBMIT_TIMEOUT",
+          "GRID_MATCHED",
+          "GRID_RECEIVED",
+          "OUTPUT_PATH_COLLISION",
+          "UPSCALE_REQUESTED",
+          "UPSCALE_PRESS_FAILED",
+          "UPSCALE_DOWNLOAD_DROPPED",
+          "UPSCALE_RECEIVED",
+          "JOB_COMPLETED",
+          "JOB_FAILED",
+          "JOB_EVICTED",
+          "JOB_STORE_INITIALIZED",
+          "JOB_STORE_REHYDRATED",
+          "MJ_ACTION_REQUESTED",
+          "MJ_ACTION_FAILED",
+          "MJ_DERIVED_RECEIVED",
+          "MJ_DERIVED_FAILED",
+          "MJ_ACTION_SURFACE_REGISTERED",
+          "VIDEO_REQUESTED",
+          "VIDEO_RECEIVED",
+          "VIDEO_FAILED",
+          "BRIDGE_CHECKENV_RAN",
+          "BRIDGE_DOCTOR_RAN",
+          "CHANNEL_CATCHUP_READ",
+          "MESSAGE_ADOPTED"
+        ],
+        "location": "cascade_img/backends/midjourney_discord/"
+      },
+      {
+        "name": "PromptComposer",
+        "emits": [
+          "PROMPT_COMPOSED"
+        ],
+        "location": "cascade_img/prompt/composer.py"
+      },
+      {
+        "name": "PromptLog",
+        "emits": [
+          "PROMPT_LOGGED"
+        ],
+        "location": "cascade_img/prompt/prompt_log.py"
+      },
+      {
+        "name": "CurationKit",
+        "emits": [
+          "CROP_QUADRANT",
+          "ALPHA_KEY_APPLIED",
+          "ASSET_PROMOTED",
+          "CONTACT_SHEET_RENDERED",
+          "AUTO_TRIM_APPLIED",
+          "PALETTE_QUANTIZED",
+          "SPRITE_SHEET_PACKED",
+          "GRID_SCORED",
+          "VIDEO_FILMSTRIP_RENDERED",
+          "LOOP_SEAM_MEASURED"
+        ],
+        "location": "cascade_img/curation/"
+      },
+      {
+        "name": "MCPServer",
+        "emits": [
+          "MCP_SERVER_STARTED",
+          "MCP_SERVER_STOPPED",
+          "MCP_TOOL_CALLED",
+          "MCP_TOOL_COMPLETED",
+          "MCP_TOOL_FAILED"
+        ],
+        "location": "cascade_img/interfaces/mcp/"
+      },
+      {
+        "name": "AssetCLI",
+        "emits": [
+          "CLI_GENERATION_STARTED",
+          "CLI_GENERATION_COMPLETED",
+          "CLI_GENERATION_FAILED"
+        ],
+        "location": "cascade_img/interfaces/cli/generate_image.py"
+      }
     ]
   },
-
   "evidence_constraints": {
     "constraints": [
-      {"target_tag": "JOB_FAILED", "target_field": "error_code", "enum": ["DISCORD_400_OUTDATED", "DISCORD_400_UNKNOWN_CHANNEL", "DISCORD_401", "DISCORD_HTTP_ERROR", "DISCORD_NOT_READY", "GRID_DOWNLOAD_FAILED", "MJ_UUID_MISSING", "SUBMIT_FAILED", "UPSCALE_DOWNLOAD_FAILED", "UPSCALE_BUTTON_FAILED", "UPSCALE_ALL_BUTTONS_FAILED", "RESUBMIT_REQUIRED"], "enforceability": "mechanical"},
-      {"target_tag": "CONFIG_VALIDATION_FAILED", "target_field": "code", "enum": ["MISSING_DISCORD_TOKEN", "MISSING_CHANNEL_ID", "INVALID_CHANNEL_ID", "MISSING_IMAGINE_VERSION", "INVALID_PORT"], "enforceability": "mechanical"},
-      {"target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED", "target_field": "tool", "enum": ["cascade_guide", "compose_prompt", "compose_video", "generate_video", "imagine", "wait", "status", "bridge_health", "crop_grid", "alpha_key", "promote", "log_append", "read_prompt_log", "contact_sheet", "auto_trim", "palette_quantize", "sprite_sheet", "score_grid", "video_filmstrip", "loop_seam_delta", "mj_action"], "enforceability": "mechanical"},
-      {"target_tag": "GRID_MATCHED", "target_field": "match_path", "enum": ["pending", "progress_fallback", "unknown"], "enforceability": "mechanical"},
-      {"target_tag": "MCP_SERVER_STARTED", "target_field": "transport", "enum": ["stdio", "http"], "enforceability": "mechanical"},
-      {"target_tag": "MJ_ACTION_REQUESTED|MJ_ACTION_FAILED", "target_field": "action", "enum": ["upscale_subtle", "upscale_creative", "vary_subtle", "vary_strong", "zoom_out_2x", "zoom_out_1_5x", "pan_left", "pan_right", "pan_up", "pan_down", "animate_high", "animate_low", "favorite", "video_upscale", "extend_high", "extend_low"], "enforceability": "mechanical"},
-      {"target_tag": "MJ_DERIVED_RECEIVED|MJ_DERIVED_FAILED", "target_field": "action_kind", "enum": ["variation", "zoom", "pan", "upscale", "animation"], "enforceability": "mechanical"},
-      {"target_tag": "MJ_ACTION_SURFACE_REGISTERED", "target_field": "surface_kind", "enum": ["image_upscale", "video_solo"], "enforceability": "mechanical"}
+      {
+        "target_tag": "JOB_FAILED",
+        "target_field": "error_code",
+        "enum": [
+          "DISCORD_400_OUTDATED",
+          "DISCORD_400_UNKNOWN_CHANNEL",
+          "DISCORD_401",
+          "DISCORD_HTTP_ERROR",
+          "DISCORD_NOT_READY",
+          "GRID_DOWNLOAD_FAILED",
+          "MJ_UUID_MISSING",
+          "SUBMIT_FAILED",
+          "UPSCALE_DOWNLOAD_FAILED",
+          "UPSCALE_BUTTON_FAILED",
+          "UPSCALE_ALL_BUTTONS_FAILED",
+          "RESUBMIT_REQUIRED"
+        ],
+        "enforceability": "mechanical"
+      },
+      {
+        "target_tag": "CONFIG_VALIDATION_FAILED",
+        "target_field": "code",
+        "enum": [
+          "MISSING_DISCORD_TOKEN",
+          "MISSING_CHANNEL_ID",
+          "INVALID_CHANNEL_ID",
+          "MISSING_IMAGINE_VERSION",
+          "INVALID_PORT"
+        ],
+        "enforceability": "mechanical"
+      },
+      {
+        "target_tag": "MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED",
+        "target_field": "tool",
+        "enum": [
+          "cascade_guide",
+          "compose_prompt",
+          "compose_video",
+          "generate_video",
+          "imagine",
+          "wait",
+          "status",
+          "bridge_health",
+          "channel_recent",
+          "adopt_message",
+          "crop_grid",
+          "alpha_key",
+          "promote",
+          "log_append",
+          "read_prompt_log",
+          "contact_sheet",
+          "auto_trim",
+          "palette_quantize",
+          "sprite_sheet",
+          "score_grid",
+          "video_filmstrip",
+          "loop_seam_delta",
+          "mj_action"
+        ],
+        "enforceability": "mechanical"
+      },
+      {
+        "target_tag": "GRID_MATCHED",
+        "target_field": "match_path",
+        "enum": [
+          "pending",
+          "progress_fallback",
+          "unknown"
+        ],
+        "enforceability": "mechanical"
+      },
+      {
+        "target_tag": "MCP_SERVER_STARTED",
+        "target_field": "transport",
+        "enum": [
+          "stdio",
+          "http"
+        ],
+        "enforceability": "mechanical"
+      },
+      {
+        "target_tag": "MJ_ACTION_REQUESTED|MJ_ACTION_FAILED",
+        "target_field": "action",
+        "enum": [
+          "upscale_subtle",
+          "upscale_creative",
+          "vary_subtle",
+          "vary_strong",
+          "zoom_out_2x",
+          "zoom_out_1_5x",
+          "pan_left",
+          "pan_right",
+          "pan_up",
+          "pan_down",
+          "animate_high",
+          "animate_low",
+          "favorite",
+          "video_upscale",
+          "extend_high",
+          "extend_low"
+        ],
+        "enforceability": "mechanical"
+      },
+      {
+        "target_tag": "MJ_DERIVED_RECEIVED|MJ_DERIVED_FAILED",
+        "target_field": "action_kind",
+        "enum": [
+          "variation",
+          "zoom",
+          "pan",
+          "upscale",
+          "animation"
+        ],
+        "enforceability": "mechanical"
+      },
+      {
+        "target_tag": "MJ_ACTION_SURFACE_REGISTERED",
+        "target_field": "surface_kind",
+        "enum": [
+          "image_upscale",
+          "video_solo"
+        ],
+        "enforceability": "mechanical"
+      }
     ]
   },
-
   "report_binding": {
-    "observed_categories": ["session", "config", "bridge", "discord", "job", "backend", "curation", "composer", "log", "mcp", "cli"],
-    "notes_categories": ["incident"]
+    "observed_categories": [
+      "session",
+      "config",
+      "bridge",
+      "discord",
+      "job",
+      "backend",
+      "curation",
+      "composer",
+      "log",
+      "mcp",
+      "cli"
+    ],
+    "notes_categories": [
+      "incident"
+    ]
   },
-
   "grammar_growth": {
     "taxonomy_version": "0.1",
     "project_overrides": [
-      {"name": "validator-extras", "value": "strict", "note": "Payload fields not declared in the schema raise at emit; production may relax via CASCADE_STRICT_SIGNALS=false."},
-      {"name": "view-payload-universal", "value": "n/a", "note": "No UI in cascade-img; the view category does not exist."}
+      {
+        "name": "validator-extras",
+        "value": "strict",
+        "note": "Payload fields not declared in the schema raise at emit; production may relax via CASCADE_STRICT_SIGNALS=false."
+      },
+      {
+        "name": "view-payload-universal",
+        "value": "n/a",
+        "note": "No UI in cascade-img; the view category does not exist."
+      }
     ]
   },
   "tags": [
@@ -98,7 +506,10 @@
       "name": "CASCADE_INIT",
       "category": "session",
       "stratum": "event",
-      "payload": ["package_version", "backend"],
+      "payload": [
+        "package_version",
+        "backend"
+      ],
       "optional_payload": [],
       "note": "Daemon process started; config loaded; backend selected."
     },
@@ -106,7 +517,11 @@
       "name": "CONFIG_VALIDATED",
       "category": "config",
       "stratum": "event",
-      "payload": ["port", "output_dir", "has_guild_id"],
+      "payload": [
+        "port",
+        "output_dir",
+        "has_guild_id"
+      ],
       "optional_payload": [],
       "note": "Config.from_env() returned successfully. has_guild_id is bool — DM-only deployments may legitimately have it false."
     },
@@ -114,7 +529,11 @@
       "name": "CONFIG_VALIDATION_FAILED",
       "category": "config",
       "stratum": "incident",
-      "payload": ["code", "field", "remediation"],
+      "payload": [
+        "code",
+        "field",
+        "remediation"
+      ],
       "optional_payload": [],
       "note": "MissingEnvError raised during Config.from_env(). Daemon will not start."
     },
@@ -122,15 +541,33 @@
       "name": "BRIDGE_HEALTHY",
       "category": "bridge",
       "stratum": "event",
-      "payload": ["discord_ready", "pending_grid", "total_jobs"],
+      "payload": [
+        "discord_ready",
+        "pending_grid",
+        "total_jobs"
+      ],
       "optional_payload": [],
       "note": "GET /health returned. Use discord_ready to gate /imagine submissions."
+    },
+    {
+      "name": "CHANNEL_CATCHUP_READ",
+      "category": "bridge",
+      "stratum": "event",
+      "payload": [
+        "n",
+        "returned",
+        "untracked_count"
+      ],
+      "optional_payload": [],
+      "note": "GET /channel/recent served a catch-up window over the MJ channel's newest bot messages. untracked_count is how many records resolved to no tracked job (tracked_job_id null) — results the human produced by hand in Discord, or foreign results; each is an adoption candidate. Read-only: the route never mutates job state."
     },
     {
       "name": "DISCORD_CONNECTED",
       "category": "discord",
       "stratum": "event",
-      "payload": ["user_id"],
+      "payload": [
+        "user_id"
+      ],
       "optional_payload": [],
       "note": "discord.py-self WebSocket handshake completed; on_ready fired."
     },
@@ -138,7 +575,9 @@
       "name": "DISCORD_DISCONNECTED",
       "category": "discord",
       "stratum": "incident",
-      "payload": ["reason"],
+      "payload": [
+        "reason"
+      ],
       "optional_payload": [],
       "note": "WebSocket connection dropped. reason is 'gateway_close' (normal disconnect with a close code), 'exception' (transport error raised), or 'on_disconnect' (discord.py-self lifecycle event). _ready is cleared; new /imagine calls return 503 DISCORD_NOT_READY until reconnect."
     },
@@ -146,7 +585,10 @@
       "name": "DISCORD_RECONNECTING",
       "category": "discord",
       "stratum": "event",
-      "payload": ["attempt", "backoff_seconds"],
+      "payload": [
+        "attempt",
+        "backoff_seconds"
+      ],
       "optional_payload": [],
       "note": "Outer reconnect loop sleeping before next client.start(). attempt is 1-indexed; backoff_seconds is the wait before retry. Capped at 60s; loop runs until success or terminal auth failure."
     },
@@ -154,7 +596,10 @@
       "name": "DISCORD_RECONNECT_FAILED",
       "category": "discord",
       "stratum": "incident",
-      "payload": ["reason", "attempts"],
+      "payload": [
+        "reason",
+        "attempts"
+      ],
       "optional_payload": [],
       "note": "Reconnect loop gave up. reason is 'auth' (token rejected — terminal; operator must rotate token) or 'shutdown' (process exiting). Daemon stays up but /imagine returns DISCORD_NOT_READY indefinitely until restart."
     },
@@ -162,7 +607,12 @@
       "name": "IMAGINE_FIRED",
       "category": "job",
       "stratum": "event",
-      "payload": ["asset_id", "job_id", "prompt_chars", "upscale"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "prompt_chars",
+        "upscale"
+      ],
       "optional_payload": [],
       "note": "POST /imagine accepted by the bridge and Discord interaction sent. upscale is null|'1'|'2'|'3'|'4'|'all'."
     },
@@ -170,7 +620,11 @@
       "name": "JOB_SUBMIT_TIMEOUT",
       "category": "job",
       "stratum": "incident",
-      "payload": ["asset_id", "job_id", "timeout_seconds"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "timeout_seconds"
+      ],
       "optional_payload": [],
       "note": "Discord interaction POST did not return within the bridge's interaction-call timeout, but MJ may still have processed the imagine. Job stays in PENDING_GRID and transitions to SUBMITTED_UNCONFIRMED; the daemon continues to watch for a matching grid message. /imagine returned 202 with job_id; client should /wait or /status to learn the outcome rather than retry blindly (a retry will bill MJ twice if the original did process)."
     },
@@ -178,7 +632,12 @@
       "name": "GRID_MATCHED",
       "category": "job",
       "stratum": "event",
-      "payload": ["asset_id", "job_id", "message_id", "match_path"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "message_id",
+        "match_path"
+      ],
       "optional_payload": [],
       "note": "MJ message matched to job. match_path is 'pending' (first-touch on MJ's initial prompt-echo) or 'progress_fallback' (matched after the job was already in PROGRESS, which happens when MJ posts the final grid as a new message instead of editing the original)."
     },
@@ -186,7 +645,12 @@
       "name": "GRID_RECEIVED",
       "category": "job",
       "stratum": "event",
-      "payload": ["asset_id", "job_id", "path", "bytes"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "path",
+        "bytes"
+      ],
       "optional_payload": [],
       "note": "Grid PNG downloaded to disk."
     },
@@ -194,7 +658,13 @@
       "name": "OUTPUT_PATH_COLLISION",
       "category": "job",
       "stratum": "incident",
-      "payload": ["asset_id", "job_id", "intended_path", "actual_path", "kind"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "intended_path",
+        "actual_path",
+        "kind"
+      ],
       "optional_payload": [],
       "note": "Intended output path already existed on disk (another concurrent job with the same asset_id wrote there first). The daemon wrote to actual_path instead — request_token suffix appended to disambiguate. kind is 'grid' or 'upscale'. The asset_id contract is preserved (the artifact exists) but the operator should investigate why two jobs shared an asset_id."
     },
@@ -202,7 +672,12 @@
       "name": "UPSCALE_REQUESTED",
       "category": "job",
       "stratum": "event",
-      "payload": ["asset_id", "job_id", "slot", "mj_job_uuid_prefix"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "slot",
+        "mj_job_uuid_prefix"
+      ],
       "optional_payload": [],
       "note": "Upscale button (U1-U4) pressed via Discord interaction. slot is 1-4."
     },
@@ -210,7 +685,13 @@
       "name": "UPSCALE_PRESS_FAILED",
       "category": "job",
       "stratum": "incident",
-      "payload": ["asset_id", "job_id", "slot", "error_code", "error_message"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "slot",
+        "error_code",
+        "error_message"
+      ],
       "optional_payload": [],
       "note": "Single-slot button press failed during upscale='all'. Other slots may still succeed and land — the job stays UPSCALING. error_code is 'HTTP_<status>', 'TimeoutError', or the underlying exception class. If every requested slot fails, the job transitions to JOB_FAILED with UPSCALE_ALL_BUTTONS_FAILED."
     },
@@ -218,7 +699,13 @@
       "name": "UPSCALE_RECEIVED",
       "category": "job",
       "stratum": "event",
-      "payload": ["asset_id", "job_id", "slot", "path", "bytes"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "slot",
+        "path",
+        "bytes"
+      ],
       "optional_payload": [],
       "note": "Single upscale PNG downloaded to disk."
     },
@@ -226,7 +713,13 @@
       "name": "UPSCALE_DOWNLOAD_DROPPED",
       "category": "job",
       "stratum": "incident",
-      "payload": ["asset_id", "job_id", "slot", "error_code", "error_message"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "slot",
+        "error_code",
+        "error_message"
+      ],
       "optional_payload": [],
       "note": "A single slot's upscale PNG download failed during upscale='all' while other slots may still succeed and land — the job stays UPSCALING and completes on the survivors. The download-surface sibling of UPSCALE_PRESS_FAILED (which covers the button-press surface). error_code is the exception class name. If NO slot can land (none downloaded, none still pending), the job additionally terminates with JOB_FAILED(UPSCALE_DOWNLOAD_FAILED) — mirroring how UPSCALE_PRESS_FAILED pairs with UPSCALE_ALL_BUTTONS_FAILED."
     },
@@ -234,7 +727,12 @@
       "name": "JOB_COMPLETED",
       "category": "job",
       "stratum": "event",
-      "payload": ["asset_id", "job_id", "duration_ms", "upscales_completed"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "duration_ms",
+        "upscales_completed"
+      ],
       "optional_payload": [],
       "note": "Job hit DONE — all expected artifacts on disk."
     },
@@ -242,7 +740,11 @@
       "name": "VIDEO_REQUESTED",
       "category": "job",
       "stratum": "event",
-      "payload": ["asset_id", "job_id", "prompt_chars"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "prompt_chars"
+      ],
       "optional_payload": [],
       "note": "POST /video accepted: a native video /imagine was fired (<image_url> --video [--motion/--raw/--loop/--end/--bs]). The result is an animated webp grid; MJ strips image params under --video."
     },
@@ -250,7 +752,12 @@
       "name": "VIDEO_RECEIVED",
       "category": "job",
       "stratum": "event",
-      "payload": ["asset_id", "job_id", "path", "bytes"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "path",
+        "bytes"
+      ],
       "optional_payload": [],
       "note": "Native video result downloaded to disk. Midjourney delivers video in Discord as an animated webp (image/webp), not mp4; the same file the web Download-as-mp4/gif options re-encode."
     },
@@ -258,7 +765,12 @@
       "name": "VIDEO_FAILED",
       "category": "job",
       "stratum": "incident",
-      "payload": ["asset_id", "job_id", "error_code", "error_message"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "error_code",
+        "error_message"
+      ],
       "optional_payload": [],
       "note": "Native video job failed. error_code values: VIDEO_DOWNLOAD_FAILED (the result webp could not be downloaded), VIDEO_SUBMIT_FAILED (the Discord interaction firing the video prompt failed), VIDEO_RESULT_TIMEOUT (no video result matched within the wait window)."
     },
@@ -266,7 +778,12 @@
       "name": "JOB_FAILED",
       "category": "job",
       "stratum": "incident",
-      "payload": ["asset_id", "job_id", "error_code", "error_message"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "error_code",
+        "error_message"
+      ],
       "optional_payload": [],
       "note": "Job hit FAILED. error_code is a stable string and the evidence-constraints enum is canonical (validated at emit). Values: DISCORD_400_OUTDATED, DISCORD_400_UNKNOWN_CHANNEL, DISCORD_401, DISCORD_HTTP_ERROR (any other non-2xx from the Discord interaction; the status is in error_message), DISCORD_NOT_READY (WebSocket dead at submit time), GRID_DOWNLOAD_FAILED, UPSCALE_DOWNLOAD_FAILED, MJ_UUID_MISSING, SUBMIT_FAILED, UPSCALE_BUTTON_FAILED (single-slot upscale press failed and was the only slot), UPSCALE_ALL_BUTTONS_FAILED (every requested upscale='all' slot's press failed), RESUBMIT_REQUIRED (a pre-grid job was failed on daemon-restart rehydration because MJ's processing is unconfirmable across a restart; the operator should re-submit and verify rather than risk a double-bill)."
     },
@@ -274,7 +791,11 @@
       "name": "BACKEND_HTTP_CALLED",
       "category": "backend",
       "stratum": "event",
-      "payload": ["method", "path", "status"],
+      "payload": [
+        "method",
+        "path",
+        "status"
+      ],
       "optional_payload": [],
       "note": "MidjourneyDiscordBackend made an HTTP call to the bridge daemon. Useful for grading the client-side, not just the daemon."
     },
@@ -282,7 +803,11 @@
       "name": "CROP_QUADRANT",
       "category": "curation",
       "stratum": "event",
-      "payload": ["quadrant", "w", "h"],
+      "payload": [
+        "quadrant",
+        "w",
+        "h"
+      ],
       "optional_payload": [],
       "note": "crop_quadrant() emitted a cropped image. quadrant=0 means the whole image was returned (single-upscale passthrough), 1-4 means a grid quadrant. w/h are the OUTPUT dimensions."
     },
@@ -290,7 +815,14 @@
       "name": "ALPHA_KEY_APPLIED",
       "category": "curation",
       "stratum": "event",
-      "payload": ["tolerance", "bg_r", "bg_g", "bg_b", "keyed_count", "total_count"],
+      "payload": [
+        "tolerance",
+        "bg_r",
+        "bg_g",
+        "bg_b",
+        "keyed_count",
+        "total_count"
+      ],
       "optional_payload": [],
       "note": "alpha_key_corners() processed an image. bg_r/bg_g/bg_b are the four-corner average. keyed_count/total_count gives the proportion of pixels keyed transparent — typical sprite values are 30-70%. A keyed ratio outside that band suggests tolerance is wrong (too tight = halo, too loose = sprite eaten)."
     },
@@ -298,7 +830,11 @@
       "name": "ASSET_PROMOTED",
       "category": "curation",
       "stratum": "event",
-      "payload": ["src", "dest", "bytes"],
+      "payload": [
+        "src",
+        "dest",
+        "bytes"
+      ],
       "optional_payload": [],
       "note": "promote() copied a curated asset to the consumer's asset tree."
     },
@@ -306,7 +842,13 @@
       "name": "CONTACT_SHEET_RENDERED",
       "category": "curation",
       "stratum": "event",
-      "payload": ["src", "dest", "tiles", "w", "h"],
+      "payload": [
+        "src",
+        "dest",
+        "tiles",
+        "w",
+        "h"
+      ],
       "optional_payload": [],
       "note": "contact_sheet() composited a grid's panels (with optional index/score labels) into one annotated image — a far better single input for vision-model selection than four separate reads. tiles is the number of panels placed; w/h are the output sheet dimensions."
     },
@@ -314,7 +856,13 @@
       "name": "AUTO_TRIM_APPLIED",
       "category": "curation",
       "stratum": "event",
-      "payload": ["src", "dest", "bbox", "w", "h"],
+      "payload": [
+        "src",
+        "dest",
+        "bbox",
+        "w",
+        "h"
+      ],
       "optional_payload": [],
       "note": "auto_trim() cropped an image to its content bounding box. bbox is [left, top, right, bottom] in source pixels; w/h are the trimmed output dimensions. A bbox spanning the whole image means nothing was trimmed."
     },
@@ -322,15 +870,28 @@
       "name": "VIDEO_FILMSTRIP_RENDERED",
       "category": "curation",
       "stratum": "event",
-      "payload": ["src", "dest", "frame_count", "duration_s"],
-      "optional_payload": ["fps", "w", "h"],
+      "payload": [
+        "src",
+        "dest",
+        "frame_count",
+        "duration_s"
+      ],
+      "optional_payload": [
+        "fps",
+        "w",
+        "h"
+      ],
       "note": "video_filmstrip() sampled N keyframes of an animated video (webp) into one vision-readable contact sheet so an agent can inspect a temporal artifact the way it reads a still. frame_count/w/h are the source video signature (duration_s/fps are best-effort — 0 when the source carries no per-frame duration, as PIL reports for many webp); dest is the filmstrip PNG."
     },
     {
       "name": "LOOP_SEAM_MEASURED",
       "category": "curation",
       "stratum": "summary",
-      "payload": ["src", "frame_count", "delta"],
+      "payload": [
+        "src",
+        "frame_count",
+        "delta"
+      ],
       "optional_payload": [],
       "note": "loop_seam_delta() measured how cleanly a looping video closes: delta is the normalized (0-1) pixel distance between the last and first frames (low = seamless loop), reported as a number instead of a human eyeballing the seam. The video analog of the audio click-at-the-loop-point check."
     },
@@ -338,7 +899,12 @@
       "name": "PALETTE_QUANTIZED",
       "category": "curation",
       "stratum": "event",
-      "payload": ["src", "dest", "n_colors", "method"],
+      "payload": [
+        "src",
+        "dest",
+        "n_colors",
+        "method"
+      ],
       "optional_payload": [],
       "note": "palette_quantize() reduced an image to a fixed palette for the limited-palette look. method is 'median_cut', 'maximum_coverage', or 'octree'; n_colors is the requested palette size."
     },
@@ -346,7 +912,13 @@
       "name": "SPRITE_SHEET_PACKED",
       "category": "curation",
       "stratum": "event",
-      "payload": ["dest", "count", "layout", "w", "h"],
+      "payload": [
+        "dest",
+        "count",
+        "layout",
+        "w",
+        "h"
+      ],
       "optional_payload": [],
       "note": "sprite_sheet() packed N curated sprites into one atlas plus a JSON frame map written alongside it. layout is 'grid', 'row', or 'column'; count is the number of frames; w/h are the atlas dimensions."
     },
@@ -354,7 +926,11 @@
       "name": "GRID_SCORED",
       "category": "curation",
       "stratum": "event",
-      "payload": ["src", "tiles", "top_slot"],
+      "payload": [
+        "src",
+        "tiles",
+        "top_slot"
+      ],
       "optional_payload": [],
       "note": "score_grid() ranked the four quadrants of a 2x2 grid on sharpness/contrast/edge-density so an agent picks on evidence instead of a blind quadrant int. tiles is the number scored (4); top_slot (1-4) is the highest composite score. Advisory — the agent still confirms with vision."
     },
@@ -362,7 +938,11 @@
       "name": "PROMPT_COMPOSED",
       "category": "composer",
       "stratum": "event",
-      "payload": ["prompt_parts_used", "aspect_ratio", "prompt_chars"],
+      "payload": [
+        "prompt_parts_used",
+        "aspect_ratio",
+        "prompt_chars"
+      ],
       "optional_payload": [],
       "note": "PromptComposer.compose() emitted a backend-ready prompt string. prompt_parts_used lists which of the optional parts were included (moodboard, sref, stylize, oref, ow)."
     },
@@ -370,7 +950,12 @@
       "name": "PROMPT_LOGGED",
       "category": "log",
       "stratum": "event",
-      "payload": ["asset_id", "has_job_id", "has_error", "agent_decision"],
+      "payload": [
+        "asset_id",
+        "has_job_id",
+        "has_error",
+        "agent_decision"
+      ],
       "optional_payload": [],
       "note": "PromptLog.append() wrote a record. agent_decision is one of '', 'promote', 'regenerate', 'escalate'. Records read back via PromptLog.read() are the agent's working memory across loop iterations."
     },
@@ -378,7 +963,9 @@
       "name": "MCP_SERVER_STARTED",
       "category": "mcp",
       "stratum": "event",
-      "payload": ["transport"],
+      "payload": [
+        "transport"
+      ],
       "optional_payload": [],
       "note": "cascade-mcp process started. transport is 'stdio' (default — Claude Desktop / Cursor) or 'http'."
     },
@@ -386,7 +973,9 @@
       "name": "MCP_TOOL_CALLED",
       "category": "mcp",
       "stratum": "event",
-      "payload": ["tool"],
+      "payload": [
+        "tool"
+      ],
       "optional_payload": [],
       "note": "An MCP tool invocation began. tool is one of the names in the MCP_TOOL_CALLED|MCP_TOOL_COMPLETED|MCP_TOOL_FAILED evidence-constraint enum (the authoritative list): cascade_guide, compose_prompt, compose_video, generate_video, imagine, wait, status, bridge_health, crop_grid, alpha_key, promote, log_append, read_prompt_log, contact_sheet, auto_trim, palette_quantize, sprite_sheet, score_grid, video_filmstrip, loop_seam_delta, mj_action."
     },
@@ -394,7 +983,10 @@
       "name": "MCP_TOOL_COMPLETED",
       "category": "mcp",
       "stratum": "event",
-      "payload": ["tool", "duration_ms"],
+      "payload": [
+        "tool",
+        "duration_ms"
+      ],
       "optional_payload": [],
       "note": "Tool returned successfully; duration_ms is wall-clock from MCP_TOOL_CALLED."
     },
@@ -402,7 +994,11 @@
       "name": "MCP_TOOL_FAILED",
       "category": "mcp",
       "stratum": "incident",
-      "payload": ["tool", "error_code", "error_message"],
+      "payload": [
+        "tool",
+        "error_code",
+        "error_message"
+      ],
       "optional_payload": [],
       "note": "Tool raised. error_code is the exception class name or the structured `code` attribute if the exception carried one."
     },
@@ -410,7 +1006,10 @@
       "name": "BRIDGE_CHECKENV_RAN",
       "category": "bridge",
       "stratum": "event",
-      "payload": ["ok", "error_code"],
+      "payload": [
+        "ok",
+        "error_code"
+      ],
       "optional_payload": [],
       "note": "cascade-mj-bridge --check-env completed. error_code is empty string on ok, otherwise the structured Config error code."
     },
@@ -418,7 +1017,11 @@
       "name": "BRIDGE_DOCTOR_RAN",
       "category": "bridge",
       "stratum": "event",
-      "payload": ["ok", "checks_total", "checks_failed"],
+      "payload": [
+        "ok",
+        "checks_total",
+        "checks_failed"
+      ],
       "optional_payload": [],
       "note": "cascade-mj-bridge --doctor completed. Pre-flight ladder: env + discord reachability + mcp_server import + discord.py-self import."
     },
@@ -426,7 +1029,11 @@
       "name": "CLI_GENERATION_STARTED",
       "category": "cli",
       "stratum": "event",
-      "payload": ["asset_id", "dry_run", "upscale"],
+      "payload": [
+        "asset_id",
+        "dry_run",
+        "upscale"
+      ],
       "optional_payload": [],
       "note": "cascade-mj CLI accepted an asset_id and began the generation run. upscale is 'grid' (default, no upscale), '1'-'4' (single), or 'all'."
     },
@@ -434,7 +1041,11 @@
       "name": "CLI_GENERATION_COMPLETED",
       "category": "cli",
       "stratum": "event",
-      "payload": ["asset_id", "dry_run", "status"],
+      "payload": [
+        "asset_id",
+        "dry_run",
+        "status"
+      ],
       "optional_payload": [],
       "note": "cascade-mj CLI returned. status is 'done', 'failed', 'dry_run', or 'unknown'."
     },
@@ -442,7 +1053,11 @@
       "name": "CLI_GENERATION_FAILED",
       "category": "cli",
       "stratum": "incident",
-      "payload": ["asset_id", "error_code", "error_message"],
+      "payload": [
+        "asset_id",
+        "error_code",
+        "error_message"
+      ],
       "optional_payload": [],
       "note": "cascade-mj CLI exited with a structured error. error_code is one of UNKNOWN_ASSET_ID, FileNotFoundError, ValueError (registry malformed), or any backend exception class name."
     },
@@ -450,7 +1065,9 @@
       "name": "BRIDGE_SHUTDOWN",
       "category": "bridge",
       "stratum": "event",
-      "payload": ["reason"],
+      "payload": [
+        "reason"
+      ],
       "optional_payload": [],
       "note": "Bridge daemon shutting down. reason is 'signal' (SIGINT/SIGTERM), 'config_error' (failed startup), or 'exception' (unhandled)."
     },
@@ -458,7 +1075,13 @@
       "name": "JOB_EVICTED",
       "category": "job",
       "stratum": "event",
-      "payload": ["asset_id", "job_id", "reason", "age_seconds", "total_jobs_after"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "reason",
+        "age_seconds",
+        "total_jobs_after"
+      ],
       "optional_payload": [],
       "note": "Job evicted from the in-memory JOBS dict. reason is 'lru_capacity' (oldest evicted to stay under cap) or 'terminal_age_ttl' (DONE/FAILED job exceeded retention). age_seconds is wall-clock since job created_at."
     },
@@ -466,7 +1089,9 @@
       "name": "MCP_SERVER_STOPPED",
       "category": "mcp",
       "stratum": "event",
-      "payload": ["reason"],
+      "payload": [
+        "reason"
+      ],
       "optional_payload": [],
       "note": "MCP server exited. reason is 'signal' or 'exception'."
     },
@@ -474,7 +1099,10 @@
       "name": "JOB_STORE_INITIALIZED",
       "category": "bridge",
       "stratum": "event",
-      "payload": ["path", "mode"],
+      "payload": [
+        "path",
+        "mode"
+      ],
       "optional_payload": [],
       "note": "The persistent job store opened at daemon startup. mode is 'sqlite' (CASCADE_JOB_DB path; survives restart) or 'memory' (':memory:' — ephemeral, opted in for tests/short runs). path is the db path or ':memory:'."
     },
@@ -482,7 +1110,9 @@
       "name": "JOB_STORE_REHYDRATED",
       "category": "bridge",
       "stratum": "event",
-      "payload": ["count"],
+      "payload": [
+        "count"
+      ],
       "optional_payload": [],
       "note": "Non-terminal jobs restored from the persistent store into the in-memory JOBS map at startup, so a bridge restart resumes tracking in-flight jobs instead of dropping them. count is the number rehydrated."
     },
@@ -490,7 +1120,12 @@
       "name": "MJ_ACTION_REQUESTED",
       "category": "job",
       "stratum": "event",
-      "payload": ["job_id", "action", "custom_id", "message_id"],
+      "payload": [
+        "job_id",
+        "action",
+        "custom_id",
+        "message_id"
+      ],
       "optional_payload": [],
       "note": "A response-message button was pressed on a completed job's upscaled image (vary/zoom/pan/upscale-variant/animate/favorite). The bridge reads the live custom_id off the message and presses it — never hardcoded. action is the requested action name; message_id is the message the button lives on."
     },
@@ -498,7 +1133,12 @@
       "name": "MJ_ACTION_FAILED",
       "category": "job",
       "stratum": "incident",
-      "payload": ["job_id", "action", "error_code", "error_message"],
+      "payload": [
+        "job_id",
+        "action",
+        "error_code",
+        "error_message"
+      ],
       "optional_payload": [],
       "note": "A response-message action could not be pressed. error_code is NO_UPSCALED_IMAGE (the job has no upscaled image to act on), BUTTON_NOT_FOUND (no matching button on the live message), DISCORD_NOT_READY, or HTTP_<status>."
     },
@@ -506,7 +1146,16 @@
       "name": "MJ_DERIVED_RECEIVED",
       "category": "job",
       "stratum": "event",
-      "payload": ["asset_id", "job_id", "parent_message_id", "action_kind", "mj_uuid", "path", "bytes", "content_type"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "parent_message_id",
+        "action_kind",
+        "mj_uuid",
+        "path",
+        "bytes",
+        "content_type"
+      ],
       "optional_payload": [],
       "note": "A derived result produced by an mj_action press landed and was downloaded to the parent asset. Routed by Discord message_reference == the SOLO upscaled-image message id (upscale_message_id) — the only signal present on every family; recency is unsafe because the MJ channel is shared. action_kind is the family classified from MJ's content suffix (variation/zoom/pan/upscale/animation). animation lands as an ANIMATED WEBP (content_type image/webp, NOT video/mp4). mj_uuid is the NEW MJ job uuid minted for the derived result. favorite presses produce no artifact and emit nothing here."
     },
@@ -514,7 +1163,14 @@
       "name": "MJ_DERIVED_FAILED",
       "category": "job",
       "stratum": "incident",
-      "payload": ["asset_id", "job_id", "parent_message_id", "action_kind", "error_code", "error_message"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "parent_message_id",
+        "action_kind",
+        "error_code",
+        "error_message"
+      ],
       "optional_payload": [],
       "note": "A derived result was matched to its parent job but could not be downloaded. The parent job stays DONE — a derived result is additive, so a download failure is an incident on the derived artifact, not a job failure. error_code is the exception class or HTTP status."
     },
@@ -522,9 +1178,30 @@
       "name": "MJ_ACTION_SURFACE_REGISTERED",
       "category": "job",
       "stratum": "event",
-      "payload": ["asset_id", "job_id", "slot", "message_id", "surface_kind"],
+      "payload": [
+        "asset_id",
+        "job_id",
+        "slot",
+        "message_id",
+        "surface_kind"
+      ],
       "optional_payload": [],
       "note": "A downloaded result became a pressable action surface: the per-slot SOLO message a follow-on mj_action targets (recorded in upscale_message_ids[slot]). surface_kind is image_upscale (a U1-U4 SOLO — source of vary/zoom/pan/animate/favorite/re-upscale) or video_solo (a video_virtual_upscale SOLO — source of extend_high/extend_low; its extend buttons are grid-aligned, so slot N round-trips). Emitted just before the same artifact's UPSCALE_RECEIVED or MJ_DERIVED_RECEIVED so the surface is observable the instant the result is — closing the action chain's silent middle link: MJ_ACTION_REQUESTED → (download) → MJ_ACTION_SURFACE_REGISTERED → the next MJ_ACTION_REQUESTED targets this slot."
+    },
+    {
+      "name": "MESSAGE_ADOPTED",
+      "category": "job",
+      "stratum": "event",
+      "payload": [
+        "message_id",
+        "asset_id",
+        "job_id",
+        "kind",
+        "had_routing_token",
+        "bytes"
+      ],
+      "optional_payload": [],
+      "note": "POST /adopt/<message_id> claimed an existing MJ channel message into the job table as a job with origin='adopted' (already DONE; artifact downloaded to the standard output path). kind is what the artifact is: solo (an 'Image #N' SOLO — the adopted message becomes the vary/zoom/pan/animate action surface), video (message_id becomes the video_upscale surface), or grid (artifact-only; retro U-press is not wired). had_routing_token says whether the message's prompt echo carried a cscidnocollide token (true = it originated from this bridge; false = fully foreign/manual). Idempotent per message: a second adopt returns ALREADY_TRACKED instead of emitting this again."
     }
   ]
 }

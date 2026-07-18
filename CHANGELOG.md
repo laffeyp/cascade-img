@@ -2,6 +2,17 @@
 
 All notable changes to cascade-img are recorded here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic versioning per [semver.org](https://semver.org/).
 
+## [Unreleased]
+
+### Channel catch-up and message adoption (23 tools)
+
+The human directing the agent can act in the MJ channel by hand — press U4 on a grid, fire a Vary — and those results previously reached the channel invisibly: no tracked job, no artifact, no log record. Two new tools close the gap ([design](./designs/channel-catchup-and-adoption.md)):
+
+- **`channel_recent(n)` MCP tool + `GET /channel/recent`.** The newest MJ-bot channel messages as structured records (bounded in-memory buffer fed by the ingest path; REST-history fallback when the buffer is cold after a restart). Each record resolves against the job table — `tracked_job_id: null` marks human-initiated or foreign results — and lists the `mj_action` names present on the message. Read-only, capped at 50, exempt from the guide gate.
+- **`adopt_message(message_id, asset_id)` MCP tool + `POST /adopt/<message_id>`.** Claims an untracked MJ result into the job table as a normal job (`origin: "adopted"`, already done, artifact at the standard output path) with the message registered as its action surface: adopted SOLOs take `vary_*`/`zoom_*`/`pan_*`/`animate_*`, adopted videos take `video_upscale`/`extend_*`, adopted grids yield the artifact for cropping (retro-U-press deferred until its result routing is captured live). Idempotent per message (`ALREADY_TRACKED` carries the existing `job_id`). Gated behind `cascade_guide`.
+- **`origin` on jobs and prompt-log records.** Jobs carry `origin: "submitted" | "adopted"`; `log_append`/`PromptLog.append` accept `origin`, and a successful adopt appends a record with `origin: "human_in_discord"` so `read_prompt_log` reflects the director stepping in.
+- **Signals (56 tags total).** `CHANNEL_CATCHUP_READ` (per catch-up read, with `untracked_count`) and `MESSAGE_ADOPTED` (per adopt, with `kind` and `had_routing_token`). New stable error codes: `ALREADY_TRACKED`, `MESSAGE_NOT_FOUND`, `NOT_AN_MJ_MESSAGE`, `ADOPT_DOWNLOAD_FAILED`, `CHANNEL_READ_FAILED`.
+
 ## [0.1.1] - 2026-07-15
 
 ### Self-teaching MCP server

@@ -13,10 +13,10 @@ This file follows the [agents.md](https://agents.md) convention — drop it in f
 
 **The shape — one daemon, two entry points, all over local HTTP:**
 - `cascade-mj-bridge` — the daemon, and the only process that talks to Discord. It must stay running the whole session: it holds the live Discord connection and the in-flight job table, while the two entry points below are stateless clients that reach it over local HTTP.
-- `cascade-mcp` — the MCP server exposing 21 tools; this is how you, the agent, drive everything.
+- `cascade-mcp` — the MCP server exposing 23 tools; this is how you, the agent, drive everything.
 - `cascade-mj` — the CLI, for scripting and one-off generations.
 
-**The 21 MCP tools, by job.** *onboarding* — `cascade_guide` (returns this full operating manual; call it first — the generation and curation tools are gated with `GUIDE_UNREAD` until you do); *generation* — `imagine`, `generate_video` (native image→video; composes + fires `--video`/`--loop`/`--motion`/`--end`/`--bs`), `wait`, `status`, `bridge_health`, `mj_action`; *composition* — `compose_prompt`, `compose_video` (build a native image→video prompt without firing); *curation* — `crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `video_filmstrip` (sample a video's keyframes into a vision-readable still), `loop_seam_delta` (score how cleanly a `--loop` video closes), `promote`; *working memory* — `log_append`, `read_prompt_log`. Every call returns `{ok, result}` or `{ok: false, error: {code, remediation}}` — branch on the stable `code`, never the message.
+**The 23 MCP tools, by job.** *onboarding* — `cascade_guide` (returns this full operating manual; call it first — the generation and curation tools are gated with `GUIDE_UNREAD` until you do); *generation* — `imagine`, `generate_video` (native image→video; composes + fires `--video`/`--loop`/`--motion`/`--end`/`--bs`), `wait`, `status`, `bridge_health`, `mj_action`; *catch-up* — `channel_recent` (the newest MJ results in the channel, including ones the human made by hand in Discord; `tracked_job_id: null` marks them), `adopt_message` (claim an untracked result into the job table so `status`/curation/`mj_action` work on it); *composition* — `compose_prompt`, `compose_video` (build a native image→video prompt without firing); *curation* — `crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `video_filmstrip` (sample a video's keyframes into a vision-readable still), `loop_seam_delta` (score how cleanly a `--loop` video closes), `promote`; *working memory* — `log_append`, `read_prompt_log`. Every call returns `{ok, result}` or `{ok: false, error: {code, remediation}}` — branch on the stable `code`, never the message.
 
 **Where to go next.**
 - [RUNBOOK.md](./RUNBOOK.md) — install, the Discord `.env` values to capture, bring-up, and every failure mode with its error code and fix. Read this to set up or to recover.
@@ -75,6 +75,8 @@ Available via the `cascade-mcp` MCP server. Each returns `{ok: bool, result: ...
 | `status(job_id)` | Non-blocking status read |
 | `bridge_health()` | Is the daemon running? Is Discord connected? |
 | `mj_action(job_id, action, slot=None)` | Press a response-message button on a completed job's **upscaled** image (see below). `slot` (1-4) targets a specific image when the job ran `upscale="all"`; omit it for the canonical one. Needs an upscaled image first. |
+| `channel_recent(n)` | The newest MJ-bot results in the channel, newest first — including results the human made by hand in Discord. Each record carries `tracked_job_id` (`null` = no job knows it: a catch-up candidate), the result `kind` (grid / solo / video / other), and `buttons` (the `mj_action` names present on the message). Read-only; open before the guide is read; capped at 50 |
+| `adopt_message(message_id, asset_id)` | Claim an untracked channel message (found via `channel_recent`) into the job table: downloads its artifact to the standard output path and registers the message as the job's action surface (see "Catching up on human activity" below). Appends a `origin: "human_in_discord"` prompt-log record |
 | `crop_grid(src, quadrant, dest)` | Pull one quadrant from a 2x2 grid (0 = whole) |
 | `score_grid(src)` | Rank a grid's four quadrants on sharpness/contrast/edge-density so you pick on evidence before reading with vision |
 | `video_filmstrip(src, dest, frames)` | Sample a video's keyframes into one labelled still + return its signature (frame_count/duration/fps) — read a video with vision the way you read a grid |
@@ -110,7 +112,19 @@ On a **`generate_video` job** (not an upscaled image), `action` is instead one o
 
 Press `video_upscale` first; when its SOLO clip lands, the bridge emits `MJ_ACTION_SURFACE_REGISTERED` and records that slot as an extendable surface, so `extend_*` on the same slot then works (the slot round-trips — MJ's SOLO extend buttons are grid-aligned). Calling `extend_*` before `video_upscale` returns `NO_UPSCALED_IMAGE` telling you to upscale first. To regenerate a video, call `generate_video` again (the grid's re-roll button is not exposed — its untracked result can perturb job routing).
 
-The pressed action's result — a new grid for vary/zoom/pan, a single image for `upscale_*`, a short animation for `animate_*`, an mp4 for `video_upscale`/`extend_*` — is routed back to the originating job automatically: the bridge downloads it and appends an entry to the job's `derived` list (`{action_kind, mj_uuid, path, content_type, ...}`), which you read via `status(job_id)`. `animate_*` arrives as an animated WebP (`image/webp`, ~125 frames), not an mp4; `video_upscale`/`extend_*` arrive as mp4 (`action_kind="animation"`). `favorite` only rates the image — it produces no artifact, so nothing lands in `derived`. With `upscale="all"` every per-slot image is actionable and a derived result replying to any of them routes home. (Known v0.1 limit: a derived result that is itself a grid — vary/zoom/pan — is recorded in `derived` but not re-tracked as a new job, so you can't then `mj_action` on its quadrants.)
+The pressed action's result — a new grid for vary/zoom/pan, a single image for `upscale_*`, a short animation for `animate_*`, an mp4 for `video_upscale`/`extend_*` — is routed back to the originating job automatically: the bridge downloads it and appends an entry to the job's `derived` list (`{action_kind, mj_uuid, path, content_type, ...}`), which you read via `status(job_id)`. `animate_*` arrives as an animated WebP (`image/webp`, ~125 frames), not an mp4; `video_upscale`/`extend_*` arrive as mp4 (`action_kind="animation"`). `favorite` only rates the image — it produces no artifact, so nothing lands in `derived`. With `upscale="all"` every per-slot image is actionable and a derived result replying to any of them routes home. (A derived result that is itself a grid — vary/zoom/pan — is recorded in `derived` but not auto-re-tracked as a new job. To work with it, `adopt_message` its message id — adoption yields the artifact for cropping; its U-buttons stay un-pressable, per the adopted-grid limit above.)
+
+## Catching up on human activity in the channel
+
+The human directing you can act in Discord directly — press U4 on a grid by hand, fire a Vary — and those results reach the channel without any tracked job. Don't let working memory diverge: when the human says they did something in Discord (or a result you didn't request appears), run `channel_recent(n)` and look for records with `tracked_job_id: null`.
+
+To act on one, `adopt_message(message_id, asset_id)`. The adopted message becomes a normal job (`origin: "adopted"`, already `done`, artifact at the standard output path) with the message registered as its action surface:
+
+- **Adopted SOLO** ("Image #N"): `vary_*`, `zoom_out_*`, `pan_*`, `animate_*` work via `mj_action`; the derived result replies to the adopted message and lands in `derived` as usual.
+- **Adopted video**: `video_upscale` (then `extend_*` on the extracted slot) works the same way.
+- **Adopted grid**: you get the artifact for curation (`crop_grid` — on a V8.1 `--hd` render a quadrant crop is pixel-equivalent to a U-press). The grid's U-buttons are NOT wired for adopted jobs: U-results route by token + upscale state, not by reply, so retro-U-press is deferred until that routing is captured live.
+
+Adoption is idempotent per message — adopting one that's already tracked returns `ALREADY_TRACKED` with the existing `job_id`; act on that job instead. Every successful adopt appends a prompt-log record with `origin: "human_in_discord"`, so the next `read_prompt_log` shows the director's move instead of silently skipping it.
 
 ## Prompt parts
 
@@ -170,6 +184,10 @@ Every error returned to you carries a stable `code`. The codes that matter for t
 | `UPSCALE_BUTTON_FAILED` / `UPSCALE_ALL_BUTTONS_FAILED` | transient Discord interaction error on the U-button press | regenerate the imagine |
 | `NO_UPSCALED_IMAGE` (HTTP 409) | `mj_action` on a job with no upscaled image | upscale first, then retry. Still image: `imagine` with `upscale=1-4`. Video `extend_*`: press `video_upscale`, then `extend_*` on that SOLO's slot once its clip lands |
 | `BUTTON_NOT_FOUND` (HTTP 404) | the requested action's button isn't on this image | MJ may not offer it for this image/version — pick another action or skip |
+| `ALREADY_TRACKED` (HTTP 409) | `adopt_message` on a message an existing job already knows | act on the `job_id` carried in the error payload instead of adopting again |
+| `MESSAGE_NOT_FOUND` (HTTP 404) | `adopt_message` id doesn't resolve in the channel | re-check the id against `channel_recent` output |
+| `NOT_AN_MJ_MESSAGE` (HTTP 400) | adoption target isn't an MJ-bot message or has no artifact | only MJ results with an attachment are adoptable |
+| `ADOPT_DOWNLOAD_FAILED` / `CHANNEL_READ_FAILED` | network blip during adopt/catch-up | retry after a short delay |
 | `VIDEO_IN_FLIGHT` (HTTP 409) | a prior video is still awaiting its first MJ ack (videos bind FIFO, so they submit serially) | poll `/wait`, then submit the next video. Do NOT regenerate — the window clears as soon as the prior video binds |
 | `NOT_A_VIDEO_PROMPT` (HTTP 400) | the `/video` prompt is missing `--video` | rebuild it with `compose_video`. Deterministic input error — do NOT regenerate, fix the prompt |
 

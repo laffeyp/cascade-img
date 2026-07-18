@@ -130,9 +130,13 @@ def http_health():
 from cascade_img.backends.midjourney_discord.http.action import (  # noqa: E402
     action_bp,
 )
+from cascade_img.backends.midjourney_discord.http.catchup import (  # noqa: E402
+    catchup_bp,
+)
 from cascade_img.backends.midjourney_discord.http.generate import (  # noqa: E402
     generate_bp,
 )
 
 app.register_blueprint(generate_bp)
 app.register_blueprint(action_bp)
+app.register_blueprint(catchup_bp)

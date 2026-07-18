@@ -30,7 +30,12 @@ from cascade_img.backends.midjourney_discord.ingest.matching import (
 from cascade_img.backends.midjourney_discord.jobs.job import Status
 from cascade_img.backends.midjourney_discord.jobs.job_table import LOCK
 from cascade_img.backends.midjourney_discord.jobs.persistence import _safe_output_path
-from cascade_img.backends.midjourney_discord.transport import discord_parse, discord_send, runtime
+from cascade_img.backends.midjourney_discord.transport import (
+    channel_buffer,
+    discord_parse,
+    discord_send,
+    runtime,
+)
 from cascade_img.backends.midjourney_discord.transport.capture import _capture_raw_message
 from cascade_img.vocabulary import emit
 
@@ -66,6 +71,14 @@ def _ingest_message_impl(message, event: str = "message"):
     # BEFORE any routing return can drop it. on_message_edit funnels through
     # here too (it passes the AFTER message) with event="edit".
     _capture_raw_message(message, event)
+
+    # Record it in the bounded catch-up buffer (GET /channel/recent) — also
+    # before any routing return, so results the matchers have no job for
+    # (human-initiated presses, foreign results) stay visible to the operator.
+    try:
+        channel_buffer.record_message(message, event)
+    except Exception:  # observation-only; never break the live path
+        log.exception("[ingest] channel-buffer record failed for %s", getattr(message, "id", "?"))
 
     content = message.content or ""
 

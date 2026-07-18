@@ -236,3 +236,33 @@ class MidjourneyDiscordBackend(ImageGenerationBackend):
                 _raise_for_envelope(r)
             payload = r.json()
         return payload.get("result", {}) if isinstance(payload, dict) else {}
+
+    def channel_recent(self, n: int = 10) -> dict:
+        """The newest MJ-bot channel messages as structured records (newest
+        first), each resolved against the job table: ``tracked_job_id: null``
+        means the bridge has no job for it — something the human did by hand.
+        Unwraps the bridge envelope like :meth:`action`."""
+        with requests.get(f"{self.base_url}/channel/recent", params={"n": n}, timeout=40) as r:
+            emit("BACKEND_HTTP_CALLED", method="GET", path="/channel/recent", status=r.status_code)
+            if r.status_code >= 400:
+                _raise_for_envelope(r)
+            payload = r.json()
+        return payload.get("result", {}) if isinstance(payload, dict) else {}
+
+    def adopt(self, message_id: str, asset_id: str) -> dict:
+        """Claim an existing MJ channel message into the job table
+        (``origin: "adopted"``): downloads its artifact to the standard output
+        path and registers the message as the job's action surface. Unwraps the
+        bridge envelope like :meth:`action`."""
+        body = {"asset_id": asset_id}
+        with requests.post(f"{self.base_url}/adopt/{message_id}", json=body, timeout=60) as r:
+            emit(
+                "BACKEND_HTTP_CALLED",
+                method="POST",
+                path=f"/adopt/{message_id}",
+                status=r.status_code,
+            )
+            if r.status_code >= 400:
+                _raise_for_envelope(r)
+            payload = r.json()
+        return payload.get("result", {}) if isinstance(payload, dict) else {}

@@ -34,7 +34,10 @@ def test_vocabulary_loads_from_package_data():
     # (the F32/F33 video-inspection curation primitives).
     # 54 since 2026-06-15 (V-3): MJ_ACTION_SURFACE_REGISTERED instruments the
     # action chain's middle link (a result becoming a pressable per-slot surface).
-    assert len(v.tags()) == 54
+    # 56 since 2026-07-17: CHANNEL_CATCHUP_READ + MESSAGE_ADOPTED instrument the
+    # catch-up surface (GET /channel/recent, POST /adopt — human-in-Discord
+    # activity made visible and adoptable).
+    assert len(v.tags()) == 56
     assert "CASCADE_INIT" in v.tags()
     assert "UPSCALE_DOWNLOAD_DROPPED" in v.tags()
     assert {"VIDEO_REQUESTED", "VIDEO_RECEIVED", "VIDEO_FAILED"} <= set(v.tags())

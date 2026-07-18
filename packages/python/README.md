@@ -3,7 +3,7 @@
 [![CI](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml/badge.svg)](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
-[![MCP Tools: 21](https://img.shields.io/badge/MCP_Tools-21-green.svg)](./AGENTS.md)
+[![MCP Tools: 23](https://img.shields.io/badge/MCP_Tools-23-green.svg)](./AGENTS.md)
 
 <!-- TODO: hero image — pipeline collage: prompt → grid → crop → finished asset -->
 
@@ -17,7 +17,7 @@ Agent: reads prompt log → composes prompt from parts → fires imagine →
        crops it → removes background → saves → logs what worked
 ```
 
-cascade-img is an MCP server with 21 tools that plugs into Claude, Cursor, Codex, or anything that speaks [MCP](https://modelcontextprotocol.io). Midjourney is the first backend; Flux, DALL-E, and Imagen are on the [roadmap](#roadmap). There's also a CLI.
+cascade-img is an MCP server with 23 tools that plugs into Claude, Cursor, Codex, or anything that speaks [MCP](https://modelcontextprotocol.io). Midjourney is the first backend; Flux, DALL-E, and Imagen are on the [roadmap](#roadmap). There's also a CLI.
 
 > **Not a programmer?** Open an AI assistant that can run commands ([Claude Code](https://claude.com/claude-code), Cursor, or Cline), point it at this repo, and say: *"Read RUNBOOK.md and set up cascade-img on this machine, then let me make images by describing them to you."* It does the technical parts. You just need a Midjourney subscription and to copy a few values from Discord.
 
@@ -78,12 +78,13 @@ cascade-mj mountain-icon --registry assets.json --upscale all --pretty
 
 ---
 
-## The 21 Tools
+## The 23 Tools
 
 | Category | Tools | What they do |
 |----------|-------|-------------|
 | **Onboarding** | `cascade_guide` | Returns the full operating manual in one call — the loop, every tool, the failure→action table. Call it first; the generation and curation tools are gated until it's read. |
 | **Generation** | `imagine`, `generate_video`, `wait`, `status`, `bridge_health`, `mj_action` | Compose and fire prompts, poll for results, check daemon health, trigger Midjourney actions (upscale, vary, pan) |
+| **Catch-up** | `channel_recent`, `adopt_message` | See what the human did by hand in Discord and claim those results into the pipeline — adopted messages become normal jobs that curation and `mj_action` work on |
 | **Composition** | `compose_prompt`, `compose_video` | Build prompts from structured parts — subject, moodboard, style refs, aspect ratio, negatives — not freeform text |
 | **Curation** | `crop_grid`, `alpha_key`, `auto_trim`, `palette_quantize`, `contact_sheet`, `sprite_sheet`, `score_grid`, `video_filmstrip`, `loop_seam_delta`, `promote` | Extract quadrants from grids, remove backgrounds, trim whitespace, build sprite sheets, score results with vision, promote winners to final output |
 | **Working memory** | `log_append`, `read_prompt_log` | Append-only prompt log the agent reads before every run — what was tried, what worked, what didn't. Persists across sessions. |
@@ -100,7 +101,7 @@ Other open-source Midjourney tools focus on the generation step — fire the pro
 - **Structured prompt composition** — prompts built from parts (subject, style, identity, constraints), not raw strings
 - **Working memory** — append-only log persists across sessions; each run reads what came before
 - **Curation pipeline** — crop grids, remove backgrounds, build sprite sheets, promote winners
-- **MCP-native** — 21 tools that plug into Claude, Cursor, Codex, or anything that speaks MCP
+- **MCP-native** — 23 tools that plug into Claude, Cursor, Codex, or anything that speaks MCP
 - **Pluggable backends** — Midjourney now, Flux/DALL-E/Imagen on the roadmap
 
 ---
@@ -161,7 +162,7 @@ All three entry points emit structured JSON and follow the same `{ok, result | e
 | Version | What's in it |
 |---|---|
 | **v0.1** (current) | MJ backend (V8.1 + V7), prompt composer, curation tools, MCP server, CLI, prompt log |
-| **v0.2** | More MJ commands (`/describe`, `/blend`, Vary Region inpaint, `/tune`); internal refactoring |
+| **v0.2** | Channel catch-up + message adoption — **landed on main**: `channel_recent` and `adopt_message` let the agent see what the human did by hand in Discord and act on it ([design](./designs/channel-catchup-and-adoption.md)); still to come: more MJ commands (`/describe`, `/blend`, Vary Region inpaint, `/tune`), retro-U-press on adopted grids, internal refactoring |
 | **v0.3** | TypeScript wrapper; first API backends — [Flux](https://bfl.ai/) via [Fal](https://fal.ai/) + [Flux Kontext](https://bfl.ai/models/flux-kontext), [Ideogram](https://ideogram.ai/) |
 | **v0.4** | [Google Imagen](https://deepmind.google/models/imagen/), [Recraft](https://www.recraft.ai/) (native vector/SVG) |
 | **v0.5** | [OpenAI gpt-image](https://openai.com/api/), [Stable Diffusion](https://stability.ai/stable-image) |

@@ -10,6 +10,7 @@ instance; the function's ``__name__`` becomes the MCP tool name and its
 docstring becomes the tool description.
 """
 
+from cascade_img.interfaces.mcp.tools.catchup_tools import adopt_message, channel_recent
 from cascade_img.interfaces.mcp.tools.curation_tools import (
     alpha_key,
     auto_trim,
@@ -36,7 +37,7 @@ from cascade_img.interfaces.mcp.tools.prompt_tools import compose_prompt, compos
 
 # Registration order = the order tools are advertised over MCP. cascade_guide is
 # first (it is the START-HERE activation tool); then grouped by concern:
-# prompt -> generation -> curation -> log.
+# prompt -> generation -> catch-up -> curation -> log.
 ALL_TOOLS = (
     cascade_guide,
     compose_prompt,
@@ -47,6 +48,8 @@ ALL_TOOLS = (
     status,
     bridge_health,
     mj_action,
+    channel_recent,
+    adopt_message,
     crop_grid,
     alpha_key,
     promote,
@@ -63,10 +66,12 @@ ALL_TOOLS = (
 
 __all__ = [
     "ALL_TOOLS",
+    "adopt_message",
     "alpha_key",
     "auto_trim",
     "bridge_health",
     "cascade_guide",
+    "channel_recent",
     "compose_prompt",
     "compose_video",
     "contact_sheet",

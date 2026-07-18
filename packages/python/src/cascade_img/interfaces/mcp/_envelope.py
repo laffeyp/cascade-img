@@ -53,6 +53,7 @@ _GATED_TOOLS = frozenset(
         "imagine",
         "generate_video",
         "mj_action",
+        "adopt_message",
         "crop_grid",
         "alpha_key",
         "promote",
@@ -67,7 +68,8 @@ _GATED_TOOLS = frozenset(
     }
 )
 # Exempt (always allowed, guide unread): cascade_guide, bridge_health, status,
-# wait, read_prompt_log — orientation/inspection, safe before the manual is read.
+# wait, read_prompt_log, channel_recent — orientation/inspection, safe before
+# the manual is read. adopt_message mutates the job table, so it is gated.
 
 
 class GuideUnreadError(Exception):
