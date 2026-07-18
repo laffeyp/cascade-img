@@ -1,11 +1,9 @@
-# cascade-img
+![cascade-img — direct Midjourney by conversation: a director writes a prompt card, a helper robot carries it to a colossal artist robot forging framed paintings, and hands the cut-out winner back](./.github/assets/readme-banner-alt.png)
 
 [![CI](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml/badge.svg)](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
 [![MCP Tools: 23](https://img.shields.io/badge/MCP_Tools-23-green.svg)](./AGENTS.md)
-
-![cascade-img — direct Midjourney by conversation: a director writes a prompt card, a helper robot carries it to a colossal artist robot forging framed paintings, and hands the cut-out winner back](./.github/assets/readme-banner.png)
 
 Generate Midjourney images by conversation instead of by hand. You describe what you want; your AI assistant composes the prompt, fires it, inspects the grid with vision, crops the best quadrant, cleans it up, and logs what worked.
 
