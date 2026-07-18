@@ -22,13 +22,11 @@ If it's older: `brew install python@3.12` (or a newer line), and use that interp
 
 ### Install
 
-From [PyPI](https://pypi.org/project/cascade-img/) — no repo checkout needed (the wheel ships the operating manual, served to the agent through the `cascade_guide` MCP tool):
-
 ```bash
 pip install cascade-img
 ```
 
-Or from source, to hack on it:
+Or from source:
 
 ```bash
 git clone https://github.com/laffeyp/cascade-img
@@ -38,7 +36,7 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-Either way this pulls in `discord.py-self`, `flask`, `requests`, `python-dotenv`, `Pillow`, and `mcp`. Three console scripts for operating cascade-img land on your `PATH`:
+This pulls in `discord.py-self`, `flask`, `requests`, `python-dotenv`, `Pillow`, and `mcp`. Three console scripts for operating cascade-img land on your `PATH`:
 
 These three commands — together with `cascade-trace-check` (a diagnostics validator, described below) — are console-script entry points declared in `pyproject.toml` under `[project.scripts]`. Installing puts a small executable wrapper for each on your `PATH`, and each wrapper imports and calls the named function (for example, `cascade-mj` maps to `cascade_img.interfaces.cli.generate_image:main`). They are thin aliases to that code.
 
