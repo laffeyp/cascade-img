@@ -1,6 +1,7 @@
 ![cascade-img — direct Midjourney by conversation: a director writes a prompt card, a helper robot carries it to a colossal artist robot forging framed paintings, and hands the cut-out winner back](./.github/assets/readme-banner-alt.png)
 
 [![CI](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml/badge.svg)](https://github.com/laffeyp/cascade-img/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/cascade-img?color=%2334D058&label=pypi)](https://pypi.org/project/cascade-img/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
 [![MCP Tools: 23](https://img.shields.io/badge/MCP_Tools-23-green.svg)](./AGENTS.md)
@@ -26,12 +27,12 @@ cascade-img is an MCP server with 23 tools that plugs into Claude, Cursor, Codex
 **You need:** a [paid Midjourney subscription](https://midjourney.com), a Discord account with the MJ bot in a channel, and Python 3.12 or newer.
 
 ```bash
-git clone https://github.com/laffeyp/cascade-img
-cd cascade-img/packages/python
-pip install -e .
+pip install cascade-img
 ```
 
-This puts three commands for operating cascade-img on your PATH: `cascade-mj-bridge` (the daemon), `cascade-mcp` (the MCP server), and `cascade-mj` (the CLI). Installing also adds a fourth command, `cascade-trace-check` — a diagnostics validator (not part of the generation loop) that replays a recorded event log and checks it against the vocabulary's declared event ordering and timing rules.
+That's the whole install — cascade-img is on [PyPI](https://pypi.org/project/cascade-img/), and the wheel ships the full operating manual, so the MCP server works from a plain pip install with no repo checkout (the agent reads the manual through the `cascade_guide` tool). To hack on the source instead: `git clone https://github.com/laffeyp/cascade-img && pip install -e cascade-img/packages/python`.
+
+Installing puts three commands for operating cascade-img on your PATH: `cascade-mj-bridge` (the daemon), `cascade-mcp` (the MCP server), and `cascade-mj` (the CLI). It also adds a fourth command, `cascade-trace-check` — a diagnostics validator (not part of the generation loop) that replays a recorded event log and checks it against the vocabulary's declared event ordering and timing rules.
 
 **Configure** — you need four values from the Discord desktop app (channel ID, server ID, imagine version, and your user token). Takes about five minutes. [RUNBOOK.md](./RUNBOOK.md) walks through each one step by step.
 
